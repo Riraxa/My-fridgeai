@@ -34,7 +34,13 @@ export async function middleware(req: NextRequest) {
      2. 公開ページ
   ========================= */
 
-  const publicPaths = ["/login", "/register", "/terms", "/privacy"];
+  const publicPaths = [
+    "/login",
+    "/register",
+    "/terms",
+    "/privacy",
+    "/reset-password",
+  ];
   const isPublic = publicPaths.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
