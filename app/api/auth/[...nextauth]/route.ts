@@ -1,7 +1,7 @@
 // app/api/auth/[...nextauth]/route.ts
 export const runtime = "nodejs";
 
-import NextAuth, { type NextAuthOptions } from "next-auth";
+import NextAuth, { type NextAuthOptions, type User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 // EmailProvider intentionally removed to avoid duplicate emails with custom flow
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -37,7 +37,13 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+
+      // NOTE: authorize must accept two parameters (credentials, req)
+      // and should return User | null (or a Promise resolving to that).
+      async authorize(
+        credentials: Record<"email" | "password", string> | undefined,
+        req: any, // Request object (not used here but required by type)
+      ): Promise<User | null> {
         if (!credentials?.email || !credentials?.password) return null;
 
         const email = credentials.email.toLowerCase().trim();
@@ -51,11 +57,15 @@ export const authOptions: NextAuthOptions = {
         const ok = await compare(credentials.password, user.password);
         if (!ok) return null;
 
-        return {
+        // Build an object compatible with next-auth's User type.
+        // next-auth User has id:string and optional name/email which may be null.
+        const result: Partial<User> = {
           id: user.id,
-          email: user.email ?? undefined,
-          name: user.name ?? undefined,
+          email: user.email ?? null,
+          name: user.name ?? null,
         };
+
+        return result as User;
       },
     }),
   ],
@@ -110,8 +120,9 @@ export const authOptions: NextAuthOptions = {
 
     async jwt({ token, user }) {
       if (user) {
-        token.userId = (user as any).id;
-        token.email = (user as any).email;
+        // token is a plain object — augment with our own fields
+        (token as any).userId = (user as any).id;
+        (token as any).email = (user as any).email;
       }
       return token;
     },
@@ -119,7 +130,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = (token as any).userId;
-        session.user.email = token.email as string | null;
+        session.user.email = (token as any).email as string | null;
       }
       return session;
     },
