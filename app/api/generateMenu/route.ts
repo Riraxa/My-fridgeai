@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { callOpenAIOnce, extractTextFromResponse } from "@/lib/openai";
 import { rateLimit } from "@/lib/rateLimiter";
+import { getProFeatures } from "@/lib/proFeatures";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +31,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // --- 🛑 利用回数制限 (AI Limit) ---
+    const limitParams = await import("@/lib/aiLimit").then((m) =>
+      m.canUseAI(userId),
+    );
+    if (!limitParams.allowed) {
+      return NextResponse.json(
+        {
+          error: limitParams.error,
+          remaining: limitParams.remaining,
+        },
+        { status: 403 },
+      );
+    }
+
     // --- 📦 リクエスト Body ---
     const body = await request.json().catch(() => ({}));
     const items = Array.isArray(body.items) ? body.items : [];
@@ -52,11 +67,63 @@ export async function POST(request: NextRequest) {
       console.warn("usageHistory 保存に失敗:", err);
     }
 
+    // --- 👤 ユーザー情報取得 (Pro判定用) ---
+    // canUseAIでもチェックしているが、最新のisProが必要なため取得
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isPro: true },
+    });
+    const features = getProFeatures(user?.isPro ?? false);
+
+    // --- 🥕 消費期限チェック (Pro特典) ---
+    // string[] の items を受け取り、DBにあるexpiry情報と紐付ける
+    let ingredientText = items.join(", ");
+
+    if (features.prioritizeExpiry) {
+      // 名前が一致する食材をDBから取得して期限を確認
+      try {
+        const dbIngredients = await prisma.ingredient.findMany({
+          where: {
+            userId,
+            name: { in: items },
+            expiry: { not: null },
+          },
+          select: { name: true, expiry: true },
+        });
+
+        // 期限付きの文字列に変換
+        // 例: "鶏肉(期限: 2025/12/31), 玉ねぎ"
+        const formattedItems = items.map((itemName: string) => {
+          const match = dbIngredients.find((db) => db.name === itemName);
+          if (match && match.expiry) {
+            const dateStr = match.expiry.toISOString().split("T")[0];
+            return `${itemName}(期限: ${dateStr})`;
+          }
+          return itemName;
+        });
+        ingredientText = formattedItems.join(", ");
+      } catch (e) {
+        console.warn("Expiry check failed:", e);
+      }
+    }
+
     // --- 🧠 OpenAI プロンプト作成 ---
     const promptParts: string[] = [
       `あなたは一流の料理研究家です。以下の食材を使って家庭で作れる献立を考えてください。`,
-      `持っている食材: ${items.join(", ")}`,
+      `持っている食材: ${ingredientText}`,
     ];
+
+    // --- ✨ Pro特典: 期限優先 & 栄養バランス ---
+    if (features.prioritizeExpiry) {
+      promptParts.push(
+        `重要: 期限が近い食材（カッコ内に日付があるもの）を優先的に使い切るレシピを提案してください。`,
+      );
+    }
+    if (features.nutritionBalance) {
+      promptParts.push(
+        `重要: タンパク質・脂質・炭水化物のバランス（PFCバランス）が良い献立を意識してください。`,
+      );
+    }
 
     if (prefs.servings) promptParts.push(`人数: ${prefs.servings}人分`);
     if (prefs.appetite) promptParts.push(`食欲レベル: ${prefs.appetite}`);
@@ -139,8 +206,51 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // --- 🛒 Pro特典: 自動買い物リスト追加 ---
+    // 献立で提案されたが、ユーザーが持っていないと思われる食材をリストに追加
+    // ※DBには即時追加せず、レスポンスに含めてフロントエンドで確認する
+    let missingIngredients: string[] | undefined;
+
+    if (features.autoShoppingList && menus.length > 0) {
+      try {
+        // 全ユーザー食材を取得（比較用）
+        const allUserIngredients = await prisma.ingredient.findMany({
+          where: { userId },
+          select: { name: true },
+        });
+        const userItemNames = new Set(allUserIngredients.map((i) => i.name));
+
+        // 今回生成された全献立の材料を収集
+        const suggestedIngredients = new Set<string>();
+        menus.forEach((m) => {
+          if (Array.isArray(m.ingredients)) {
+            m.ingredients.forEach((ing: any) => {
+              if (typeof ing === "string") suggestedIngredients.add(ing);
+            });
+          }
+        });
+
+        // 不足分を特定 (単純な名前一致)
+        const missing: string[] = [];
+        for (const sugg of suggestedIngredients) {
+          if (!userItemNames.has(sugg)) {
+            missing.push(sugg);
+          }
+        }
+
+        if (missing.length > 0) {
+          missingIngredients = missing;
+          console.log(
+            `[AutoShoppingList] Found ${missing.length} missing items for user ${userId}`,
+          );
+        }
+      } catch (err) {
+        console.warn("Auto shopping list calculation failed:", err);
+      }
+    }
+
     // --- 🎉 完了レスポンス ---
-    return NextResponse.json({ menus });
+    return NextResponse.json({ menus, missingIngredients });
   } catch (err: any) {
     console.error("generateMenu error:", err);
     return NextResponse.json(

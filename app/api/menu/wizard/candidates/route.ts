@@ -14,7 +14,6 @@ export async function POST(req: Request) {
 - 出力はJSON配列で
 `;
 
-    // ❗️唯一の修正箇所：input は string
     const resp = await callOpenAIOnce({
       model: "gpt-4o-mini",
       input: prompt,

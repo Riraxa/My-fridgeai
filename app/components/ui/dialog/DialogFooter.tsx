@@ -1,6 +1,10 @@
-//app/components/ui/dialog/DialogFooter.tsx
-import { ReactNode } from "react";
+// app/components/ui/dialog/DialogFooter.tsx
+import { HTMLAttributes } from "react";
 
-export function DialogFooter({ children }: { children: ReactNode }) {
-  return <div className="mt-4 flex justify-end gap-2">{children}</div>;
+type DialogFooterProps = HTMLAttributes<HTMLDivElement>;
+
+export function DialogFooter({ className = "", ...props }: DialogFooterProps) {
+  return (
+    <div className={`mt-4 flex justify-end gap-2 ${className}`} {...props} />
+  );
 }

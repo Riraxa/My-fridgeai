@@ -1,6 +1,8 @@
-//app/components/ui/dialog/DialogHeader.tsx
-import { ReactNode } from "react";
+// app/components/ui/dialog/DialogHeader.tsx
+import { HTMLAttributes } from "react";
 
-export function DialogHeader({ children }: { children: ReactNode }) {
-  return <div className="mb-4">{children}</div>;
+type DialogHeaderProps = HTMLAttributes<HTMLDivElement>;
+
+export function DialogHeader({ className = "", ...props }: DialogHeaderProps) {
+  return <div className={`mb-4 ${className}`} {...props} />;
 }

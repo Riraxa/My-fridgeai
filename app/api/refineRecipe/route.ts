@@ -10,7 +10,6 @@ export async function POST(req: NextRequest) {
       req.headers.get("host") ||
       "unknown";
 
-    // ← await 忘れずに
     const rl = await rateLimit(`refine:${ip}`, 40, 60);
     if (!rl.ok) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });

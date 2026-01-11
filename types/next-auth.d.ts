@@ -8,10 +8,12 @@ declare module "next-auth" {
       id: string;
       email?: string | null;
       emailVerified?: Date | null;
+      isPro: boolean;
     } & DefaultSession["user"];
   }
 
   interface User extends DefaultUser {
     emailVerified?: Date | null;
+    isPro: boolean;
   }
 }

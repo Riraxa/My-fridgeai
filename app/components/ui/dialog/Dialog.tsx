@@ -1,5 +1,6 @@
-//app/components/ui/dialog/Dialog.tsx
+// app/components/ui/dialog/Dialog.tsx
 "use client";
+
 import { ReactNode, useEffect } from "react";
 
 type DialogProps = {
@@ -13,15 +14,25 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onOpenChange(false);
     };
-    if (open) document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+
+    if (open) {
+      document.addEventListener("keydown", handleKey);
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [open, onOpenChange]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      {children}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={() => onOpenChange(false)}
+    >
+      {/* backdrop クリックで閉じる */}
+      <div onClick={(e) => e.stopPropagation()}>{children}</div>
     </div>
   );
 }

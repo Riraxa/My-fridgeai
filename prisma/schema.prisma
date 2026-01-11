@@ -8,17 +8,30 @@ datasource db {
 }
 
 model User {
-  id                String              @id @default(cuid())
-  name              String?
-  email             String?             @unique
-  emailVerified     DateTime?
-  image             String?
-  password          String?
-  createdAt         DateTime            @default(now())
-  status            String?             @default("active")
-  verifyToken       String?             @unique
-  verifyCode        String?
-  verifyExpires     DateTime?
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  password        String?
+  createdAt       DateTime  @default(now())
+  status          String?   @default("active")
+  aiMenuCount     Int       @default(0) @map("ai_menu_count")
+  aiMenuLastReset DateTime? @map("ai_menu_last_reset")
+  aiDailyCount    Int       @default(0) @map("ai_daily_count")
+  aiLastUsedAt    DateTime? @map("ai_last_used_at")
+
+  shoppingListItems ShoppingListItem[]
+
+  // ===== Stripe / Paid plan =====
+  isPro                  Boolean        @default(false)
+  stripeCustomerId       String?        @unique
+  stripeSubscriptionId   String?
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
+  subscriptions          Subscription[]
+
+  // ===== relations =====
   accounts          Account[]
   AuthChallenges    AuthChallenge[]
   EmailVerification EmailVerification[] @relation("UserEmailVerification")
@@ -34,13 +47,13 @@ model User {
 
 /// 仮登録ユーザー（メール検証待ち）
 model PendingUser {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String?
-  password     String?  // hashed password
-  token        String?  @unique
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
+  id                String              @id @default(cuid())
+  email             String              @unique
+  name              String?
+  password          String? // hashed password
+  token             String?             @unique
+  expiresAt         DateTime
+  createdAt         DateTime            @default(now())
   // EmailVerification が pendingUserId を参照する可能性がある
   EmailVerification EmailVerification[]
 }
@@ -104,16 +117,16 @@ model AuthChallenge {
 }
 
 model EmailVerification {
-  id             String    @id @default(cuid())
-  userId         String?                   // legacy / post-verify: references User.id
-  pendingUserId  String?                   // new: references PendingUser.id (pre-verify)
-  tokenHash      String    @unique
-  code           String
-  expiresAt      DateTime
-  used           Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  user           User?     @relation("UserEmailVerification",fields: [userId], references: [id], onDelete: Cascade)
-  pendingUser    PendingUser? @relation(fields: [pendingUserId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  userId        String? // legacy / post-verify: references User.id
+  pendingUserId String? // new: references PendingUser.id (pre-verify)
+  tokenHash     String       @unique
+  code          String
+  expiresAt     DateTime
+  used          Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  user          User?        @relation("UserEmailVerification", fields: [userId], references: [id], onDelete: Cascade)
+  pendingUser   PendingUser? @relation(fields: [pendingUserId], references: [id], onDelete: Cascade)
 }
 
 model PasswordReset {
@@ -180,4 +193,36 @@ model UsageHistory {
   action String
   meta   Json?
   user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String
+  stripeCustomerId     String
+  stripeSubscriptionId String   @unique
+  stripePriceId        String
+  status               String
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ShoppingListItem {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  quantity  Float    @default(1)
+  unit      String?
+  checked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

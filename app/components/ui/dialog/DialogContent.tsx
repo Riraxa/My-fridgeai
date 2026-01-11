@@ -1,16 +1,19 @@
-//app/components/ui/dialog/DialogContent.tsx
-import { ReactNode } from "react";
+// app/components/ui/dialog/DialogContent.tsx
+import { ReactNode, HTMLAttributes } from "react";
+
+type DialogContentProps = HTMLAttributes<HTMLDivElement> & {
+  children: ReactNode;
+};
 
 export function DialogContent({
   children,
   className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+  ...props
+}: DialogContentProps) {
   return (
     <div
       className={`bg-white rounded-lg p-6 shadow-lg w-full max-w-lg ${className}`}
+      {...props}
     >
       {children}
     </div>

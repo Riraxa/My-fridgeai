@@ -23,6 +23,9 @@ type WizardModalProps = {
   appetite?: string;
 };
 
+import ProModal from "@/app/components/ProModal";
+import ShoppingListConfirmModal from "@/app/components/ShoppingListConfirmModal";
+
 export default function WizardModal({
   open,
   onClose,
@@ -38,6 +41,9 @@ export default function WizardModal({
   const [loading, setLoading] = useState(false);
   const [lastGenerateAt, setLastGenerateAt] = useState<number>(0);
   const [mode, setMode] = useState<"selected" | "omakase">("selected");
+  const [showProModal, setShowProModal] = useState(false);
+  const [showShoppingModal, setShowShoppingModal] = useState(false);
+  const [missingIngredients, setMissingIngredients] = useState<string[]>([]);
 
   // 初期化（全選択）
   useEffect(() => {
@@ -47,6 +53,9 @@ export default function WizardModal({
       setSelectedMap(init);
       setLoading(false);
       setMode("selected");
+      // Reset modal states
+      setShowShoppingModal(false);
+      setMissingIngredients([]);
     }
   }, [open, fridgeItems]);
 
@@ -117,6 +126,13 @@ export default function WizardModal({
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        if (res.status === 403 && data?.error?.code === "LIMIT_REACHED") {
+          // Limit reached -> Show Pro Modal
+          setLoading(false);
+          setShowProModal(true);
+          return;
+        }
+
         const msg =
           data?.error ??
           (res.status === 429
@@ -133,6 +149,16 @@ export default function WizardModal({
       toast.success(
         menus.length ? "献立を取得しました" : "献立が見つかりませんでした",
       );
+
+      // Check for missing ingredients (Pro feature)
+      if (
+        data.missingIngredients &&
+        Array.isArray(data.missingIngredients) &&
+        data.missingIngredients.length > 0
+      ) {
+        setMissingIngredients(data.missingIngredients);
+        setShowShoppingModal(true);
+      }
     } catch (err: any) {
       console.error("WizardModal.generateMenus error", err);
       toast.error("献立生成中にエラーが発生しました");
@@ -156,190 +182,199 @@ export default function WizardModal({
   } as React.CSSProperties;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl modal-card">
-        <DialogHeader>
-          <DialogTitle
-            className="text-xl font-bold"
-            style={{ color: "var(--color-text-primary)" }}
-          >
-            献立ウィザード — 食材選択
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl modal-card">
+          <DialogHeader>
+            <DialogTitle
+              className="text-xl font-bold"
+              style={{ color: "var(--color-text-primary)" }}
+            >
+              献立ウィザード — 食材選択
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div
-                className="font-medium"
-                style={{ color: "var(--color-text-primary)" }}
-              >
-                冷蔵庫から使う食材を選択してください
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div
+                  className="font-medium"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
+                  冷蔵庫から使う食材を選択してください
+                </div>
+                <div
+                  className="text-xs wizard-note"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  選択した食材のみを使って献立を生成します（選択外の食材は使用しません）。おまかせにすると登録食材から優先して使用します。
+                </div>
               </div>
+
               <div
-                className="text-xs wizard-note"
+                style={{ color: "var(--color-text-secondary)" }}
+                className="text-sm"
+              >
+                選択:{" "}
+                <strong style={{ color: "var(--color-text-primary)" }}>
+                  {selectedCount}
+                </strong>
+              </div>
+            </div>
+
+            <div className="flex gap-2 items-center">
+              <Button
+                variant="outline"
+                onClick={selectAll}
+                aria-label="全選択"
+                className="text-sm"
+              >
+                全選択
+              </Button>
+              <Button
+                variant="outline"
+                onClick={clearAll}
+                aria-label="全解除"
+                className="text-sm"
+              >
+                全解除
+              </Button>
+
+              <div
+                className="ml-2 text-sm"
                 style={{ color: "var(--color-text-muted)" }}
               >
-                選択した食材のみを使って献立を生成します（選択外の食材は使用しません）。おまかせにすると登録食材から優先して使用します。
+                {allSelected
+                  ? "すべて選択済み"
+                  : `${fridgeItems.length} 件中 ${selectedCount} 件選択`}
               </div>
-            </div>
 
-            <div
-              style={{ color: "var(--color-text-secondary)" }}
-              className="text-sm"
-            >
-              選択:{" "}
-              <strong style={{ color: "var(--color-text-primary)" }}>
-                {selectedCount}
-              </strong>
-            </div>
-          </div>
-
-          <div className="flex gap-2 items-center">
-            <Button
-              variant="outline"
-              onClick={selectAll}
-              aria-label="全選択"
-              className="text-sm"
-            >
-              全選択
-            </Button>
-            <Button
-              variant="outline"
-              onClick={clearAll}
-              aria-label="全解除"
-              className="text-sm"
-            >
-              全解除
-            </Button>
-
-            <div
-              className="ml-2 text-sm"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              {allSelected
-                ? "すべて選択済み"
-                : `${fridgeItems.length} 件中 ${selectedCount} 件選択`}
-            </div>
-
-            <div
-              style={{ marginLeft: "auto" }}
-              className="flex items-center gap-2"
-            >
               <div
-                className="text-sm"
-                style={{ color: "var(--color-text-primary)" }}
+                style={{ marginLeft: "auto" }}
+                className="flex items-center gap-2"
               >
-                モード
-              </div>
-              <Button
-                variant={mode === "selected" ? "default" : "outline"}
-                onClick={() => setMode("selected")}
-                className="text-sm"
-                aria-pressed={mode === "selected"}
-              >
-                選択で生成
-              </Button>
-              <Button
-                variant={mode === "omakase" ? "default" : "outline"}
-                onClick={() => setMode("omakase")}
-                className="text-sm"
-                aria-pressed={mode === "omakase"}
-              >
-                おまかせ
-              </Button>
-            </div>
-          </div>
-
-          <div
-            className="grid grid-cols-2 gap-2 max-h-72 overflow-auto p-1"
-            role="list"
-            aria-label="冷蔵庫の食材リスト"
-          >
-            {fridgeItems.length === 0 && (
-              <div
-                className="col-span-2 text-sm"
-                style={{ color: "var(--color-text-muted)", padding: 12 }}
-              >
-                冷蔵庫に食材が登録されていません
-              </div>
-            )}
-
-            {fridgeItems.map((name) => {
-              const sel = !!selectedMap[name];
-              return (
                 <div
-                  key={name}
-                  role="listitem"
-                  tabIndex={0}
-                  aria-pressed={sel}
-                  onKeyDown={handleKeyToggle(name)}
-                  onClick={() => toggleItem(name)}
-                  className="ingredient-row rounded-lg border p-3 cursor-pointer focus:outline-none"
-                  style={sel ? itemSelectedStyle : itemBaseStyle}
+                  className="text-sm"
+                  style={{ color: "var(--color-text-primary)" }}
                 >
+                  モード
+                </div>
+                <Button
+                  variant={mode === "selected" ? "default" : "outline"}
+                  onClick={() => setMode("selected")}
+                  className="text-sm"
+                  aria-pressed={mode === "selected"}
+                >
+                  選択で生成
+                </Button>
+                <Button
+                  variant={mode === "omakase" ? "default" : "outline"}
+                  onClick={() => setMode("omakase")}
+                  className="text-sm"
+                  aria-pressed={mode === "omakase"}
+                >
+                  おまかせ
+                </Button>
+              </div>
+            </div>
+
+            <div
+              className="grid grid-cols-2 gap-2 max-h-72 overflow-auto p-1"
+              role="list"
+              aria-label="冷蔵庫の食材リスト"
+            >
+              {fridgeItems.length === 0 && (
+                <div
+                  className="col-span-2 text-sm"
+                  style={{ color: "var(--color-text-muted)", padding: 12 }}
+                >
+                  冷蔵庫に食材が登録されていません
+                </div>
+              )}
+
+              {fridgeItems.map((name) => {
+                const sel = !!selectedMap[name];
+                return (
                   <div
-                    style={{ display: "flex", alignItems: "center", gap: 12 }}
+                    key={name}
+                    role="listitem"
+                    tabIndex={0}
+                    aria-pressed={sel}
+                    onKeyDown={handleKeyToggle(name)}
+                    onClick={() => toggleItem(name)}
+                    className="ingredient-row rounded-lg border p-3 cursor-pointer focus:outline-none"
+                    style={sel ? itemSelectedStyle : itemBaseStyle}
                   >
-                    <input
-                      type="checkbox"
-                      checked={sel}
-                      onChange={() => toggleItem(name)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-4 h-4"
-                      aria-label={`使用: ${name}`}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div
-                        className="ingredient-name"
-                        style={{
-                          color: sel ? "white" : "var(--color-text-primary)",
-                        }}
-                      >
-                        {name}
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 12 }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={sel}
+                        onChange={() => toggleItem(name)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-4 h-4"
+                        aria-label={`使用: ${name}`}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div
+                          className="ingredient-name"
+                          style={{
+                            color: sel ? "white" : "var(--color-text-primary)",
+                          }}
+                        >
+                          {name}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div
-            className="text-xs wizard-note"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            ※「選択で生成」は選択した食材のみを使用します。「おまかせ」は登録食材を優先します。指定していない食材は絶対に使いません。
-          </div>
-        </div>
-
-        <div className="mt-4 flex justify-between items-center">
-          <DialogFooter>
-            <div>
-              <Button
-                onClick={generateMenus}
-                disabled={loading}
-                aria-disabled={loading}
-                aria-label="この食材で献立を作る"
-              >
-                {loading
-                  ? mode === "omakase"
-                    ? "おまかせ中…"
-                    : "生成中…"
-                  : mode === "omakase"
-                    ? "おまかせで生成"
-                    : "この食材で献立を作る"}
-              </Button>
+                );
+              })}
             </div>
 
-            <div>
-              <Button variant="outline" onClick={() => onClose()}>
-                閉じる
-              </Button>
+            <div
+              className="text-xs wizard-note"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              ※「選択で生成」は選択した食材のみを使用します。「おまかせ」は登録食材を優先します。指定していない食材は絶対に使いません。
             </div>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </div>
+
+          <div className="mt-4 flex justify-between items-center">
+            <DialogFooter>
+              <div>
+                <Button
+                  onClick={generateMenus}
+                  disabled={loading}
+                  aria-disabled={loading}
+                  aria-label="この食材で献立を作る"
+                >
+                  {loading
+                    ? mode === "omakase"
+                      ? "おまかせ中…"
+                      : "生成中…"
+                    : mode === "omakase"
+                      ? "おまかせで生成"
+                      : "この食材で献立を作る"}
+                </Button>
+              </div>
+
+              <div>
+                <Button variant="outline" onClick={() => onClose()}>
+                  閉じる
+                </Button>
+              </div>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ProModal open={showProModal} onClose={() => setShowProModal(false)} />
+      <ShoppingListConfirmModal
+        open={showShoppingModal}
+        onClose={() => setShowShoppingModal(false)}
+        missingIngredients={missingIngredients}
+      />
+    </>
   );
 }

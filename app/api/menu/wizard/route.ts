@@ -1,5 +1,8 @@
 // app/api/menu/wizard/route.ts
-import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { type NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/rateLimiter";
 import {
   callOpenAIOnce,
   extractTextFromResponse,
@@ -13,8 +16,45 @@ import {
  * - on OpenAI error -> deterministic fallback
  */
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    // --- 🔒 認証チェック ---
+    const token = await getToken({
+      req: req,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+    if (!token) {
+      return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
+    }
+    const userId = token.sub as string;
+
+    // --- ⚙️ レート制限 ---
+    const ip =
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("host") ||
+      "unknown";
+    const rl = await rateLimit(`wizard:${ip}`, 60, 60);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "リクエストが多すぎます。しばらくしてからお試しください。" },
+        { status: 429 },
+      );
+    }
+
+    // --- 🛑 利用回数制限 (AI Limit) ---
+    const limitParams = await import("@/lib/aiLimit").then((m) =>
+      m.canUseAI(userId),
+    );
+    if (!limitParams.allowed) {
+      return NextResponse.json(
+        {
+          error: limitParams.error,
+          remaining: limitParams.remaining,
+        },
+        { status: 403 },
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const mealTypes = Array.isArray(body.mealTypes) ? body.mealTypes : ["主菜"];
     const servings = Math.max(1, Number(body.servings ?? 1));
@@ -25,6 +65,29 @@ export async function POST(req: Request) {
     const appetite = typeof body.appetite === "string" ? body.appetite : "普通";
     const preferHighQuality = !!body.highQuality; // optional flag from UI
 
+    // --- 🕓 UsageHistory 保存 ---
+    try {
+      await prisma.usageHistory.create({
+        data: {
+          userId,
+          action: "wizard_generate",
+          meta: { at: new Date().toISOString() },
+        } as any,
+      });
+    } catch (err) {
+      console.warn("usageHistory 保存に失敗:", err);
+    }
+
+    // --- 👤 ユーザー情報取得 (Pro判定用) ---
+    // canUseAIでもチェックしているが、最新のisProが必要なため取得
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isPro: true },
+    });
+    // @ts-ignore
+    const { getProFeatures } = await import("@/lib/proFeatures");
+    const features = getProFeatures(user?.isPro ?? false);
+
     const briefItemList = usedFridgeItems.length
       ? usedFridgeItems.join(", ")
       : "なし";
@@ -33,6 +96,9 @@ export async function POST(req: Request) {
       mode === "omakase"
         ? `おまかせ: 登録済み食材（${briefItemList}）を優先して使用してください。`
         : `指定: 次の食材（${briefItemList}）を必ず使用してください（他は使用しないでください）。`;
+
+    // Pro: 期限優先ロジックなどはWizardでは簡易版のため省略（プロンプトが複雑になるため）
+    // ただし、AutoShoppingListはこのあと計算する
 
     // Minimal prompt: ask for 3 short candidates (title + usedItems)
     const prompt = `
@@ -112,7 +178,53 @@ export async function POST(req: Request) {
         usedItems: Array.isArray(m.usedItems) ? m.usedItems : [],
       }));
 
-      return NextResponse.json({ menus, raw, fallback: false });
+      // --- 🛒 Pro特典: 自動買い物リスト追加 (Auto Shopping List) ---
+      let missingIngredients: string[] | undefined;
+
+      if (features.autoShoppingList && menus.length > 0) {
+        try {
+          // 全ユーザー食材を取得（比較用）
+          const allUserIngredients = await prisma.ingredient.findMany({
+            where: { userId },
+            select: { name: true },
+          });
+          const userItemNames = new Set(allUserIngredients.map((i) => i.name));
+
+          // 今回生成された全献立の材料を収集
+          const suggestedIngredients = new Set<string>();
+          menus.forEach((m) => {
+            if (Array.isArray(m.ingredients)) {
+              m.ingredients.forEach((ing: any) => {
+                if (typeof ing === "string") suggestedIngredients.add(ing);
+              });
+            }
+          });
+
+          // 不足分を特定 (単純な名前一致)
+          const missing: string[] = [];
+          for (const sugg of suggestedIngredients) {
+            if (!userItemNames.has(sugg)) {
+              missing.push(sugg);
+            }
+          }
+
+          if (missing.length > 0) {
+            missingIngredients = missing;
+            console.log(
+              `[AutoShoppingList] Found ${missing.length} missing items for user ${userId}`,
+            );
+          }
+        } catch (err) {
+          console.warn("Auto shopping list calculation failed:", err);
+        }
+      }
+
+      return NextResponse.json({
+        menus,
+        raw,
+        fallback: false,
+        missingIngredients,
+      });
     } catch (err: any) {
       console.warn("wizard: OpenAI call error:", err);
       // immediate fallback — do not retry
