@@ -16,6 +16,8 @@ model User {
   password        String?
   createdAt       DateTime  @default(now())
   status          String?   @default("active")
+  verifyToken     String?
+  verifyExpires   DateTime?
   aiMenuCount     Int       @default(0) @map("ai_menu_count")
   aiMenuLastReset DateTime? @map("ai_menu_last_reset")
   aiDailyCount    Int       @default(0) @map("ai_daily_count")
