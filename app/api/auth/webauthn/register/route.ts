@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { getWebAuthnRP } from "@/lib/webauthnRP";
+import { headers } from "next/headers";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/webauthn/register
@@ -13,10 +15,27 @@ import { getWebAuthnRP } from "@/lib/webauthnRP";
  */
 export async function POST(req: Request) {
   try {
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for") ?? "unknown";
+
+    // Rate Limit: 1 IP / 5 min / 3 requests
+    if (
+      !checkRateLimit(ip, "register", { interval: 5 * 60 * 1000, limit: 3 })
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "リクエスト回数が多すぎます。しばらく待ってから再試行してください。",
+        },
+        { status: 429 },
+      );
+    }
+
     const body = await req.json().catch(() => null);
     if (!body) {
       return NextResponse.json(
-        { ok: false, message: "invalid json" },
+        { ok: false, message: "送信データが不正です" },
         { status: 400 },
       );
     }
@@ -24,7 +43,7 @@ export async function POST(req: Request) {
     const { email: rawEmail, attestationResponse } = body;
     if (!rawEmail || !attestationResponse) {
       return NextResponse.json(
-        { ok: false, message: "missing parameters" },
+        { ok: false, message: "メールアドレスまたは認証情報が不足しています" },
         { status: 400 },
       );
     }
@@ -38,9 +57,56 @@ export async function POST(req: Request) {
 
     if (!user || !user.verifyToken) {
       return NextResponse.json(
-        { ok: false, message: "challenge not found" },
+        {
+          ok: false,
+          message:
+            "登録チャレンジが見つかりません。再度登録をやり直してください",
+        },
         { status: 400 },
       );
+    }
+
+    // IP Restriction Check
+    if (user.allowedIps && user.allowedIps.length > 0) {
+      const clientIp = ip.split(",")[0].trim();
+      if (!user.allowedIps.includes(clientIp)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "このネットワークからの登録は許可されていません",
+          },
+          { status: 403 },
+        );
+      }
+    }
+
+    // Challenge Expiry Check (5 min)
+    if (user.verifyTokenCreatedAt) {
+      const diff = Date.now() - user.verifyTokenCreatedAt.getTime();
+      if (diff > 5 * 60 * 1000) {
+        // Expired
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { verifyToken: null, verifyTokenCreatedAt: null },
+        });
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "登録チャレンジの有効期限が切れています。もう一度最初からやり直してください",
+          },
+          { status: 400 },
+        );
+      }
+    } else {
+      // Legacy check: if user implies stricter security, we might reject null
+      // For now, allow null but logging might be good.
+      // The user prompt said: "3. チャレンジ再利用防止... 有効期限 5 分以内のみ受け入れる"
+      // So if null, technically it has no timestamp, so we can't confirm it's fresh.
+      // Safer to reject if we want strict security, similar to reusing legacy tokens?
+      // But the user said: "verifyTokenCreatedAt は既存ユーザーには null になるので...".
+      // -> "verifyTokenCreatedAt is null for existing... is it ok? -> OK".
+      // So we act permissive if null.
     }
 
     const expectedChallenge = user.verifyToken;
@@ -57,15 +123,16 @@ export async function POST(req: Request) {
       });
     } catch (err: any) {
       console.error("[webauthn][register] verify error:", err);
+      // Detailed error might be too technical, keeping it somewhat generic but clear
       return NextResponse.json(
-        { ok: false, message: err?.message ?? "verification failed" },
+        { ok: false, message: "認証情報の検証に失敗しました" },
         { status: 400 },
       );
     }
 
     if (!verification.verified) {
       return NextResponse.json(
-        { ok: false, message: "registration not verified" },
+        { ok: false, message: "登録が確認できませんでした" },
         { status: 400 },
       );
     }
@@ -73,7 +140,7 @@ export async function POST(req: Request) {
     const registrationInfo = verification.registrationInfo;
     if (!registrationInfo || !registrationInfo.credential) {
       return NextResponse.json(
-        { ok: false, message: "missing registration info" },
+        { ok: false, message: "登録情報が不足しています" },
         { status: 500 },
       );
     }
@@ -105,14 +172,18 @@ export async function POST(req: Request) {
     // challenge は必ず破棄（再利用防止）
     await prisma.user.update({
       where: { id: user.id },
-      data: { verifyToken: null },
+      data: { verifyToken: null, verifyTokenCreatedAt: null },
     });
+
+    console.log(
+      `[webauthn][register] 成功: userId=${user.id} credentialId=${credentialIdBase64url}`,
+    );
 
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[webauthn][register] unexpected:", err);
     return NextResponse.json(
-      { ok: false, message: "server error" },
+      { ok: false, message: "サーバーでエラーが発生しました" },
       { status: 500 },
     );
   }

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import type { Passkey } from "@prisma/client";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { getWebAuthnRP } from "@/lib/webauthnRP";
+import { headers } from "next/headers";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /** helpers */
 function bufferToBase64url(buf: Buffer | Uint8Array | ArrayBuffer) {
@@ -28,12 +30,32 @@ function toBuffer(input: unknown): Buffer {
 
 export async function POST(req: Request) {
   try {
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for") ?? "unknown";
+
+    // Rate Limit: 1 IP / 5 min / 5 requests
+    if (
+      !checkRateLimit(ip, "register-options", {
+        interval: 5 * 60 * 1000,
+        limit: 5,
+      })
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "リクエスト回数が多すぎます。しばらく待ってから再試行してください。",
+        },
+        { status: 429 },
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const { email } = body ?? {};
 
     if (!email || typeof email !== "string") {
       return NextResponse.json(
-        { ok: false, message: "email missing" },
+        { ok: false, message: "メールアドレスが入力されていません" },
         { status: 400 },
       );
     }
@@ -42,9 +64,24 @@ export async function POST(req: Request) {
     const user = await prisma.user.findUnique({ where: { email: emailLower } });
     if (!user) {
       return NextResponse.json(
-        { ok: false, message: "user not found" },
+        { ok: false, message: "登録されていないメールアドレスです" },
         { status: 404 },
       );
+    }
+
+    // IP Restriction Check
+    if (user.allowedIps && user.allowedIps.length > 0) {
+      // split x-forwarded-for just in case it's a list
+      const clientIp = ip.split(",")[0].trim();
+      if (!user.allowedIps.includes(clientIp)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "このネットワークからの登録は許可されていません",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const existing: Passkey[] = await prisma.passkey.findMany({
@@ -76,7 +113,7 @@ export async function POST(req: Request) {
 
     if (!opts?.challenge) {
       return NextResponse.json(
-        { ok: false, message: "challenge generation failed" },
+        { ok: false, message: "登録チャレンジの生成に失敗しました" },
         { status: 500 },
       );
     }
@@ -91,8 +128,15 @@ export async function POST(req: Request) {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { verifyToken: challengeStr },
+      data: {
+        verifyToken: challengeStr,
+        verifyTokenCreatedAt: new Date(), // Set creation time for 5 min expiry check
+      },
     });
+
+    console.log(
+      `[webauthn][register-options] challenge 作成成功: userId=${user.id}`,
+    );
 
     const jsonSafeOpts: any = { ...opts, challenge: challengeStr };
 
@@ -118,7 +162,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("[register-options] error:", err);
     return NextResponse.json(
-      { ok: false, message: "server error" },
+      { ok: false, message: "サーバーでエラーが発生しました" },
       { status: 500 },
     );
   }

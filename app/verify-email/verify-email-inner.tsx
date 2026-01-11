@@ -243,10 +243,10 @@ export default function VerifyEmailInner() {
               {status === "success" && (
                 <button
                   className="continue-btn"
-                  onClick={() => router.push("/home")}
-                  aria-label="ホームへ"
+                  onClick={() => router.push("/passkey-setup")}
+                  aria-label="パスキー登録へ"
                 >
-                  今すぐホームへ
+                  今すぐパスキー登録へ
                 </button>
               )}
 

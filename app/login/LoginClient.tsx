@@ -34,11 +34,9 @@ function uint8ArrayToBase64url(bytes: ArrayBuffer | Uint8Array) {
 
 /**
  * Convert server-provided authenticate options into navigator-friendly publicKey
- * Defensive: supports base64url strings or arrays.
  */
 function preformatRequestOptions(opts: any) {
   if (!opts) throw new Error("No authenticate options from server");
-  // server may wrap with { publicKey: { ... } } or return object directly
   const publicKey: any = { ...(opts.publicKey ?? opts) };
 
   // challenge
@@ -96,7 +94,9 @@ export default function LoginClient() {
   useEffect(() => setMounted(true), []);
 
   // UI state
-  const [step, setStep] = useState<"select" | "email">("select");
+  const [step, setStep] = useState<
+    "select" | "passkey_email" | "password_email"
+  >("select");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<string | null>(
@@ -105,65 +105,68 @@ export default function LoginClient() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Minor spacing / layout: keep visual similar but avoid huge gaps
-  // (No global layout changes — only local spacing fixes)
   useEffect(() => {
-    // reset messages when switching steps to avoid stale messages
-    setMsg((m) => {
-      if (!m) return m;
-      return m;
-    });
-  }, [step]);
+    // reset messages when switching steps
+    if (step === "select") {
+      if (registered) {
+        // keep registered msg
+      } else {
+        setMsg(null);
+      }
+    } else {
+      setMsg(null);
+    }
+  }, [step, registered]);
 
-  // ---------- Passkey login ----------
-  const handlePasskeyLogin = async () => {
+  // ---------- Passkey login (Email -> Auth) ----------
+  const handlePasskeyLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setMsg(null);
+
+    if (!email) return setMsg("メールアドレスを入力してください。");
+
     setLoading(true);
     try {
-      if (!email) {
-        setMsg("パスキーでログインするにはメールアドレスを入力してください。");
-        return;
-      }
-
       // 1) request options
+      const body = { email };
       const startRes = await fetch("/api/auth/webauthn/authenticate-options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(body),
       });
+
       let startJson: any = {};
       try {
         startJson = await startRes.json();
       } catch (e) {
-        // malformed JSON
         console.error("[passkey] authenticate-options JSON parse failed:", e);
       }
-      if (!startRes.ok || !startJson?.ok) {
-        // friendly handling for known server messages (no passkeys etc.)
+
+      if (!startRes.ok) {
         const serverMsg =
           startJson?.message ??
           (startRes.status
             ? `サーバーエラー（${startRes.status}）`
             : "サーバー通信に失敗しました");
-        if (
-          serverMsg.includes("no passkeys") ||
-          serverMsg.includes("No passkeys")
-        ) {
-          setMsg(
-            "このアドレスではパスキーが登録されていません。メール/パスワードでログインしてください。",
-          );
-        } else if (
-          serverMsg.includes("no such user") ||
-          serverMsg.includes("no user")
-        ) {
-          setMsg("そのメールアドレスは未登録です。新規登録してください。");
+
+        if (/no passkeys|No passkeys|not registered/i.test(serverMsg)) {
+          setMsg("このアドレスではパスキーが登録されていません。");
+        } else if (/no such user|no user/i.test(serverMsg)) {
+          setMsg("そのメールアドレスは未登録です。");
         } else {
           setMsg(serverMsg);
         }
         return;
       }
 
-      const publicKey = preformatRequestOptions(startJson.options);
+      const opts = startJson?.options ?? startJson;
+      if (!opts) {
+        setMsg("認証オプションの取得に失敗しました。");
+        return;
+      }
+
+      const publicKey = preformatRequestOptions(opts);
+
       // 2) call WebAuthn API
       if (!("credentials" in navigator)) {
         setMsg(
@@ -172,11 +175,18 @@ export default function LoginClient() {
         return;
       }
 
-      const assertion: any = (await navigator.credentials.get({
-        publicKey,
-      } as any)) as any;
+      let assertion: any;
+      try {
+        assertion = (await navigator.credentials.get({
+          publicKey,
+        } as any)) as any;
+      } catch (err: any) {
+        console.error("[passkey] navigator.credentials.get error:", err);
+        setMsg("認証がキャンセルされました、またはエラーが発生しました。");
+        return;
+      }
       if (!assertion) {
-        setMsg("認証がキャンセルされました。もう一度お試しください。");
+        setMsg("認証がキャンセルされました。");
         return;
       }
 
@@ -187,48 +197,51 @@ export default function LoginClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, assertionResponse: serialized }),
       });
+
       let verifyJson: any = {};
       try {
         verifyJson = await verifyRes.json();
       } catch (e) {
         console.error("[passkey] authenticate response JSON parse failed:", e);
       }
-      if (!verifyRes.ok || !verifyJson?.ok) {
+
+      if (!verifyRes.ok) {
         const serverMsg =
           verifyJson?.message ??
           (verifyRes.status
             ? `認証に失敗しました（${verifyRes.status}）`
             : "認証に失敗しました");
-        setMsg(serverMsg);
+        if (/authorized IP/i.test(serverMsg) || /IP/i.test(serverMsg)) {
+          setMsg(
+            "セキュリティ制限により、この場所からのアクセスは許可されていません。",
+          );
+        } else {
+          setMsg(serverMsg);
+        }
         return;
       }
 
-      // server should return a one-time token to use with credentials provider
-      const token = verifyJson.token;
+      const token = verifyJson?.token;
       if (!token) {
-        console.error("[passkey] server did not return a token:", verifyJson);
         setMsg("認証に失敗しました（トークンがありません）。");
         return;
       }
 
-      // 4) sign in with one-time token via credentials provider
+      // 4) sign in with one-time token
       const sres: any = await signIn("credentials", {
         redirect: false,
         token,
-        callbackUrl: "/",
+        callbackUrl: "/home",
       });
+
       if (sres?.ok) {
-        // success -> go home
-        router.replace("/");
+        router.replace("/home");
       } else {
-        // fallback: go to login page with registered flag
-        router.replace("/login?registered=1");
+        setMsg(sres?.error ?? "ログインに失敗しました。再度お試しください。");
       }
     } catch (err: any) {
       console.error("[passkey login] error:", err);
-      const friendly =
-        err?.message || "パスキーログイン中にエラーが発生しました。";
-      setMsg(friendly);
+      setMsg("パスキーログイン中にエラーが発生しました。");
     } finally {
       setLoading(false);
     }
@@ -244,21 +257,17 @@ export default function LoginClient() {
 
     setLoading(true);
     try {
-      // use credentials provider (email/password)
       const res: any = await signIn("credentials", {
         redirect: false,
         email,
         password,
-        callbackUrl: "/",
+        callbackUrl: "/home",
       });
 
       if (res?.ok) {
-        router.replace("/");
+        router.replace("/home");
       } else {
-        // NextAuth may return error field
-        const errMsg =
-          res?.error ?? "メールアドレスまたはパスワードが正しくありません。";
-        setMsg(errMsg);
+        setMsg("メールアドレスまたはパスワードが正しくありません。");
       }
     } catch (err: any) {
       console.error("[password login] error:", err);
@@ -273,7 +282,6 @@ export default function LoginClient() {
     setLoading(true);
     try {
       await signIn("google", { callbackUrl: "/" });
-      // signIn will redirect in most configurations
     } catch (err) {
       console.error("[google login] error:", err);
       setMsg("Google認証に失敗しました。");
@@ -282,7 +290,6 @@ export default function LoginClient() {
     }
   };
 
-  // Accessibility: polite live region for messages
   const Message = () =>
     msg ? (
       <div
@@ -347,21 +354,32 @@ export default function LoginClient() {
 
         {/* main */}
         <div className="w-full mt-4">
-          {step === "select" ? (
+          {step === "select" && (
             <div className="flex flex-col gap-3">
               <motion.button
-                onClick={() => {
-                  setStep("email");
-                  setMsg(null);
-                }}
+                onClick={() => setStep("passkey_email")}
+                disabled={loading}
+                className="w-full bg-white border rounded-full py-3 text-sm font-semibold flex items-center justify-center gap-2 transition transform duration-150 ease-out active:translate-y-1 disabled:opacity-60"
+                whileTap={buttonTap.whileTap}
+                whileHover={buttonTap.whileHover}
+                transition={springTransition}
+                style={{ color: "var(--color-passkey-text)" }}
+              >
+                パスキーでログイン
+              </motion.button>
+
+              <motion.button
+                onClick={() => setStep("password_email")}
                 disabled={loading}
                 className="w-full surface-btn font-semibold py-3 rounded-full flex items-center justify-center gap-2 transition transform duration-150 ease-out active:translate-y-1 disabled:opacity-60"
                 whileTap={buttonTap.whileTap}
                 whileHover={buttonTap.whileHover}
                 transition={springTransition}
               >
-                メールアドレス / パスキーでログイン
+                パスワードでログイン
               </motion.button>
+
+              <div className="my-2 border-t border-gray-200 dark:border-gray-700 w-full"></div>
 
               <motion.button
                 onClick={handleGoogle}
@@ -440,12 +458,13 @@ export default function LoginClient() {
                 </Link>
               </p>
             </div>
-          ) : (
-            // email step (contains both passkey & password flows)
-            <form
-              onSubmit={handlePasswordLogin}
-              className="flex flex-col gap-3"
-            >
+          )}
+
+          {step === "passkey_email" && (
+            <form onSubmit={handlePasskeyLogin} className="flex flex-col gap-3">
+              <p className="text-sm font-semibold text-center mb-2">
+                パスキーでログイン
+              </p>
               <input
                 className="w-full bg-white dark:bg-gray-800 rounded-lg border px-3 py-2 text-sm"
                 placeholder="メールアドレス"
@@ -456,7 +475,49 @@ export default function LoginClient() {
                 required
               />
 
-              {/* Password field (only used for password-flow) */}
+              <Message />
+
+              <motion.button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-black dark:bg-white dark:text-black text-white font-semibold py-3 rounded-full"
+                whileTap={buttonTap.whileTap}
+                whileHover={buttonTap.whileHover}
+                transition={springTransition}
+              >
+                {loading ? "確認中…" : "ログイン"}
+              </motion.button>
+
+              <div className="flex items-center justify-between mt-2">
+                <button
+                  type="button"
+                  className="text-sm underline"
+                  onClick={() => setStep("select")}
+                >
+                  ← 戻る
+                </button>
+              </div>
+            </form>
+          )}
+
+          {step === "password_email" && (
+            <form
+              onSubmit={handlePasswordLogin}
+              className="flex flex-col gap-3"
+            >
+              <p className="text-sm font-semibold text-center mb-2">
+                パスワードでログイン
+              </p>
+              <input
+                className="w-full bg-white dark:bg-gray-800 rounded-lg border px-3 py-2 text-sm"
+                placeholder="メールアドレス"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
+
               <div className="relative">
                 <input
                   className="w-full bg-white dark:bg-gray-800 rounded-lg border px-3 py-2 pr-10 text-sm"
@@ -475,7 +536,6 @@ export default function LoginClient() {
                   onClick={() => setShowPassword((s) => !s)}
                   className="absolute right-2 top-2/4 -translate-y-2/4 p-1"
                 >
-                  {/* Single consistent eye icon; simple stroke-based SVG to avoid clipping */}
                   {showPassword ? (
                     <svg
                       width="18"
@@ -535,23 +595,8 @@ export default function LoginClient() {
                 </button>
               </div>
 
-              {/* Passkey login button */}
-              <motion.button
-                type="button"
-                onClick={handlePasskeyLogin}
-                disabled={loading}
-                className="w-full bg-white border rounded-full py-3 text-sm"
-                whileTap={buttonTap.whileTap}
-                whileHover={buttonTap.whileHover}
-                transition={springTransition}
-                style={{ color: "var(--color-passkey-text)" }}
-              >
-                パスキーでログイン
-              </motion.button>
-
               <Message />
 
-              {/* Password login */}
               <motion.button
                 type="submit"
                 disabled={loading}
@@ -560,16 +605,20 @@ export default function LoginClient() {
                 whileHover={buttonTap.whileHover}
                 transition={springTransition}
               >
-                {loading ? "確認中…" : "メールアドレス・パスワードでログイン"}
+                {loading ? "ログイン" : "ログイン"}
               </motion.button>
 
               <div className="flex items-center justify-between mt-2">
-                <Link
-                  href="/reset-password/request"
+                <button
+                  type="button"
                   className="text-sm underline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push("/reset-password/request");
+                  }}
                 >
                   パスワードをお忘れですか？
-                </Link>
+                </button>
                 <button
                   type="button"
                   className="text-sm underline"

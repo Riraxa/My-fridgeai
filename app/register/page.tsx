@@ -31,13 +31,13 @@ export default function RegisterPageClient() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // visibility toggles (per-field, robust)
+  // visibility toggles
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   // UI state
   const [step, setStep] = useState<"select" | "form">("select");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // General loading state
   const [msg, setMsg] = useState<{ type: "ok" | "error"; text: string } | null>(
     null,
   );
@@ -59,65 +59,46 @@ export default function RegisterPageClient() {
       return true;
     }
 
-    // ---- 失敗時（ここが重要） ----
+    // ---- 失敗時 ----
     let payload: any = null;
-
     try {
       payload = await res.json();
     } catch {
-      // JSONで返らないケースにも耐える
       payload = null;
     }
 
-    // ① 既に登録済みユーザー
-    if (res.status === 409) {
-      throw new Error(
-        payload?.message ??
-          "このメールアドレスは既に登録されています。ログインするか、パスワードをリセットしてください。",
-      );
-    }
-
-    // ② 入力不正（400）
-    if (res.status === 400) {
-      throw new Error(
-        payload?.message ??
-          "入力内容に誤りがあります。もう一度確認してください。",
-      );
-    }
-
-    // ③ その他（500 など）
-    throw new Error(
-      payload?.message ?? `ユーザー作成に失敗しました（${res.status}）`,
-    );
+    // エラーメッセージの抽出（日本語化されたサーバーメッセージを優先）
+    const errorMsg = payload?.message || "ユーザー作成に失敗しました";
+    throw new Error(errorMsg);
   }
 
   async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
     setMsg(null);
 
-    // basic validation
-    if (!validateEmail(email)) {
+    // Frontend Validation
+    if (!email || !validateEmail(email)) {
       setMsg({
         type: "error",
         text: "有効なメールアドレスを入力してください。",
       });
       return;
     }
-    if (password.length < 8) {
+    if (!password || password.length < 8) {
       setMsg({ type: "error", text: "パスワードは8文字以上にしてください。" });
       return;
     }
     if (password !== confirmPassword) {
-      setMsg({ type: "error", text: "パスワード確認が一致しません。" });
+      setMsg({ type: "error", text: "パスワード（確認）が一致しません。" });
       return;
     }
 
     setLoading(true);
     try {
-      // 1) create user record and hash password on server
+      // 1) create user record
       await savePassword();
 
-      // 2) send magic link via NextAuth EmailProvider that will redirect to /passkey-setup on click
+      // 2) send magic link
       const res: any = await signIn("email", {
         email,
         redirect: false,
@@ -126,18 +107,14 @@ export default function RegisterPageClient() {
 
       if (res?.error) {
         console.warn("[email signIn] error res:", res);
-        setMsg({
-          type: "error",
-          text: "確認メール送信に失敗しました。メール設定を確認してください。",
-        });
-        return;
+        throw new Error("確認メール送信に失敗しました。");
       }
 
       setMsg({
         type: "ok",
-        text: "確認メールを送信しました。メール内のリンクをクリックして登録を完了してください（リンクは数分で届きます）。",
+        text: "確認メールを送信しました。メール内のリンクから登録を完了してください。",
       });
-      // show passkey info and next steps (do not redirect automatically)
+      // 成功後はフォームをクリア、あるいは完了画面へ？今回はメッセージ表示のみ
     } catch (err: any) {
       console.error("register error:", err);
       setMsg({
@@ -155,14 +132,14 @@ export default function RegisterPageClient() {
       await signIn("google", { callbackUrl: "/" });
     } catch (err) {
       console.error("[google signup] error:", err);
-      setMsg({ type: "error", text: "Googleでの登録に失敗しました。" });
+      // setMsg({ type: "error", text: "Googleでの登録に失敗しました。" }); // Redirects usually happen
     } finally {
-      setLoading(false);
+      // setLoading(false); // checking google signin usually redirects, keeping loading might be safer
     }
   };
 
   const handleApple = () => {
-    alert("Apple登録は未実装（後で対応予定）");
+    // alert("Apple登録は未実装（後で対応予定）");
   };
 
   return (
@@ -173,7 +150,8 @@ export default function RegisterPageClient() {
       variants={fadeInUp}
     >
       <div className="w-full max-w-md h-screen mx-auto flex flex-col justify-between items-center -translate-y-6 p-6">
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2 w-full">
+          {/* Logo & Illustration */}
           {mounted ? (
             <Image
               src={
@@ -216,9 +194,10 @@ export default function RegisterPageClient() {
           </p>
         </div>
 
-        <div className="w-full">
+        {/* Main Content Area: Spacing aligned with Login page assumption (gap-6 or gap-8) */}
+        <div className="w-full mt-8 mb-auto">
           {step === "select" ? (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               <motion.button
                 onClick={() => setStep("form")}
                 disabled={loading}
@@ -227,8 +206,30 @@ export default function RegisterPageClient() {
                 whileHover={buttonTap.whileHover}
                 transition={springTransition}
               >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="w-5 h-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+                  />
+                </svg>
                 メールアドレスで新規登録
               </motion.button>
+
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-gray-300 dark:border-gray-700"></div>
+                <span className="flex-shrink-0 mx-4 text-xs text-gray-400">
+                  または
+                </span>
+                <div className="flex-grow border-t border-gray-300 dark:border-gray-700"></div>
+              </div>
 
               <motion.button
                 onClick={handleGoogle}
@@ -238,7 +239,7 @@ export default function RegisterPageClient() {
                 whileHover={buttonTap.whileHover}
                 transition={springTransition}
               >
-                {/* Google SVG (official colors) */}
+                {/* Google SVG */}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 533.5 544.3"
@@ -269,7 +270,7 @@ export default function RegisterPageClient() {
               <motion.button
                 onClick={handleApple}
                 disabled
-                className="w-full surface-btn font-semibold py-3 rounded-full border flex items-center justify-center gap-2 disabled:opacity-60"
+                className="w-full surface-btn font-semibold py-3 rounded-full border flex items-center justify-center gap-2 disabled:opacity-50"
                 whileTap={buttonTap.whileTap}
                 whileHover={buttonTap.whileHover}
                 transition={springTransition}
@@ -287,7 +288,7 @@ export default function RegisterPageClient() {
                 Appleで新規登録
               </motion.button>
 
-              <p className="text-xs text-center text-secondary mt-2">
+              <p className="text-xs text-center text-secondary mt-2 leading-relaxed">
                 続行すると
                 <a href="/terms" className="underline ml-1 text-primary">
                   利用規約
@@ -298,37 +299,34 @@ export default function RegisterPageClient() {
                 </a>
                 に同意したことになります。
               </p>
-
-              <p className="text-xs text-center text-muted mt-2">
-                すでにアカウントをお持ちですか？
-                <a href="/login" className="underline ml-1 text-primary">
-                  ログイン
-                </a>
-              </p>
             </div>
           ) : (
-            <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-white dark:bg-gray-800 rounded-lg border px-3 py-2 text-sm"
-                placeholder="表示名（任意）"
-              />
+            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+              <div>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  placeholder="表示名（任意）"
+                />
+              </div>
 
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white dark:bg-gray-800 rounded-lg border px-3 py-2 text-sm"
-                placeholder="メールアドレス"
-                type="email"
-                autoComplete="email"
-              />
+              <div>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  placeholder="メールアドレス"
+                  type="email"
+                  autoComplete="email"
+                />
+              </div>
 
               <div className="relative">
                 <input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-3 py-2 pr-10 text-sm"
+                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   placeholder="パスワード（8文字以上）"
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
@@ -336,37 +334,46 @@ export default function RegisterPageClient() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-2 top-2/4 -translate-y-2/4 p-1"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                  aria-label={
+                    showPassword ? "パスワードを隠す" : "パスワードを表示する"
+                  }
                 >
                   {showPassword ? (
-                    /* eye open icon */
+                    /* Heroicons eye-slash */
                     <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
                       fill="none"
-                      aria-hidden
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-5 h-5"
                     >
                       <path
-                        d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5z"
-                        stroke="currentColor"
-                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
                       />
                     </svg>
                   ) : (
-                    /* eye closed icon */
+                    /* Heroicons eye */
                     <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
                       fill="none"
-                      aria-hidden
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-5 h-5"
                     >
                       <path
-                        d="M3 3l18 18"
-                        stroke="currentColor"
-                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                       />
                     </svg>
                   )}
@@ -377,7 +384,7 @@ export default function RegisterPageClient() {
                 <input
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-3 py-2 pr-10 text-sm"
+                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   placeholder="パスワード（確認）"
                   type={showConfirm ? "text" : "password"}
                   autoComplete="new-password"
@@ -385,39 +392,46 @@ export default function RegisterPageClient() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm((s) => !s)}
-                  className="absolute right-2 top-2/4 -translate-y-2/4 p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
                   aria-label={
                     showConfirm
-                      ? "Hide confirm password"
-                      : "Show confirm password"
+                      ? "パスワード（確認）を隠す"
+                      : "パスワード（確認）を表示する"
                   }
                 >
                   {showConfirm ? (
                     <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
                       fill="none"
-                      aria-hidden
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-5 h-5"
                     >
                       <path
-                        d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5z"
-                        stroke="currentColor"
-                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
                       />
                     </svg>
                   ) : (
                     <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
                       fill="none"
-                      aria-hidden
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-5 h-5"
                     >
                       <path
-                        d="M3 3l18 18"
-                        stroke="currentColor"
-                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                       />
                     </svg>
                   )}
@@ -426,7 +440,7 @@ export default function RegisterPageClient() {
 
               {msg && (
                 <div
-                  className={`text-sm ${msg.type === "error" ? "text-red-600" : "text-green-700"}`}
+                  className={`text-sm ${msg.type === "error" ? "text-red-500" : "text-green-600"}`}
                 >
                   {msg.text}
                 </div>
@@ -435,28 +449,44 @@ export default function RegisterPageClient() {
               <motion.button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-black dark:bg-white dark:text-black text-white font-semibold py-3 rounded-full"
+                className="w-full bg-black dark:bg-white dark:text-black text-white font-semibold py-3 rounded-full flex items-center justify-center gap-2"
                 whileTap={buttonTap.whileTap}
                 whileHover={buttonTap.whileHover}
                 transition={springTransition}
               >
-                {loading ? "処理中…" : "アカウントを作成して確認メールを送信"}
+                {loading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+                    処理中…
+                  </>
+                ) : (
+                  "アカウントを作成して確認メールを送信"
+                )}
               </motion.button>
 
               <button
                 type="button"
-                className="w-full mt-2 text-center text-sm underline"
+                className="w-full mt-2 text-center text-sm text-secondary hover:text-primary transition-colors"
                 onClick={() => setStep("select")}
                 disabled={loading}
               >
-                ← 戻る
+                キャンセルして戻る
               </button>
             </form>
           )}
         </div>
 
-        <div className="w-full text-center text-xs text-muted mt-2">
-          © My-FridgeAI
+        <div className="w-full flex flex-col items-center gap-4 mt-6">
+          <p className="text-sm text-secondary">
+            すでにアカウントをお持ちですか？
+            <a
+              href="/login"
+              className="underline ml-1 text-primary font-medium"
+            >
+              ログイン
+            </a>
+          </p>
+          <div className="text-xs text-muted mb-6">© My-FridgeAI</div>
         </div>
       </div>
     </motion.div>
