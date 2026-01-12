@@ -11,8 +11,9 @@ import { prisma } from "@/lib/prisma";
  */
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } },
-) {
+  // ビルド環境によって `params` が Promise になる場合があるため any にして await で解決する
+  { params }: { params: any },
+): Promise<NextResponse<any>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -34,7 +35,19 @@ export async function PUT(
       );
     }
 
-    const { id } = await params;
+    // params が Promise でも通常オブジェクトでも対応するため await して取得
+    const resolvedParams = await params;
+    const id = resolvedParams?.id as string | undefined;
+
+    if (!id) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "不正なリクエストです (id が指定されていません)",
+        },
+        { status: 400 },
+      );
+    }
 
     // Check passkey exists and belongs to user
     const passkey = await prisma.passkey.findUnique({
@@ -94,8 +107,8 @@ export async function PUT(
  */
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
-) {
+  { params }: { params: any }, // 同様に柔軟に受け取る
+): Promise<NextResponse<any>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -117,7 +130,18 @@ export async function DELETE(
       );
     }
 
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams?.id as string | undefined;
+
+    if (!id) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "不正なリクエストです (id が指定されていません)",
+        },
+        { status: 400 },
+      );
+    }
 
     // Check passkey exists and belongs to user
     const passkey = await prisma.passkey.findUnique({
