@@ -19,6 +19,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Re-authentication Check: Ensure session is fresh (< 5 minutes)
+    // token.iat is in seconds
+    const now = Math.floor(Date.now() / 1000);
+    const authAge = now - (token.iat as number);
+    if (authAge > 5 * 60) {
+      return NextResponse.json(
+        { error: "セキュリティのため、再認証が必要です" },
+        { status: 403 }, // 403 signals re-auth needed often, or 401? Spec said "4xx"
+      );
+    }
+
     await prisma.user.delete({
       where: { id: token.sub },
     });

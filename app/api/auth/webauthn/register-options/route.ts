@@ -7,7 +7,18 @@ import { getWebAuthnRP } from "@/lib/webauthnRP";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@/lib/rate-limit";
 
-/** helpers */
+/**
+ * register-options route (Windows Hello / platform authenticator support)
+ *
+ * - Keeps existing protections (rate-limit, IP check).
+ * - Prevents re-registration when at least one passkey exists (409).
+ * - Accepts optional body flag `preferPlatform: boolean` to request platform authenticator
+ *   (e.g. Windows Hello) on registration.
+ * - Normalizes challenge and user.id to base64url strings.
+ * - Returns options wrapped as { publicKey: <opts> } for broad client compatibility.
+ */
+
+/* helpers */
 function bufferToBase64url(buf: Buffer | Uint8Array | ArrayBuffer) {
   const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf as any);
   return b
@@ -19,7 +30,8 @@ function bufferToBase64url(buf: Buffer | Uint8Array | ArrayBuffer) {
 function toBuffer(input: unknown): Buffer {
   if (Buffer.isBuffer(input)) return input;
   if (typeof input === "string") {
-    const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
+    // assume base64url input, convert to base64 then buffer
+    const b64 = (input as string).replace(/-/g, "+").replace(/_/g, "/");
     const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
     return Buffer.from(b64 + pad, "base64");
   }
@@ -51,7 +63,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { email } = body ?? {};
+    const { email, preferPlatform } = body ?? {}; // preferPlatform?: boolean
 
     if (!email || typeof email !== "string") {
       return NextResponse.json(
@@ -71,7 +83,6 @@ export async function POST(req: Request) {
 
     // IP Restriction Check
     if (user.allowedIps && user.allowedIps.length > 0) {
-      // split x-forwarded-for just in case it's a list
       const clientIp = ip.split(",")[0].trim();
       if (!user.allowedIps.includes(clientIp)) {
         return NextResponse.json(
@@ -88,8 +99,43 @@ export async function POST(req: Request) {
       where: { userId: user.id },
     });
 
+    // Map existing passkeys to excludeCredentials to prevent re-registration on same authenticator
+    const excludeCredentials = existing.map((passkey) => {
+      let transports: any[] | undefined;
+      try {
+        if (passkey.transports) {
+          const parsed = JSON.parse(passkey.transports);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            transports = parsed;
+          }
+        }
+      } catch (e) {
+        // ignore parse error, treat as undefined/empty
+      }
+
+      return {
+        id: passkey.credentialId,
+        type: "public-key" as const,
+        transports: transports,
+      };
+    });
+
     const { rpID } = getWebAuthnRP();
     const userIDBuf = Buffer.from(String(user.id), "utf8");
+
+    // Choose authenticatorSelection based on preferPlatform flag.
+    // - preferPlatform === true  -> request platform authenticator (Windows Hello / Touch ID)
+    // - otherwise                -> default (cross-platform preferred)
+    const authenticatorSelection = preferPlatform
+      ? {
+          authenticatorAttachment: "platform" as const,
+          residentKey: "required" as const, // store discoverable credential on device
+          userVerification: "required" as const,
+        }
+      : {
+          residentKey: "preferred" as const,
+          userVerification: "preferred" as const,
+        };
 
     const opts = await generateRegistrationOptions({
       rpName: "My-FridgeAI",
@@ -99,16 +145,8 @@ export async function POST(req: Request) {
       userDisplayName: user.name ?? user.email ?? emailLower,
       timeout: 60000,
       attestationType: "none",
-      authenticatorSelection: {
-        residentKey: "preferred",
-        userVerification: "preferred",
-      },
-      excludeCredentials: existing.length
-        ? existing.map((p: Passkey) => ({
-            id: p.credentialId,
-            type: "public-key" as const,
-          }))
-        : undefined,
+      authenticatorSelection,
+      excludeCredentials,
     });
 
     if (!opts?.challenge) {
@@ -118,6 +156,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // normalize challenge -> base64url string
     const challengeStr =
       typeof opts.challenge === "string"
         ? opts.challenge
@@ -126,39 +165,41 @@ export async function POST(req: Request) {
             .replace(/=+$/, "")
         : bufferToBase64url(toBuffer(opts.challenge));
 
+    // Persist a verifyToken (challenge) for short-lived verification (e.g. 5 min)
     await prisma.user.update({
       where: { id: user.id },
       data: {
         verifyToken: challengeStr,
-        verifyTokenCreatedAt: new Date(), // Set creation time for 5 min expiry check
+        verifyTokenCreatedAt: new Date(),
       },
     });
 
     console.log(
-      `[webauthn][register-options] challenge 作成成功: userId=${user.id}`,
+      `[webauthn][register-options] challenge 作成成功: userId=${user.id} preferPlatform=${!!preferPlatform}`,
     );
 
-    const jsonSafeOpts: any = { ...opts, challenge: challengeStr };
+    // Derive basePublicOptions from opts
+    const basePublicOptions: any = (opts as any).publicKey
+      ? { ...(opts as any).publicKey }
+      : { ...(opts as any) };
 
-    jsonSafeOpts.user = {
+    // Ensure challenge field is the base64url string
+    basePublicOptions.challenge = challengeStr;
+
+    // Normalize user object
+    basePublicOptions.user = {
       id: bufferToBase64url(userIDBuf),
       name: user.email,
       displayName: user.name ?? user.email,
     };
 
-    if (Array.isArray(jsonSafeOpts.excludeCredentials)) {
-      jsonSafeOpts.excludeCredentials = jsonSafeOpts.excludeCredentials.map(
-        (c: any) => ({
-          ...c,
-          id:
-            typeof c.id === "string" ? c.id : bufferToBase64url(toBuffer(c.id)),
-        }),
-      );
-    }
+    // Ensure rpId is present and consistent
+    if (!basePublicOptions.rpId && rpID) basePublicOptions.rpId = rpID;
 
-    if (!jsonSafeOpts.rpId && rpID) jsonSafeOpts.rpId = rpID;
+    // Return wrapped publicKey options for maximal compatibility with clients
+    const responseOptions = { publicKey: basePublicOptions };
 
-    return NextResponse.json({ ok: true, options: jsonSafeOpts });
+    return NextResponse.json({ ok: true, options: responseOptions });
   } catch (err) {
     console.error("[register-options] error:", err);
     return NextResponse.json(

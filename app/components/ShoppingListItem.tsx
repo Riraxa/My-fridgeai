@@ -62,14 +62,13 @@ export default function ShoppingListItem({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.25 }}
-      className={`flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border p-4 transition-all
+      className={`flex flex-col sm:flex-row sm:items-center justify-between
+        rounded-xl border border-border p-4 transition-all
         ${
           item.done
-            ? "bg-gray-100 dark:bg-gray-800 line-through text-gray-400"
-            : "bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100"
-        } hover:shadow-md`}
-      role="listitem"
-      aria-checked={!!item.done}
+            ? "bg-muted line-through text-muted-foreground"
+            : "bg-background text-foreground"
+        }hover:shadow-md`}
     >
       {/* 左側: チェック + 内容 */}
       <div className="flex items-start sm:items-center gap-3 w-full sm:w-auto">

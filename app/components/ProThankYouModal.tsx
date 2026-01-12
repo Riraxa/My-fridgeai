@@ -1,3 +1,4 @@
+//app/components/ProThankYouModal.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -22,45 +23,33 @@ export default function ProThankYouModal({
   onClose,
 }: ProThankYouModalProps) {
   const { update } = useSession();
-  const router = useRouter(); // To clear query params
+  const router = useRouter();
   const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (open) {
-      // ユーザーセッションと状態を更新・再確認
-      const checkStatus = async () => {
-        setLoading(true);
-        // next-authのセッション更新を試みる
-        const session = await update();
+    if (!open) return;
 
-        // 追加でユーザーAPIがあればそこから最新のisProを取るのが確実
-        // 今回はとりあえずセッション更新を信頼しつつ、少し待機して再チェックするロジックも想定
-        // (簡易実装として session.user.isPro が更新されていることを期待)
+    const checkStatus = async () => {
+      setLoading(true);
+      const session = await update();
+      if (session?.user?.isPro) {
+        setIsPro(true);
+      }
+      setLoading(false);
+    };
 
-        // ※ next-auth の update() はサーバーから新しいセッション情報を取得する
-
-        // もし別途APIで確認するならここで fetch("/api/user/me") など
-
-        if (session?.user?.isPro) {
-          setIsPro(true);
-        }
-        setLoading(false);
-      };
-
-      checkStatus();
-    }
+    checkStatus();
   }, [open, update]);
 
   const handleClose = () => {
-    // クエリパラメータを削除して閉じる
     router.replace("/settings");
     onClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md card">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-center text-orange-500">
             ありがとうございます！！
@@ -69,7 +58,7 @@ export default function ProThankYouModal({
 
         <div className="space-y-4 py-4 text-center">
           {isPro ? (
-            // Pro反映済み
+            /* Pro 反映済み */
             <div className="space-y-4">
               <div className="text-5xl">🎉</div>
               <p className="font-bold text-lg">
@@ -77,7 +66,7 @@ export default function ProThankYouModal({
               </p>
             </div>
           ) : (
-            // まだ反映待ち or ローディング
+            /* 反映待ち */
             <div className="space-y-4">
               <p>
                 このアプリは、高校生が一人でコツコツ作っています。
@@ -88,17 +77,29 @@ export default function ProThankYouModal({
                 <br />
                 ありがとうございます！
               </p>
+
               {loading && (
-                <p className="text-sm text-gray-500 animate-pulse">
+                <p
+                  className="text-sm animate-pulse"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
                   設定画面を更新しています...
                 </p>
               )}
+
               {!loading && !isPro && (
-                <p className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
+                <div
+                  className="text-sm p-3 rounded-md"
+                  style={{
+                    background:
+                      "color-mix(in srgb, var(--accent) 12%, transparent)",
+                    color: "var(--accent)",
+                  }}
+                >
                   登録を受け取りました。反映まで数十秒かかることがあります。
                   <br />
                   ページを更新してください。
-                </p>
+                </div>
               )}
             </div>
           )}

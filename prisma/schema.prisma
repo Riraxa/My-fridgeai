@@ -30,6 +30,7 @@ model User {
 
   // ===== Stripe / Paid plan =====
   isPro                  Boolean        @default(false)
+  passkeySetupCompleted  Boolean?       @default(false)
   stripeCustomerId       String?        @unique
   stripeSubscriptionId   String?
   stripePriceId          String?
@@ -72,6 +73,7 @@ model Passkey {
   signCount    Int
   transports   String?
   name         String?
+  userAgent    String?
   createdAt    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

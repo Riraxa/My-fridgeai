@@ -1,8 +1,5 @@
-// app/settings/page.tsx
-import SettingsClient from "./SettingsClient";
-
-export const dynamic = "force-dynamic";
+import { redirect } from "next/navigation";
 
 export default function SettingsPage() {
-  return <SettingsClient />;
+  redirect("/settings/account");
 }

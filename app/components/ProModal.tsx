@@ -10,6 +10,15 @@ import {
 } from "@/app/components/ui/dialog";
 import { Button } from "@/app/components/ui/button";
 
+/**
+ * ProModal (globals.css に合わせたスタイル適用版)
+ *
+ * 注意点:
+ * - globals.css の .card / .modal-card / .continue-btn / .cancel-btn 等のユーティリティクラスを使って
+ *   ライト／ダークどちらのテーマ変数にも自動で追随するようにしています。
+ * - 強調色は CSS の --accent を使うため、色のハードコーディングは避けています。
+ */
+
 interface ProModalProps {
   open: boolean;
   onClose: () => void;
@@ -41,21 +50,37 @@ export default function ProModal({ open, onClose }: ProModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      {/* DialogContent に modal-card を適用して globals.css に合わせる */}
+      <DialogContent className="modal-card max-w-md mx-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-center">
+          <DialogTitle
+            className="title text-center"
+            style={{ fontSize: "1.125rem", fontWeight: 700 }}
+          >
             Proで応援する
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 px-2 whitespace-pre-wrap leading-relaxed">
+        {/* コンテンツ本体 */}
+        <div className="space-y-4 py-2 px-2 leading-relaxed">
           <p>今日の無料献立生成（2回）を使い切りました 🍳</p>
-          <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border-l-4 border-orange-400">
+
+          <div
+            className="p-4 rounded-lg"
+            style={{
+              background: "var(--surface-bg)",
+              borderLeft: "4px solid var(--accent)",
+              borderRadius: "0.75rem",
+            }}
+          >
             <p className="font-bold mb-2">Proにすると</p>
-            <ul className="list-disc list-inside space-y-1 text-sm">
+            <ul
+              className="list-disc list-inside space-y-1 text-sm"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
               <li>
                 献立生成が{" "}
-                <span className="font-bold text-orange-600 dark:text-orange-400">
+                <span style={{ fontWeight: 700, color: "var(--accent)" }}>
                   無制限
                 </span>
               </li>
@@ -63,38 +88,48 @@ export default function ProModal({ open, onClose }: ProModalProps) {
               <li>栄養バランスまで考えます</li>
             </ul>
           </div>
+
           <p>
             このアプリは、
             <br />
-            「冷蔵庫の中身をムダにしない」 を<br />
+            「冷蔵庫の中身をムダにしない」を
+            <br />
             本気で考えて作っています。
           </p>
           <p>
             もし役に立っていたら、
             <br />
-            Proで応援してもらえるとめちゃくちゃ嬉しいです。
+            Proで応援してもらえるととても嬉しいです。
           </p>
-          <p className="text-right text-sm text-gray-500 italic mt-4">
+
+          <p
+            className="text-right text-sm italic"
+            style={{ color: "var(--color-text-muted)" }}
+          >
             — My-FridgeAI 開発者（高校生起業家）
           </p>
         </div>
 
-        <div className="mt-6 flex flex-col gap-2">
-          <Button
-            onClick={handleSubscribe}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-6 text-lg shadow-lg transform transition active:scale-95"
-            disabled={loading}
-          >
-            {loading ? "読み込み中..." : "Proで応援する"}
-          </Button>
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            className="w-full text-gray-500 mt-2"
-          >
-            キャンセル
-          </Button>
-        </div>
+        {/* フッタ：ボタン文字を左右中央寄せ */}
+        <DialogFooter className="mt-6">
+          <div className="flex flex-col gap-2 w-full">
+            <Button
+              onClick={handleSubscribe}
+              className="continue-btn w-full flex items-center justify-center text-center"
+              disabled={loading}
+              aria-disabled={loading}
+            >
+              {loading ? "読み込み中..." : "Proで応援する"}
+            </Button>
+
+            <Button
+              onClick={onClose}
+              className="cancel-btn w-full flex items-center justify-center text-center"
+            >
+              キャンセル
+            </Button>
+          </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

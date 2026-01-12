@@ -158,6 +158,15 @@ export async function POST(req: Request) {
     const signCount = credential.counter ?? 0;
     const transports = credential.transports ?? [];
 
+    // Get userAgent from headers for auto-naming (reuse headersList from line 18)
+    const userAgent = headersList.get("user-agent") ?? undefined;
+
+    // Get optional name from body
+    const passkeyName =
+      body.name && typeof body.name === "string"
+        ? body.name.trim().slice(0, 100)
+        : null;
+
     await prisma.passkey.create({
       data: {
         userId: user.id,
@@ -165,7 +174,8 @@ export async function POST(req: Request) {
         publicKey: publicKeyBase64,
         signCount,
         transports: JSON.stringify(transports),
-        name: "Passkey",
+        name: passkeyName,
+        userAgent,
       },
     });
 

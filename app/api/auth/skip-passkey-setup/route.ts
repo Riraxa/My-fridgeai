@@ -1,0 +1,34 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+
+export async function POST(req: NextRequest) {
+  try {
+    const token = await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+
+    if (!token?.sub) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    await prisma.user.update({
+      where: { id: token.sub },
+      data: { passkeySetupCompleted: true },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: "パスキー登録をスキップしました",
+    });
+  } catch (error) {
+    console.error("skip-passkey-setup error:", error);
+    return NextResponse.json(
+      { error: "サーバーエラーが発生しました" },
+      { status: 500 },
+    );
+  }
+}

@@ -58,10 +58,12 @@ export async function POST(req: Request) {
     }
 
     // 3. Build allowCredentials
+    // NOTE: omit 'transports' to avoid restricting authenticators (some browsers/platforms are picky).
+    // Keep only id (base64url) and type. This helps platform authenticators (internal) surface.
     const allowedCredentials = passkeys.map((pk) => ({
-      id: pk.credentialId, // base64url string expected in DB
+      id: pk.credentialId, // stored as base64url in DB
       type: "public-key" as const,
-      transports: pk.transports ? JSON.parse(pk.transports) : undefined,
+      // do NOT set transports here to avoid accidentally excluding platform authenticators
     }));
 
     // 4. Generate options
@@ -69,6 +71,8 @@ export async function POST(req: Request) {
       timeout: 60000,
       rpID,
       allowCredentials: allowedCredentials,
+      // Keep userVerification as 'preferred' to be compatible with many keys;
+      // If you want to force platform UV-only, consider 'required' (may break some cross-platform keys).
       userVerification: "preferred",
     });
 
@@ -98,17 +102,22 @@ export async function POST(req: Request) {
 
     // 7. Prepare response (JSON-safe options)
     const jsonSafeOpts: any = { ...opts, challenge: challengeStr };
+
     if (Array.isArray(jsonSafeOpts.allowCredentials)) {
       jsonSafeOpts.allowCredentials = jsonSafeOpts.allowCredentials.map(
         (c: any) => ({
           ...c,
+          // normalize id to base64url string
           id:
             typeof c.id === "string"
               ? c.id.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
               : bufferToBase64url(c.id),
+          // remove transports if present to avoid restricting client-side choices
+          transports: undefined,
         }),
       );
     }
+
     if (!jsonSafeOpts.rpId && rpID) jsonSafeOpts.rpId = rpID;
 
     return NextResponse.json(
