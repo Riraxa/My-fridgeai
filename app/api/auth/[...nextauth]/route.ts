@@ -1,13 +1,6 @@
 // app/api/auth/[...nextauth]/route.ts
 export const runtime = "nodejs";
 
-console.log("🔍 [route.ts load] NEXTAUTH_URL:", process.env.NEXTAUTH_URL);
-console.log("🔍 [route.ts load] NODE_ENV:", process.env.NODE_ENV);
-console.log(
-  "🔍 [route.ts load] GOOGLE_CLIENT_ID exists:",
-  !!process.env.GOOGLE_CLIENT_ID,
-);
-
 if (!process.env.NEXTAUTH_URL) {
   throw new Error("NEXTAUTH_URL is not defined in environment variables");
 }
@@ -246,6 +239,10 @@ export const authOptions: NextAuthOptions = {
               },
             });
 
+            console.log(
+              `[Google signup] 新規ユーザー作成成功: userId=${newUser.id}`,
+            );
+
             // Create the account link
             await prisma.account.create({
               data: {
@@ -264,7 +261,7 @@ export const authOptions: NextAuthOptions = {
             });
 
             console.log(
-              `[Google signup] 新規ユーザー作成成功: userId=${newUser.id}`,
+              `[Google signup] Account作成成功: userId=${newUser.id}`,
             );
             return true;
           } catch (err: any) {
@@ -287,14 +284,16 @@ export const authOptions: NextAuthOptions = {
     },
 
     /**
-     * JWT callback
-     *
-     * 修正方針（このブロックが今回の重要箇所）:
-     * - どのタイミングでも最新の isPro を参照する（DBを必ず確認）
-     * - user または既存 token から userId を決定し、DBを読み最新フラグを token に反映する
-     * - 既存の trigger 判定には依存しない（Webhook 後すぐ反映されるようにするため）
+     * JWT callback - 修正版
+     * デバッグログを追加して、セッション生成を確認
      */
     async jwt({ token, user, trigger, session }) {
+      console.log("🔍🔍🔍 JWT CALLBACK CALLED 🔍🔍🔍");
+      console.log("trigger:", trigger);
+      console.log("user:", user);
+      console.log("token.sub:", (token as any).sub);
+      console.log("token.userId:", (token as any).userId);
+
       try {
         // Determine userId from incoming user (login) or existing token
         const incomingUserId =
@@ -302,40 +301,62 @@ export const authOptions: NextAuthOptions = {
           (token as any)?.userId ??
           (token as any)?.sub ??
           null;
+
+        console.log("🔍 incomingUserId resolved to:", incomingUserId);
+
         if (incomingUserId) {
           const userId = String(incomingUserId);
+          console.log("🔍 Querying DB for userId:", userId);
+
           // Always attempt to fetch latest isPro from DB for this userId
           const dbUser = await prisma.user.findUnique({
             where: { id: userId },
             select: { isPro: true, email: true },
           });
 
+          console.log("✅ DB user found:", dbUser);
+
           // ensure token fields are set/updated from DB
           (token as any).userId = userId;
           (token as any).email =
             dbUser?.email ?? (user as any)?.email ?? (token as any).email;
           (token as any).isPro = Boolean(dbUser?.isPro);
+
+          console.log("✅ Token updated:", {
+            userId: (token as any).userId,
+            email: (token as any).email,
+            isPro: (token as any).isPro,
+          });
+        } else {
+          console.log("❌ No incomingUserId found!");
         }
       } catch (e) {
-        console.error("jwt callback: DB isPro fetch error:", e);
-        // Fallback: do not mutate token.isPro here to avoid accidental downgrade
-        // but ensure token has some structure
+        console.error("❌ JWT callback error:", e);
         (token as any).isPro = (token as any).isPro ?? false;
       }
 
+      console.log("🔍 Returning token:", token);
       return token;
     },
 
     async session({ session, token }) {
+      console.log("🔍 SESSION CALLBACK CALLED");
+      console.log("token.userId:", (token as any).userId);
+      console.log("token.email:", (token as any).email);
+
       if (session.user) {
         (session.user as any).id = (token as any).userId;
         (session.user as any).email = (token as any).email;
         (session.user as any).isPro = (token as any).isPro || false;
+
+        console.log("✅ Session updated with user:", (session.user as any).id);
       }
+
       return session;
     },
 
     async redirect({ url, baseUrl }) {
+      console.log("🔍 REDIRECT CALLBACK:", { url, baseUrl });
       // Handle custom error redirects
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       if (url.startsWith(baseUrl)) return url;
