@@ -5,9 +5,34 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
+
+function getErrorMessage(
+  errorCode: string | null,
+): { type: "ok" | "error"; text: string } | null {
+  if (!errorCode) return null;
+  switch (errorCode) {
+    case "registered_email":
+      return {
+        type: "error",
+        text: "このメールアドレスは既に登録されています。ログインしてください。",
+      };
+    case "no_email_from_provider":
+      return {
+        type: "error",
+        text: "Googleからメールアドレスを取得できませんでした。",
+      };
+    case "signup_failed":
+      return {
+        type: "error",
+        text: "Googleでの登録に失敗しました。もう一度お試しください。",
+      };
+    default:
+      return { type: "error", text: "Googleでの登録に失敗しました。" };
+  }
+}
 
 /**
  * Register Page (client)
@@ -21,6 +46,9 @@ import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
 
 export default function RegisterPageClient() {
   const router = useRouter();
+  const search = useSearchParams();
+  const errorParam = search?.get ? search.get("error") : null;
+
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -37,10 +65,17 @@ export default function RegisterPageClient() {
 
   // UI state
   const [step, setStep] = useState<"select" | "form">("select");
-  const [loading, setLoading] = useState(false); // General loading state
+  const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "error"; text: string } | null>(
-    null,
+    getErrorMessage(errorParam),
   );
+
+  // Show error from URL if present
+  useEffect(() => {
+    if (errorParam) {
+      setMsg(getErrorMessage(errorParam));
+    }
+  }, [errorParam]);
 
   // small validators
   function validateEmail(e: string) {
@@ -126,15 +161,22 @@ export default function RegisterPageClient() {
     }
   }
 
+  // ---------- Google OAuth (新規登録) ----------
   const handleGoogle = async () => {
     setLoading(true);
     try {
-      await signIn("google", { callbackUrl: "/" });
+      // Set cookie to indicate signup flow (not login)
+      document.cookie =
+        "google_auth_type=signup; path=/; max-age=300; SameSite=Lax";
+      await signIn("google", { callbackUrl: "/home" });
     } catch (err) {
       console.error("[google signup] error:", err);
-      // setMsg({ type: "error", text: "Googleでの登録に失敗しました。" }); // Redirects usually happen
+      setMsg({
+        type: "error",
+        text: "Googleでの登録に失敗しました。もう一度お試しください。",
+      });
     } finally {
-      // setLoading(false); // checking google signin usually redirects, keeping loading might be safer
+      setLoading(false);
     }
   };
 
@@ -198,6 +240,14 @@ export default function RegisterPageClient() {
         <div className="w-full mt-8 mb-auto">
           {step === "select" ? (
             <div className="flex flex-col gap-4">
+              {msg && (
+                <div
+                  className={`text-sm text-center ${msg.type === "error" ? "text-red-500" : "text-green-600"}`}
+                >
+                  {msg.text}
+                </div>
+              )}
+
               <motion.button
                 onClick={() => setStep("form")}
                 disabled={loading}

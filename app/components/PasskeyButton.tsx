@@ -193,10 +193,15 @@ export default function PasskeyButton({ onSuccess }: PasskeyButtonProps) {
       }
     } catch (err: any) {
       console.error("Passkey registration error:", err);
+
+      // User cancelled or timed out
+      if (err?.name === "NotAllowedError") {
+        setMessage("パスキー登録がキャンセルされました。");
+        return;
+      }
+
       setMessage(
-        err?.message
-          ? `エラー: ${err.message}`
-          : "不明なエラーが発生しました。",
+        "パスキー登録中にエラーが発生しました。もう一度お試しください。",
       );
     } finally {
       setLoading(false);

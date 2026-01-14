@@ -84,10 +84,31 @@ function serializeAssertion(assertion: any) {
   };
 }
 
+function getErrorMessage(errorCode: string | null): string | null {
+  if (!errorCode) return null;
+  switch (errorCode) {
+    case "not_registered":
+      return "未登録のGoogleアカウントです。新規登録をしてください。";
+    case "registered_email":
+      return "このメールアドレスは既に登録されています。";
+    case "no_email_from_provider":
+      return "Googleからメールアドレスを取得できませんでした。";
+    case "account_inactive":
+      return "このアカウントは無効化されています。";
+    case "email_not_verified":
+      return "メールアドレスが未認証です。";
+    case "signup_failed":
+      return "登録に失敗しました。もう一度お試しください。";
+    default:
+      return "エラーが発生しました。もう一度お試しください。";
+  }
+}
+
 export default function LoginClient() {
   const router = useRouter();
   const search = useSearchParams();
   const registered = search?.get ? search.get("registered") : null;
+  const errorParam = search?.get ? search.get("error") : null;
 
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -100,23 +121,32 @@ export default function LoginClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<string | null>(
-    registered ? "登録完了しました。ログインしてください。" : null,
+    registered
+      ? "登録完了しました。ログインしてください。"
+      : getErrorMessage(errorParam),
   );
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    // Show error from URL if present
+    if (errorParam) {
+      setMsg(getErrorMessage(errorParam));
+    }
+  }, [errorParam]);
+
+  useEffect(() => {
     // reset messages when switching steps
     if (step === "select") {
-      if (registered) {
-        // keep registered msg
+      if (registered || errorParam) {
+        // keep message from URL params
       } else {
         setMsg(null);
       }
     } else {
       setMsg(null);
     }
-  }, [step, registered]);
+  }, [step, registered, errorParam]);
 
   // ---------- Passkey login (Email -> Auth) ----------
   const handlePasskeyLogin = async (e: React.FormEvent) => {
@@ -277,14 +307,17 @@ export default function LoginClient() {
     }
   };
 
-  // ---------- Google OAuth ----------
+  // ---------- Google OAuth (ログイン) ----------
   const handleGoogle = async () => {
     setLoading(true);
     try {
-      await signIn("google", { callbackUrl: "/" });
+      // Set cookie to indicate login flow (not signup)
+      document.cookie =
+        "google_auth_type=login; path=/; max-age=300; SameSite=Lax";
+      await signIn("google", { callbackUrl: "/home" });
     } catch (err) {
       console.error("[google login] error:", err);
-      setMsg("Google認証に失敗しました。");
+      setMsg("Google認証に失敗しました。もう一度お試しください。");
     } finally {
       setLoading(false);
     }
@@ -356,6 +389,8 @@ export default function LoginClient() {
         <div className="w-full mt-4">
           {step === "select" && (
             <div className="flex flex-col gap-3">
+              <Message />
+
               <motion.button
                 onClick={() => setStep("passkey_email")}
                 disabled={loading}

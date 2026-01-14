@@ -81,20 +81,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 軽いガード: 既に isPro かつ有効期限が未来なら再購入をブロック（オプション）
-    if (user.isPro && user.stripeCurrentPeriodEnd) {
-      const now = new Date();
-      const periodEnd = new Date(user.stripeCurrentPeriodEnd);
-      if (periodEnd > now) {
-        return NextResponse.json(
-          {
-            error:
-              "既に有料会員です。現在の有効期限: " + periodEnd.toISOString(),
-          },
-          { status: 400 },
-        );
-      }
-    }
+    // Proステータスのガードを削除 - ユーザーが自由に更新・再購入できるようにする
+    // Webhookで適切に処理されるため、ここでのブロックは不要
 
     // 3) Stripe Customer を確保（なければ作成して DB に保存）
     let customerId = user.stripeCustomerId ?? undefined;

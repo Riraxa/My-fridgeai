@@ -47,8 +47,19 @@ export default function ProThankYouModal({
     onClose();
   };
 
+  const handleOK = () => {
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleClose();
+        }
+      }}
+    >
       <DialogContent className="max-w-md card">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-center text-orange-500">
@@ -106,7 +117,7 @@ export default function ProThankYouModal({
         </div>
 
         <DialogFooter>
-          <Button onClick={handleClose} className="w-full">
+          <Button onClick={handleOK} className="w-full">
             閉じる
           </Button>
         </DialogFooter>

@@ -1,6 +1,5 @@
-// app/shopping-list/page.tsx
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import NavBar from "@/app/components/NavBar";
 import ShoppingListItem from "@/app/components/ShoppingListItem";
 import { useFridge } from "@/app/components/FridgeProvider";
@@ -15,6 +14,12 @@ export default function ShoppingListPage() {
     setToast,
     openAddModal,
   } = useFridge();
+
+  // --- mount guard to avoid SSR/CSR DOM mismatch ---
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleDone = (index: number) => {
     const next = [...(shopping || [])];
@@ -77,7 +82,25 @@ export default function ShoppingListPage() {
         >
           {/* ALWAYS render <ul> to keep SSR/CSR DOM shape stable (prevents hydration mismatch) */}
           <ul className="space-y-2">
-            {!shopping || shopping.length === 0 ? (
+            {/*
+              Strategy:
+              - If not yet mounted on client, render the exact same placeholder
+                that the server would have rendered (so initial DOM matches).
+              - After mounted, render actual items (empty message or list with motion).
+            */}
+            {!mounted ? (
+              // Client not mounted yet: show same placeholder server used
+              <li
+                className="text-[var(--color-text-muted)] text-center py-8"
+                aria-live="polite"
+                style={{ opacity: 0.85 }}
+              >
+                買い物リストは空です。
+                <br />
+                献立から自動生成するか、＋ ボタンで追加してください。
+              </li>
+            ) : shopping.length === 0 ? (
+              // Mounted and actually empty
               <li
                 className="text-[var(--color-text-muted)] text-center py-8"
                 aria-live="polite"
@@ -88,11 +111,13 @@ export default function ShoppingListPage() {
                 献立から自動生成するか、＋ ボタンで追加してください。
               </li>
             ) : (
+              // Mounted and we have items: animate list entries
               <AnimatePresence>
                 {shopping.map((it: any, i: number) => (
                   <motion.li
                     key={it?.id ?? `${String(it?.name ?? "item")}-${i}`}
                     layout
+                    // initial animation runs only after mount -> safe
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}

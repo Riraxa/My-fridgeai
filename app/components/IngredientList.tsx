@@ -6,14 +6,6 @@ import { useFridge } from "./FridgeProvider";
 import AddEditModal from "./AddEditModal";
 import { createPortal } from "react-dom";
 
-/**
- * IngredientList (theme-aware)
- * - テキストは CSS 変数 (--color-text-*) を参照してライト/ダーク両対応
- * - 編集モーダルは Portal で最前面に表示
- * - 編集/削除ボタンはテーマ別カラー（ダーク: 青/赤、ライト: 薄だいだい/赤寄り）に調整
- * - 見やすさ重視で余白・丸みを微調整（既存の UX を保持）
- */
-
 export default function IngredientList() {
   const { items, addOrUpdateItem, deleteItem } = useFridge();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -41,6 +33,16 @@ export default function IngredientList() {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  if (!mounted) {
+    return (
+      <div className="divide-y divide-gray-300 dark:divide-gray-700">
+        <div className="text-gray-400 p-4">
+          まだ食材がありません。追加してください。
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="divide-y divide-gray-300 dark:divide-gray-700">
       {!items || items.length === 0 ? (
@@ -64,7 +66,7 @@ export default function IngredientList() {
                   style={{ color: "var(--color-text-secondary)" }}
                 >
                   {it.expiry
-                    ? `期限: ${new Date(it.expiry).toLocaleDateString()}`
+                    ? `期限: ${new Date(it.expiry).toLocaleDateString("ja-JP")}`
                     : "期限なし"}
                 </div>
               </div>
