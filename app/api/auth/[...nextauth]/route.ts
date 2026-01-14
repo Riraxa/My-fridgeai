@@ -1,6 +1,10 @@
 // app/api/auth/[...nextauth]/route.ts
 export const runtime = "nodejs";
 
+if (!process.env.NEXTAUTH_URL) {
+  throw new Error("NEXTAUTH_URL is not defined in environment variables");
+}
+
 import NextAuth, { type NextAuthOptions, type User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 // EmailProvider intentionally removed to avoid duplicate emails with custom flow
@@ -9,17 +13,6 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
 import { cookies } from "next/headers";
-
-/**
- * Production-safe NextAuth configuration
- * - EmailProvider removed so NextAuth will NOT send magic-link emails.
- * - Keep Google OAuth and Credentials (email+password) untouched.
- * - Add secure cookie/session defaults suitable for production.
- *
- * Google OAuth 対応:
- * - loginType=login: 既存ユーザのみログイン許可
- * - loginType=signup: 未登録ユーザのみ新規作成許可
- */
 
 const isProd = process.env.NODE_ENV === "production";
 
