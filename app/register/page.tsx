@@ -175,7 +175,7 @@ function RegisterPageContent() {
     try {
       // Set cookie to indicate signup flow (not login)
       document.cookie =
-        "google_auth_type=signup; path=/; max-age=300; SameSite=Lax";
+        "google_auth_type=signup; path=/; max-age=300; SameSite=Lax; Secure";
       await signIn("google", { callbackUrl: "/home" });
     } catch (err) {
       console.error("[google signup] error:", err);

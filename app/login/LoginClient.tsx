@@ -313,7 +313,7 @@ export default function LoginClient() {
     try {
       // Set cookie to indicate login flow (not signup)
       document.cookie =
-        "google_auth_type=login; path=/; max-age=300; SameSite=Lax";
+        "google_auth_type=login; path=/; max-age=300; SameSite=Lax; Secure";
       await signIn("google", { callbackUrl: "/home" });
     } catch (err) {
       console.error("[google login] error:", err);
