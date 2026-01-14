@@ -1,6 +1,13 @@
 // app/api/auth/[...nextauth]/route.ts
 export const runtime = "nodejs";
 
+console.log("🔍 [route.ts load] NEXTAUTH_URL:", process.env.NEXTAUTH_URL);
+console.log("🔍 [route.ts load] NODE_ENV:", process.env.NODE_ENV);
+console.log(
+  "🔍 [route.ts load] GOOGLE_CLIENT_ID exists:",
+  !!process.env.GOOGLE_CLIENT_ID,
+);
+
 if (!process.env.NEXTAUTH_URL) {
   throw new Error("NEXTAUTH_URL is not defined in environment variables");
 }
