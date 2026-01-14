@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { validatePasswordStrength, sanitizeString } from "@/lib/security";
 
 const PASSWORD_POLICY = {
   minLen: 12,
@@ -32,11 +33,38 @@ export async function POST(req: Request) {
       );
     }
 
-    const email = String(rawEmail).toLowerCase().trim();
+    // メールのサニタイズと検証
+    const email = sanitizeString(String(rawEmail).toLowerCase().trim(), 254);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    const v = validatePassword(String(password));
-    if (v) return NextResponse.json({ ok: false, message: v }, { status: 400 });
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { ok: false, message: "有効なメールアドレスを入力してください" },
+        { status: 400 },
+      );
+    }
 
+    // 強化されたパスワード検証
+    const passwordValidation = validatePasswordStrength(String(password));
+    if (!passwordValidation.valid) {
+      return NextResponse.json(
+        { ok: false, message: passwordValidation.errors.join("、") },
+        { status: 400 },
+      );
+    }
+
+    // 従来のパスワードポリシー検証（互換性のため）
+    if (!PASSWORD_POLICY.regex.test(String(password))) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "パスワードには大文字・小文字・数字・記号を含めてください。",
+        },
+        { status: 400 },
+      );
+    }
+
+    // 既存ユーザーチェック
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return NextResponse.json(
@@ -45,12 +73,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // 名前のサニタイズ
+    const sanitizedName = name ? sanitizeString(String(name), 100) : null;
+
     const hashed = await bcrypt.hash(String(password), 12);
 
     const user = await prisma.user.create({
       data: {
         email,
-        name: name ? String(name) : undefined,
+        name: sanitizedName,
         password: hashed,
         status: "active",
       },

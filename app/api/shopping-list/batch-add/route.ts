@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     // レート制限
     const ip = req.headers.get("x-forwarded-for") || "unknown";
-    const rl = await rateLimit(`batch-add:${ip}`, 20, 60);
+    const rl = await rateLimit(ip, "batch-add", 20, 60);
     if (!rl.ok) {
       return NextResponse.json(
         { error: "リクエストが多すぎます" },

@@ -1,7 +1,7 @@
 // app/register/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { signIn } from "next-auth/react";
@@ -39,12 +39,20 @@ function getErrorMessage(
  *
  * Flow:
  * 1) User fills name/email/password
- * 2) POST /api/auth/set-password で user を作成（password をハッシュして保存する server 側処理想定）
+ * 2) POST /api/auth/set-password で user を作成（password をハッシュして保存する server 側処理定義）
  * 3) call signIn("email", { email, redirect:false, callbackUrl: "/passkey-setup" }) to send magic link
  * 4) show friendly message: "確認メールを送信しました"
  */
 
 export default function RegisterPageClient() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RegisterPageContent />
+    </Suspense>
+  );
+}
+
+function RegisterPageContent() {
   const router = useRouter();
   const search = useSearchParams();
   const errorParam = search?.get ? search.get("error") : null;
@@ -333,7 +341,7 @@ export default function RegisterPageClient() {
                   fill="currentColor"
                   aria-hidden
                 >
-                  <path d="M318.7 268.7c-.2-37.3 16.4-65.7 50-86.2-18.8-27.6-47.2-42.7-86.2-45.5-36.3-2.7-76.2 21.3-90.3 21.3-15 0-50-20.4-77.6-19.8-56.8.8-116.5 46.4-116.5 139.3 0 27.5 5 56.1 15 85.8 13.4 38.7 61.9 133.6 112.3 132 23.9-.5 40.8-16.9 76.3-16.9 34.6 0 50.3 16.9 77.6 16.3 50.8-1 94.7-85.3 107.9-124.2-68.4-32.3-68.5-95-68.5-101.8zM257.5 85.4C282 58.6 293.4 24.1 289 0c-26.6 1.1-57.9 18-76.6 39.2-16.8 19.3-31.6 46.9-27.6 74.4 29.1 2.2 58.9-14.8 72.7-28.2z" />
+                  <path d="M318.7 268.7c-.2-37.3 16.4-65.7 50-86.2-18.8-27.6-47.2-42.7-86.2-45.5-36.3-2.7-76.2 21.3-90.3 21.3-15 0-50-20.4-77.6-19.8-56.8.8-116.5 46.4-116.5 139.3 0 27.5 5 56.1 15 85.8 13.4 38.7 61.9 133.6 112.3 132 23.9-.5 40.8-16.9 76.3-16.9 34.6 0 50.3 16.9 77.6 16.9 50.8-1 94.7-85.3 107.9-124.2-68.4-32.3-68.5-95-68.5-101.8zM257.5 85.4C282 58.6 293.4 24.1 289 0c-26.6 1.1-57.9 18-76.6 39.2-16.8 19.3-31.6 46.9-27.6 74.4 29.1 2.2 58.9-14.8 72.7-28.2z" />
                 </svg>
                 Appleで新規登録
               </motion.button>

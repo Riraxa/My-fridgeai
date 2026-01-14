@@ -2,6 +2,8 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { validateJWTToken } from "@/lib/security";
+import { addSecurityHeaders } from "@/lib/securityHeaders";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -57,17 +59,32 @@ export async function middleware(req: NextRequest) {
     token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
+      secureCookie: process.env.NODE_ENV === "production",
     });
   } catch (err) {
     console.warn("[middleware] getToken error:", err);
+    const response = NextResponse.redirect(new URL("/login", req.url));
+    return addSecurityHeaders(response);
+  }
+
+  // 追加のJWT検証
+  if (token) {
+    const tokenValidation = validateJWTToken(token);
+    if (!tokenValidation.valid) {
+      console.warn("[middleware] Invalid token:", tokenValidation.error);
+      const response = NextResponse.redirect(new URL("/login", req.url));
+      return addSecurityHeaders(response);
+    }
   }
 
   if (!token) {
     const loginUrl = new URL("/login", req.url);
-    return NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl);
+    return addSecurityHeaders(response);
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  return addSecurityHeaders(response);
 }
 
 /* =========================

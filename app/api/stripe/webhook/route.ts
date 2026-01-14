@@ -1,6 +1,7 @@
 // app/api/stripe/webhook/route.ts
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
+import { generateSecureRandomString } from "@/lib/security";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY ?? "";
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -34,44 +35,90 @@ function logUserUpdate(userId: string, updates: any) {
 }
 
 export async function POST(req: Request) {
+  const requestId = generateSecureRandomString(16);
+  const startTime = Date.now();
+
   // 署名検証のため raw body を取得
   const sig = req.headers.get("stripe-signature") ?? "";
+
+  // 基本的なヘッダー検証
+  if (!sig || sig.length < 100) {
+    console.error(`[${requestId}] ❌ Invalid signature header`);
+    return new Response(JSON.stringify({ error: "Invalid signature" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   let payloadBuffer: Buffer;
   try {
     const ab = await req.arrayBuffer();
     payloadBuffer = Buffer.from(ab);
+
+    // ペイロードサイズの検証
+    if (payloadBuffer.length > 1024 * 1024) {
+      // 1MB制限
+      console.error(
+        `[${requestId}] ❌ Payload too large: ${payloadBuffer.length} bytes`,
+      );
+      return new Response(JSON.stringify({ error: "Payload too large" }), {
+        status: 413,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   } catch (err: any) {
-    console.error("Failed to read request body:", err);
+    console.error(`[${requestId}] Failed to read request body:`, err);
     return new Response(JSON.stringify({ error: "Invalid payload" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
   }
 
+  // 環境変数の検証
+  if (!webhookSecret) {
+    console.error(`[${requestId}] ❌ Webhook secret not configured`);
+    return new Response(
+      JSON.stringify({ error: "Webhook secret not configured" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
   // 署名検証
   let stripeEvent: Stripe.Event;
   try {
-    if (!webhookSecret) {
-      console.error("Webhook secret not configured");
-      return new Response(
-        JSON.stringify({ error: "Webhook secret not configured" }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-
     stripeEvent = stripe.webhooks.constructEvent(
       payloadBuffer,
       sig,
       webhookSecret,
     );
   } catch (err: any) {
-    console.error("❌ Webhook署名が無効です:", err?.message ?? err);
+    console.error(
+      `[${requestId}] ❌ Webhook署名が無効です:`,
+      err?.message ?? err,
+    );
     return new Response(JSON.stringify({ error: "Webhook署名が無効です" }), {
       status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // イベントタイプの検証
+  const allowedEventTypes = [
+    "checkout.session.completed",
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "customer.subscription.deleted",
+  ];
+
+  if (!allowedEventTypes.includes(stripeEvent.type)) {
+    console.log(
+      `[${requestId}] ⚠️ Unsupported event type: ${stripeEvent.type}`,
+    );
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
       headers: { "Content-Type": "application/json" },
     });
   }

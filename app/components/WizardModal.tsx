@@ -297,9 +297,9 @@ export default function WizardModal({
                 return (
                   <div
                     key={name}
-                    role="listitem"
+                    role="option"
                     tabIndex={0}
-                    aria-pressed={sel}
+                    aria-selected={sel}
                     onKeyDown={handleKeyToggle(name)}
                     onClick={() => toggleItem(name)}
                     className="ingredient-row rounded-lg border p-3 cursor-pointer focus:outline-none"

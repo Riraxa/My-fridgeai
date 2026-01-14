@@ -5,7 +5,7 @@ import type { Passkey } from "@prisma/client";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { getWebAuthnRP } from "@/lib/webauthnRP";
 import { headers } from "next/headers";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rateLimiter";
 
 /**
  * register-options route (Windows Hello / platform authenticator support)
@@ -46,12 +46,8 @@ export async function POST(req: Request) {
     const ip = headersList.get("x-forwarded-for") ?? "unknown";
 
     // Rate Limit: 1 IP / 5 min / 5 requests
-    if (
-      !checkRateLimit(ip, "register-options", {
-        interval: 5 * 60 * 1000,
-        limit: 5,
-      })
-    ) {
+    const rateLimitResult = await rateLimit(ip, "register-options", 5, 5 * 60);
+    if (!rateLimitResult.ok) {
       return NextResponse.json(
         {
           ok: false,

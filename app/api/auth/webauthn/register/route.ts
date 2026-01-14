@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { getWebAuthnRP } from "@/lib/webauthnRP";
 import { headers } from "next/headers";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rateLimiter";
 
 /**
  * POST /api/auth/webauthn/register
@@ -19,9 +19,8 @@ export async function POST(req: Request) {
     const ip = headersList.get("x-forwarded-for") ?? "unknown";
 
     // Rate Limit: 1 IP / 5 min / 3 requests
-    if (
-      !checkRateLimit(ip, "register", { interval: 5 * 60 * 1000, limit: 3 })
-    ) {
+    const rateLimitResult = await rateLimit(ip, "register", 3, 5 * 60);
+    if (!rateLimitResult.ok) {
       return NextResponse.json(
         {
           ok: false,

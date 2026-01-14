@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-forwarded-for") ||
       req.headers.get("host") ||
       "unknown";
-    const rl = await rateLimit(`wizard:${ip}`, 60, 60);
+    const rl = await rateLimit(ip, "wizard", 60, 60);
     if (!rl.ok) {
       return NextResponse.json(
         { error: "リクエストが多すぎます。しばらくしてからお試しください。" },
