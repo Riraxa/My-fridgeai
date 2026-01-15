@@ -7,7 +7,6 @@ if (!process.env.NEXTAUTH_URL) {
 
 import NextAuth, { type NextAuthOptions, type User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-// EmailProvider intentionally removed to avoid duplicate emails with custom flow
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
@@ -20,7 +19,6 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
 
   providers: [
-    // Google OAuth
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
@@ -31,11 +29,9 @@ export const authOptions: NextAuthOptions = {
           response_type: "code",
         },
       },
-      // Prevent automatic account linking
       allowDangerousEmailAccountLinking: false,
     }),
 
-    // Credentials (email + password) — keep behavior identical to before
     CredentialsProvider({
       id: "credentials",
       name: "Email & Password",
@@ -94,10 +90,9 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
 
-  // Session: JWT strategy with production-friendly cookie settings
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
 
   cookies: {
@@ -120,13 +115,11 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Credentials provider - standard handling
       if (account?.provider === "credentials") {
         if (!user?.id) return false;
         return true;
       }
 
-      // Google OAuth handling
       if (account?.provider === "google") {
         const email = (profile as any)?.email?.toLowerCase()?.trim();
 
@@ -135,8 +128,7 @@ export const authOptions: NextAuthOptions = {
           return "/login?error=no_email_from_provider";
         }
 
-        // Get loginType from cookie (set by client before OAuth redirect)
-        let loginType = "login"; // default to login for safety
+        let loginType = "login";
         try {
           const cookieStore = await cookies();
           loginType = cookieStore.get("google_auth_type")?.value ?? "login";
@@ -146,7 +138,6 @@ export const authOptions: NextAuthOptions = {
 
         console.log(`[Google OAuth] loginType=${loginType}, email=${email}`);
 
-        // Check if user exists in DB
         const existingUser = await prisma.user.findUnique({
           where: { email },
           select: {
@@ -156,7 +147,6 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
-        // Check for existing Account link
         const existingAccount = await prisma.account.findFirst({
           where: {
             provider: "google",
@@ -165,10 +155,8 @@ export const authOptions: NextAuthOptions = {
           include: { user: true },
         });
 
-        // ========== LOGIN FLOW ==========
         if (loginType === "login") {
           if (existingAccount) {
-            // User has previously logged in with Google
             const linkedUser = existingAccount.user;
             if (linkedUser.status !== "active") {
               console.log("[Google login] ユーザーがアクティブではありません");
@@ -179,8 +167,6 @@ export const authOptions: NextAuthOptions = {
           }
 
           if (existingUser) {
-            // User exists but no Google account linked
-            // Link the account and allow login
             if (existingUser.status !== "active") {
               console.log("[Google login] ユーザーがアクティブではありません");
               return "/login?error=account_inactive";
@@ -190,7 +176,6 @@ export const authOptions: NextAuthOptions = {
               return "/login?error=email_not_verified";
             }
 
-            // Link Google account to existing user
             await prisma.account.create({
               data: {
                 userId: existingUser.id,
@@ -213,20 +198,16 @@ export const authOptions: NextAuthOptions = {
             return true;
           }
 
-          // No existing user - reject login for unregistered account
           console.log("[Google login] 未登録ユーザーでログイン拒否");
           return "/login?error=not_registered";
         }
 
-        // ========== SIGNUP FLOW ==========
         if (loginType === "signup") {
           if (existingAccount || existingUser) {
-            // User or account already exists - reject signup
             console.log("[Google signup] 既に登録済みユーザーで新規登録拒否");
             return "/register?error=registered_email";
           }
 
-          // Create new user
           try {
             const newUser = await prisma.user.create({
               data: {
@@ -243,7 +224,6 @@ export const authOptions: NextAuthOptions = {
               `[Google signup] 新規ユーザー作成成功: userId=${newUser.id}`,
             );
 
-            // Create the account link
             await prisma.account.create({
               data: {
                 userId: newUser.id,
@@ -274,93 +254,78 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
-        // Unknown loginType - default to login behavior (reject unregistered)
         console.log(`[Google OAuth] 不明なloginType: ${loginType}`);
         return "/login?error=not_registered";
       }
 
-      // Other providers - default deny
       return false;
     },
 
-    /**
-     * JWT callback - 修正版
-     * デバッグログを追加して、セッション生成を確認
-     */
     async jwt({ token, user, trigger, session }) {
-      console.log("🔍🔍🔍 JWT CALLBACK CALLED 🔍🔍🔍");
-      console.log("trigger:", trigger);
-      console.log("user:", user);
-      console.log("token.sub:", (token as any).sub);
-      console.log("token.userId:", (token as any).userId);
-
       try {
-        // Determine userId from incoming user (login) or existing token
         const incomingUserId =
           (user as any)?.id ??
           (token as any)?.userId ??
           (token as any)?.sub ??
           null;
 
-        console.log("🔍 incomingUserId resolved to:", incomingUserId);
-
         if (incomingUserId) {
           const userId = String(incomingUserId);
-          console.log("🔍 Querying DB for userId:", userId);
-
-          // Always attempt to fetch latest isPro from DB for this userId
           const dbUser = await prisma.user.findUnique({
             where: { id: userId },
             select: { isPro: true, email: true },
           });
 
-          console.log("✅ DB user found:", dbUser);
-
-          // ensure token fields are set/updated from DB
           (token as any).userId = userId;
           (token as any).email =
             dbUser?.email ?? (user as any)?.email ?? (token as any).email;
           (token as any).isPro = Boolean(dbUser?.isPro);
-
-          console.log("✅ Token updated:", {
-            userId: (token as any).userId,
-            email: (token as any).email,
-            isPro: (token as any).isPro,
-          });
-        } else {
-          console.log("❌ No incomingUserId found!");
         }
       } catch (e) {
-        console.error("❌ JWT callback error:", e);
+        console.error("jwt callback: DB isPro fetch error:", e);
         (token as any).isPro = (token as any).isPro ?? false;
       }
 
-      console.log("🔍 Returning token:", token);
       return token;
     },
 
     async session({ session, token }) {
-      console.log("🔍 SESSION CALLBACK CALLED");
-      console.log("token.userId:", (token as any).userId);
-      console.log("token.email:", (token as any).email);
-
       if (session.user) {
         (session.user as any).id = (token as any).userId;
         (session.user as any).email = (token as any).email;
         (session.user as any).isPro = (token as any).isPro || false;
-
-        console.log("✅ Session updated with user:", (session.user as any).id);
       }
-
       return session;
     },
 
     async redirect({ url, baseUrl }) {
-      console.log("🔍 REDIRECT CALLBACK:", { url, baseUrl });
-      // Handle custom error redirects
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      if (url.startsWith(baseUrl)) return url;
-      return `${baseUrl}/home`;
+      console.log("🔍🔍🔍 [redirect callback] START 🔍🔍🔍");
+      console.log("url:", url);
+      console.log("baseUrl:", baseUrl);
+
+      // url に `/home` が含まれているか確認
+      if (url.includes("/home")) {
+        console.log("✅ [redirect] URL contains /home, returning:", url);
+        return url;
+      }
+
+      // `/` で始まるなら baseUrl と結合
+      if (url.startsWith("/")) {
+        const result = `${baseUrl}${url}`;
+        console.log("✅ [redirect] URL starts with /, returning:", result);
+        return result;
+      }
+
+      // baseUrl で始まるなら そのまま
+      if (url.startsWith(baseUrl)) {
+        console.log("✅ [redirect] URL starts with baseUrl, returning:", url);
+        return url;
+      }
+
+      // それ以外は /home へ
+      const defaultResult = `${baseUrl}/home`;
+      console.log("✅ [redirect] Default case, returning:", defaultResult);
+      return defaultResult;
     },
   },
 
