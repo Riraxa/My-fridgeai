@@ -8,27 +8,29 @@ import { addSecurityHeaders } from "@/lib/securityHeaders";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  console.log("🔍 [middleware] Processing path:", pathname);
+
   /* =========================
      1. 完全に除外するパス
   ========================= */
 
-  // NextAuth（最重要）
   if (pathname.startsWith("/api/auth")) {
+    console.log("✅ [middleware] /api/auth - allowed");
     return NextResponse.next();
   }
 
-  // Next.js 内部・静的アセット
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname === "/favicon.ico" ||
     pathname.match(/\.(png|jpg|jpeg|svg|ico|css|js)$/)
   ) {
+    console.log("✅ [middleware] Static asset - allowed");
     return NextResponse.next();
   }
 
-  // API（認証不要なものは各 API 側で制御）
   if (pathname.startsWith("/api")) {
+    console.log("✅ [middleware] /api - allowed");
     return NextResponse.next();
   }
 
@@ -47,6 +49,7 @@ export async function middleware(req: NextRequest) {
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
   if (isPublic) {
+    console.log("✅ [middleware] Public path - allowed");
     return NextResponse.next();
   }
 
@@ -56,20 +59,24 @@ export async function middleware(req: NextRequest) {
 
   let token = null;
   try {
+    console.log("🔍 [middleware] Attempting getToken...");
     token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
       secureCookie: process.env.NODE_ENV === "production",
     });
+    console.log("🔍 [middleware] getToken result:", !!token);
   } catch (err) {
-    console.warn("[middleware] getToken error:", err);
+    console.error("❌ [middleware] getToken error:", err);
     const response = NextResponse.redirect(new URL("/login", req.url));
     return addSecurityHeaders(response);
   }
 
   // 追加のJWT検証
   if (token) {
+    console.log("🔍 [middleware] Validating token...");
     const tokenValidation = validateJWTToken(token);
+    console.log("🔍 [middleware] Token validation:", tokenValidation.valid);
     if (!tokenValidation.valid) {
       console.warn("[middleware] Invalid token:", tokenValidation.error);
       const response = NextResponse.redirect(new URL("/login", req.url));
@@ -78,25 +85,17 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!token) {
+    console.log("❌ [middleware] No token found - redirecting to login");
     const loginUrl = new URL("/login", req.url);
     const response = NextResponse.redirect(loginUrl);
     return addSecurityHeaders(response);
   }
 
+  console.log("✅ [middleware] Token valid - allowing access");
   const response = NextResponse.next();
   return addSecurityHeaders(response);
 }
 
-/* =========================
-   4. matcher（最重要）
-========================= */
-
 export const config = {
-  matcher: [
-    /*
-      - ページだけを対象にする
-      - api / _next / static は除外
-    */
-    "/((?!api|_next|static|favicon.ico).*)",
-  ],
+  matcher: ["/((?!api|_next|static|favicon.ico).*)"],
 };
