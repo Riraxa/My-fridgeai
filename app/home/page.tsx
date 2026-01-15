@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Plus } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useFridge } from "@/app/components/FridgeProvider";
 import NavBar from "@/app/components/NavBar";
 import IngredientList from "@/app/components/IngredientList";
@@ -17,6 +19,10 @@ import {
 } from "@/app/components/motion";
 
 export default function HomePage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const [mounted, setMounted] = useState(false);
+
   const {
     toast,
     setToast,
@@ -27,6 +33,33 @@ export default function HomePage() {
   } = useFridge();
 
   const [isAddOpen, setAddOpen] = useState(false);
+
+  // マウント時に認証チェック
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // 認証ステータスをチェック
+  useEffect(() => {
+    if (mounted && status === "unauthenticated") {
+      console.log("🔍 Not authenticated, redirecting to login");
+      router.push("/login");
+    }
+  }, [status, mounted, router]);
+
+  // 読み込み中は何も表示しない
+  if (!mounted || status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        読み込み中…
+      </div>
+    );
+  }
+
+  // 認証されていない場合は何も表示しない
+  if (!session) {
+    return null;
+  }
 
   // グローバルイベントで Add モーダルを開く
   useEffect(() => {
