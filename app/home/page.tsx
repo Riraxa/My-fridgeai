@@ -19,14 +19,9 @@ import {
 } from "@/app/components/motion";
 
 export default function HomePage() {
-  // === ALL HOOKS MUST BE AT THE TOP ===
+  // === ALL HOOKS AT TOP ===
   const router = useRouter();
   const { data: session, status } = useSession();
-  useEffect(() => {
-    console.log("🔍 HomePage useSession result:");
-    console.log("status:", status);
-    console.log("session:", session);
-  }, [session, status]);
   const [mounted, setMounted] = useState(false);
   const [isAddOpen, setAddOpen] = useState(false);
 
@@ -39,15 +34,16 @@ export default function HomePage() {
     recognizedLabels,
   } = useFridge();
 
+  // === ALL useEffect AFTER HOOKS ===
+
   // マウント
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // 認証チェック - Hooks の後に配置
+  // 認証チェック
   useEffect(() => {
     if (mounted && status === "unauthenticated") {
-      console.log("🔍 Not authenticated, redirecting to login");
       router.push("/login");
     }
   }, [status, mounted, router]);
@@ -87,7 +83,7 @@ export default function HomePage() {
     setToast?.(`${label} を追加しました`);
   };
 
-  // 読み込み中は何も表示しない
+  // 読み込み中
   if (!mounted || status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -96,7 +92,7 @@ export default function HomePage() {
     );
   }
 
-  // 認証されていない場合は何も表示しない
+  // 認証されていない場合
   if (!session) {
     return null;
   }
