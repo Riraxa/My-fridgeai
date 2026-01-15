@@ -59,13 +59,24 @@ export async function middleware(req: NextRequest) {
 
   let token = null;
   try {
+    console.log(
+      "🔍 [middleware] NEXTAUTH_SECRET exists:",
+      !!process.env.NEXTAUTH_SECRET,
+    );
+    console.log("🔍 [middleware] NODE_ENV:", process.env.NODE_ENV);
     console.log("🔍 [middleware] Attempting getToken...");
+
     token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
       secureCookie: process.env.NODE_ENV === "production",
     });
+
     console.log("🔍 [middleware] getToken result:", !!token);
+    if (token) {
+      console.log("🔍 [middleware] token.sub:", (token as any).sub);
+      console.log("🔍 [middleware] token.userId:", (token as any).userId);
+    }
   } catch (err) {
     console.error("❌ [middleware] getToken error:", err);
     const response = NextResponse.redirect(new URL("/login", req.url));
@@ -76,7 +87,10 @@ export async function middleware(req: NextRequest) {
   if (token) {
     console.log("🔍 [middleware] Validating token...");
     const tokenValidation = validateJWTToken(token);
-    console.log("🔍 [middleware] Token validation:", tokenValidation.valid);
+    console.log(
+      "🔍 [middleware] Token validation result:",
+      tokenValidation.valid,
+    );
     if (!tokenValidation.valid) {
       console.warn("[middleware] Invalid token:", tokenValidation.error);
       const response = NextResponse.redirect(new URL("/login", req.url));
@@ -91,7 +105,7 @@ export async function middleware(req: NextRequest) {
     return addSecurityHeaders(response);
   }
 
-  console.log("✅ [middleware] Token valid - allowing access");
+  console.log("✅ [middleware] Token valid - allowing access to", pathname);
   const response = NextResponse.next();
   return addSecurityHeaders(response);
 }
