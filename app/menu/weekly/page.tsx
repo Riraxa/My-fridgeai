@@ -1,8 +1,7 @@
+//app/menu/weekly/page.tsx
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 
 interface Dish {
   name: string;

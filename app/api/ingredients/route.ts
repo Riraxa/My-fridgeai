@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
         amount: quantity, // Sync to new field
         amountLevel: "普通", // Default for now
         unit: unit || "個",
-        expiry: expiryDate, // Keep for backward compatibility
+        // expiry removed
         expirationDate: expiryDate, // Sync to new field
         category: category || "その他",
       },

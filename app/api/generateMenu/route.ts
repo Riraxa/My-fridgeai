@@ -142,17 +142,17 @@ export async function POST(request: NextRequest) {
           where: {
             userId: userId!,
             name: { in: items },
-            expiry: { not: null },
+            expirationDate: { not: null },
           },
-          select: { name: true, expiry: true },
+          select: { name: true, expirationDate: true },
         });
 
         // 期限付きの文字列に変換（安全な形式）
         // 例: "鶏肉(期限: 2025/12/31), 玉ねぎ"
         const formattedItems = items.map((itemName: string) => {
           const match = dbIngredients.find((db) => db.name === itemName);
-          if (match && match.expiry) {
-            const dateStr = match.expiry.toISOString().split("T")[0];
+          if (match && match.expirationDate) {
+            const dateStr = match.expirationDate.toISOString().split("T")[0];
             return `${itemName}(期限: ${dateStr})`;
           }
           return itemName;

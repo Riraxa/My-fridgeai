@@ -275,3 +275,114 @@ ${warningList}
     throw new Error("献立の生成に失敗しました。もう一度お試しください。");
   }
 }
+
+/**
+ * Generate a 7-day weekly meal plan in a SINGLE AI call
+ */
+export async function generateWeeklyPlanAI(
+  ingredients: Ingredient[],
+  preferences: UserPreferences | null,
+  expiringSoon: Ingredient[],
+): Promise<any[]> {
+  // Returning an array of "Main" menus for 7 days
+
+  // Extract preferences
+  const criticalThreshold = (preferences as any)?.expirationCriticalDays ?? 2;
+  const warningThreshold = (preferences as any)?.expirationWarningDays ?? 5;
+  const priorityWeight = (preferences as any)?.expirationPriorityWeight ?? 0.7;
+
+  // Build Ingredient Lists (Same logic as above, reused)
+  const ingredientList = ingredients
+    .map((i) => {
+      let quantity = "";
+      if (i.amount) quantity = ` (${i.amount}${i.unit || ""})`;
+      else if (i.amountLevel) quantity = ` (${i.amountLevel})`;
+
+      let expiry = "";
+      if (i.expirationDate) {
+        const days = differenceInDays(i.expirationDate, new Date());
+        expiry = ` [期限まで${days}日]`;
+      }
+      return `- ${i.name}${quantity}${expiry}`;
+    })
+    .join("\n");
+
+  const systemPrompt = `あなたはプロの献立プランナーです。
+冷蔵庫の食材を効率よく使い切るための「1週間分の夕食献立」を提案してください。
+
+# 手持ち食材
+${ingredientList}
+
+# ユーザー情報
+- 料理スキル: ${preferences?.cookingSkill || "intermediate"}
+- 期限切れ間近の食材優先度: ${Math.round(priorityWeight * 100)}%
+
+# 目標
+1. 7日分の献立（主菜・副菜・汁物）を一括で作成する。
+2. 賞味期限の近い食材から順に使う計画を立てる。
+3. 同じ食材を使い回して、無駄が出ないようにする。
+4. 足りない食材は「買い足し」として認識するが、なるべく今あるものを使う。
+
+# 出力形式 (JSON Array of 7 days)
+[
+  {
+    "title": "1日目: 鶏肉の使い切り定食",
+    "reason": "期限が近い鶏肉をメインに使用。",
+    "tags": ["鶏肉", "和食"],
+    "dishes": [
+      { "type": "主菜", "name": "...", "ingredients": [{"name":"...", "amount":...}], "steps": ["..."], "tips": "..." },
+      { "type": "副菜", "name": "...", ... },
+      { "type": "汁物", "name": "...", ... }
+    ]
+  },
+  ... (7日分)
+]
+
+**重要**: 必ず7日分の配列を含むJSONのみを出力してください。`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Use mini for speed/cost, context window handles 7 days
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: "在庫を考慮した最適なおまかせ1週間献立を作ってください。",
+        },
+      ],
+      response_format: { type: "json_object" }, // We need to wrap array in object? Or generic json.
+      // gpt-4o-mini json_object mode requires "JSON" in prompt.
+      // And usually enforces object root. Let's ask for object with "days" key.
+      // Update prompt below slightly.
+    });
+
+    // Actually let's adjust prompt to return object { "week": [...] } to be safe with strict JSON mode
+    // But let's try direct map first or handle parsing.
+
+    const content = completion.choices[0].message.content;
+    if (!content) throw new Error("No content generated");
+
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (e) {
+      // retry logic or fallback
+      throw new Error("Failed to parse AI response");
+    }
+
+    // Handle if root is object or array
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed.days && Array.isArray(parsed.days)) return parsed.days;
+    if (parsed.week && Array.isArray(parsed.week)) return parsed.week;
+
+    // Fallback check: maybe it put it in "menus"
+    const values = Object.values(parsed);
+    const arrayVal = values.find((v) => Array.isArray(v) && v.length >= 7);
+    if (arrayVal) return arrayVal as any[];
+
+    throw new Error("AI response format invalid (not 7 days)");
+  } catch (e) {
+    console.error("Weekly AI Error", e);
+    throw new Error("週間献立の生成に失敗しました");
+  }
+}

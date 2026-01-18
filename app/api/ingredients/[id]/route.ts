@@ -23,7 +23,7 @@ export async function PUT(
       name: body.name,
       quantity: Number(body.quantity || 0),
       unit: body.unit || "個",
-      expiry: body.expiry ? new Date(body.expiry) : null,
+      expirationDate: body.expiry ? new Date(body.expiry) : null,
       category: body.category || "その他",
     },
   });

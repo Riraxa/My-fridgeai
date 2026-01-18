@@ -29,7 +29,7 @@ export interface UsedIngredient {
 /**
  * Normalize amount to a base unit for comparison
  */
-function normalizeAmount(amount: number, unit: string): number {
+export function normalizeAmount(amount: number, unit: string): number {
   if (!unit) return amount;
 
   const normalizedUnit = unit.toLowerCase();
