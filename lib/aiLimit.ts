@@ -1,78 +1,93 @@
-import { prisma } from "@/lib/prisma";
+// lib/aiLimit.ts
+import { prisma } from "./prisma";
+
+export const AI_LIMIT_FREE = 1;
+export const BARCODE_LIMIT_FREE = 5;
+export const INGREDIENT_LIMIT_FREE = 100;
+
+export type LimitType = "AI_MENU" | "BARCODE_SCAN" | "INGREDIENT_COUNT";
 
 /**
- * AI利用制限をチェックし、利用可能ならカウントを更新する
- * @param userId ユーザーID
- * @returns 利用可否と残り回数
+ * ユーザーの各機能利用制限をチェックし、必要に応じてカウントを更新・リセットする
  */
-export async function canUseAI(userId: string): Promise<{
-  allowed: boolean;
-  remaining: number;
-  error?: string;
-}> {
+export async function checkUserLimit(
+  userId: string,
+  type: LimitType,
+): Promise<{ ok: boolean; remaining: number; resetAt?: Date }> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      isPro: true,
+      id: true,
+      plan: true,
       aiDailyCount: true,
-      aiLastUsedAt: true,
+      dailyBarcodeCount: true,
+      dailyResetAt: true,
     },
   });
 
-  if (!user) {
-    return {
-      allowed: false,
-      remaining: 0,
-      error: "ユーザー情報が取得できません。",
-    };
+  if (!user) return { ok: false, remaining: 0 };
+
+  // Proプランは常に制限なし（食材登録数、バーコード、AI）
+  // 設計書: Proは AI無制限、食材無制限。
+  if (user.plan === "PRO") {
+    return { ok: true, remaining: 999 };
   }
 
+  // --- オンデマンドリセット (FREEプラン用) ---
   const now = new Date();
-  const lastUsed = user.aiLastUsedAt ? new Date(user.aiLastUsedAt) : null;
-  const isTargetDay = lastUsed && isSameDay(now, lastUsed);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // ローカル日付の開始（簡易版）
 
-  // 日付が変わっていればカウントリセット扱い（0）とする
-  const currentCount = isTargetDay ? user.aiDailyCount : 0;
+  let currentAiCount = user.aiDailyCount;
+  let currentBarcodeCount = user.dailyBarcodeCount;
 
-  // Proユーザーは制限なし
-  if (user.isPro) {
-    // 常に許可。カウントは更新しておく
-    await updateUsage(userId, currentCount + 1, now);
-    return { allowed: true, remaining: 9999 }; // 十分大きな数
+  if (!user.dailyResetAt || user.dailyResetAt < todayStart) {
+    // リセットが必要
+    currentAiCount = 0;
+    currentBarcodeCount = 0;
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        aiDailyCount: 0,
+        dailyBarcodeCount: 0,
+        dailyResetAt: now, // 本日のリセット完了
+      },
+    });
   }
 
-  // 無料ユーザーの上限
-  const MAX_DAILY = 2;
+  // --- 制限判定 ---
+  if (type === "AI_MENU") {
+    if (currentAiCount >= AI_LIMIT_FREE) {
+      return { ok: false, remaining: 0, resetAt: todayStart };
+    }
+    // カウントをインクリメント
+    await prisma.user.update({
+      where: { id: userId },
+      data: { aiDailyCount: { increment: 1 } },
+    });
+    return { ok: true, remaining: AI_LIMIT_FREE - (currentAiCount + 1) };
+  }
 
-  if (currentCount >= MAX_DAILY) {
+  if (type === "BARCODE_SCAN") {
+    if (currentBarcodeCount >= BARCODE_LIMIT_FREE) {
+      return { ok: false, remaining: 0, resetAt: todayStart };
+    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { dailyBarcodeCount: { increment: 1 } },
+    });
     return {
-      allowed: false,
-      remaining: 0,
-      error:
-        "1日のAI献立作成回数（2回）に達しました。Proプランへのアップグレードをご検討ください。",
+      ok: true,
+      remaining: BARCODE_LIMIT_FREE - (currentBarcodeCount + 1),
     };
   }
 
-  // 利用可能 -> カウントアップして保存
-  await updateUsage(userId, currentCount + 1, now);
+  if (type === "INGREDIENT_COUNT") {
+    const count = await prisma.ingredient.count({ where: { userId } });
+    if (count >= INGREDIENT_LIMIT_FREE) {
+      return { ok: false, remaining: 0 };
+    }
+    return { ok: true, remaining: INGREDIENT_LIMIT_FREE - count };
+  }
 
-  return { allowed: true, remaining: MAX_DAILY - (currentCount + 1) };
-}
-
-async function updateUsage(userId: string, count: number, date: Date) {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      aiDailyCount: count,
-      aiLastUsedAt: date,
-    },
-  });
-}
-
-function isSameDay(d1: Date, d2: Date) {
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
+  return { ok: false, remaining: 0 };
 }

@@ -99,19 +99,19 @@ export default function HomePage() {
 
   return (
     <motion.div
-      className="mx-auto min-h-screen w-full pb-32 transition-colors duration-300"
+      className="container mx-auto min-h-screen pb-32 transition-colors duration-300"
       initial="hidden"
       animate="show"
       variants={fadeInUp}
     >
       {/* ヘッダー */}
       <motion.header
-        className="sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 backdrop-blur card"
+        className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--surface-border)] backdrop-blur-lg bg-[var(--background)]/70 px-4 py-3"
         variants={fadeInUp}
         transition={springTransition}
       >
         <div />
-        <div className="text-lg font-bold">My Fridge</div>
+        <div className="text-lg font-semibold">My Fridge</div>
         <motion.button
           onClick={() =>
             window.dispatchEvent(new CustomEvent("fridge_open_add"))

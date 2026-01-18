@@ -77,6 +77,20 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = tokenValidation.userId!;
+
+    // 設計書: Freeは100件まで。制限チェック。
+    const { checkUserLimit } = await import("@/lib/aiLimit");
+    const limitCheck = await checkUserLimit(userId, "INGREDIENT_COUNT");
+    if (!limitCheck.ok) {
+      return NextResponse.json(
+        {
+          error:
+            "食材登録上限に達しました（Freeプラン: 100件）。Proにアップグレードすると無制限になります。",
+        },
+        { status: 403 },
+      );
+    }
+
     const body = await req.json();
 
     // 入力検証とサニタイズ

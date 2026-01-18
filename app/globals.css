@@ -661,3 +661,87 @@ input[type="date"] {
     display: none;
   }
 }
+
+/* ===============================
+   ページ遷移アニメーション（酔いにくい仕様）
+   =============================== */
+
+.page-transition-enter {
+  opacity: 0;
+  transform: translateX(4px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.page-transition-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 0.15s ease-in,
+    transform 0.15s ease-in;
+}
+
+/* 設定ページ用の微スライドアニメーション */
+.settings-page-enter {
+  opacity: 0;
+  transform: translateX(3px);
+}
+
+.settings-page-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 0.12s ease-out,
+    transform 0.12s ease-out;
+}
+
+.settings-page-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.settings-page-exit-active {
+  opacity: 0;
+  transform: translateX(-3px);
+  transition:
+    opacity 0.12s ease-in,
+    transform 0.12s ease-in;
+}
+
+/* モーダル用の微スライドアニメーション */
+.modal-enter {
+  opacity: 0;
+  transform: translateX(2px) scale(0.98);
+}
+
+.modal-enter-active {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.modal-exit {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.modal-exit-active {
+  opacity: 0;
+  transform: translateX(-2px) scale(0.98);
+  transition:
+    opacity 0.15s ease-in,
+    transform 0.15s ease-in;
+}

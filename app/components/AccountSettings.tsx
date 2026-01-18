@@ -5,13 +5,28 @@ import { useSession, signOut, signIn } from "next-auth/react";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { Button } from "@/app/components/ui/button";
 import PasskeyManager from "./PasskeyManager";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ProModal from "@/app/components/ProModal";
 
 export default function AccountSettings() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const { theme, setTheme } = useTheme();
   const [showProModal, setShowProModal] = useState(false);
+  const didSyncSession = useRef(false);
+
+  useEffect(() => {
+    if (status === "authenticated" && !didSyncSession.current) {
+      didSyncSession.current = true;
+      void (async () => {
+        try {
+          await fetch("/api/billing/sync", { method: "POST" });
+        } catch {
+          // ignore sync errors here
+        }
+        await update();
+      })();
+    }
+  }, [status, update]);
 
   const handleDeleteAccount = async () => {
     if (
@@ -50,31 +65,140 @@ export default function AccountSettings() {
     }
   };
 
+  const [isPortalLoading, setIsPortalLoading] = useState(false);
+
+  const handleCancelSubscription = async () => {
+    const message = `本当に解約しますか？
+
+【ご確認事項】
+・解約後も現在の請求期間が終了するまでは Pro 機能をご利用いただけます。
+・請求期間終了後、自動更新は行われません。
+・返金は行われませんのでご了承ください。`;
+
+    if (!confirm(message)) return;
+
+    setIsPortalLoading(true);
+    try {
+      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Portalの起動に失敗しました");
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      alert(`エラー: ${err.message}`);
+    } finally {
+      setIsPortalLoading(false);
+    }
+  };
+
   // ローディング時は簡易表示（必要ならスケルトンに差し替えてください）
   if (status === "loading") return <div>読み込み中...</div>;
   if (!session?.user) return <div>ログインしてください</div>;
 
   // 型安全に boolean 化
-  const isPro = Boolean((session.user as any)?.isPro);
+  const isPro = (session.user as any)?.plan === "PRO";
 
   return (
     // 画面中央に寄せるために mx-auto と左右パディングを追加
-    <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4">
+    <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4 settings-page-enter-active">
       {/* Pro Plan Section */}
       <section>
         {isPro ? (
-          <div className="p-4 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 border border-orange-200 dark:border-orange-800 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <div className="font-bold text-lg text-orange-600 dark:text-orange-400">
-                Pro サポーター 🌟
+          <div className="space-y-4">
+            <div className="card border-2 border-orange-400/30 bg-gradient-to-br from-orange-50/80 to-amber-50/80 dark:from-orange-900/20 dark:to-amber-900/20">
+              <div className="flex items-center justify-between mb-3">
+                <div
+                  className="font-bold text-lg"
+                  style={{ color: "var(--accent)" }}
+                >
+                  Pro サポーター 🌟
+                </div>
+                {session?.user && (session.user as any).cancelAtPeriodEnd ? (
+                  <span className="text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                    解約予約中
+                  </span>
+                ) : (
+                  <span
+                    className="text-xs px-3 py-1.5 rounded-full font-semibold"
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--accent) 15%, transparent)",
+                      color: "var(--accent)",
+                      border:
+                        "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                    }}
+                  >
+                    有効
+                  </span>
+                )}
               </div>
-              <span className="bg-orange-100 text-orange-700 dark:bg-orange-800 dark:text-orange-200 text-xs px-2 py-1 rounded-full">
-                有効
-              </span>
+              <p
+                className="text-base leading-relaxed"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                {session?.user && (session.user as any).cancelAtPeriodEnd
+                  ? "Proプランは解約済みです。"
+                  : "ご支援ありがとうございます！あなたのサポートが開発の力になります。"}
+              </p>
+              {session?.user &&
+                (session.user as any).cancelAtPeriodEnd &&
+                (session.user as any).stripeCurrentPeriodEnd && (
+                  <p className="text-sm font-medium mt-2 text-orange-600 dark:text-orange-400">
+                    機能は{" "}
+                    {new Date(
+                      (session.user as any).stripeCurrentPeriodEnd,
+                    ).toLocaleDateString()}{" "}
+                    までご利用いただけます。
+                  </p>
+                )}
             </div>
-            <p className="text-sm mb-2 text-gray-700 dark:text-gray-300">
-              ご支援ありがとうございます！あなたのサポートが開発の力になります。
-            </p>
+
+            <div className="card">
+              <h3
+                className="font-bold mb-2"
+                style={{ color: "var(--color-text-primary)" }}
+              >
+                サブスクリプション管理
+              </h3>
+              <p
+                className="text-sm mb-4"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                お支払い方法の変更や、
+                {session?.user && (session.user as any).cancelAtPeriodEnd
+                  ? "解約のキャンセル"
+                  : "プランの解約"}{" "}
+                などの手続きを行えます。
+              </p>
+              <div className="flex justify-center">
+                <Button
+                  variant={
+                    session?.user && (session.user as any).cancelAtPeriodEnd
+                      ? "default"
+                      : "destructive"
+                  }
+                  onClick={handleCancelSubscription}
+                  disabled={isPortalLoading}
+                  className="w-full sm:w-auto border-2 hover:scale-[1.02] transition-all"
+                  style={
+                    session?.user && (session.user as any).cancelAtPeriodEnd
+                      ? {}
+                      : {
+                          borderColor: "var(--accent)",
+                          background: "var(--accent)",
+                          color: "#fff",
+                        }
+                  }
+                >
+                  {isPortalLoading
+                    ? "読み込み中..."
+                    : session?.user && (session.user as any).cancelAtPeriodEnd
+                      ? "解約をキャンセルする"
+                      : "Proプランを解約する"}
+                </Button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="p-4 border-2 border-orange-400 relative overflow-hidden rounded-xl">

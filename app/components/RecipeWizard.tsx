@@ -506,23 +506,42 @@ export default function RecipeWizard() {
           作りたい料理タイプを選択し、人数を指定してください。
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          {["主食", "主菜", "副菜", "汁物", "デザート"].map((t: string) => {
-            const selected = selectedTypes.includes(t);
-            return (
-              <motion.button
-                key={t}
-                onClick={() => toggleType(t)}
-                {...btnTap}
-                aria-pressed={selected}
-                className={`rounded-full px-3 py-2 text-sm focus:outline-none transition ${selected ? "bg-[color:var(--accent)] text-white shadow" : "bg-[var(--surface-bg)] border-[var(--surface-border)] text-[var(--color-text-primary)]"}`}
-              >
-                <span className={`${selected ? "font-semibold" : ""}`}>
-                  {t}
-                </span>
-              </motion.button>
-            );
-          })}
+        <div className="mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {["主食", "主菜", "副菜", "汁物", "デザート"].map((t: string) => {
+              const selected = selectedTypes.includes(t);
+              return (
+                <motion.button
+                  key={t}
+                  onClick={() => toggleType(t)}
+                  {...btnTap}
+                  aria-pressed={selected}
+                  className={`p-3 text-center transition-all hover:scale-[1.02] rounded-xl border-2 ${
+                    selected ? "shadow-lg" : "hover:shadow-md"
+                  }`}
+                  style={{
+                    borderColor: selected
+                      ? "var(--accent)"
+                      : "var(--surface-border)",
+                    background: selected
+                      ? "color-mix(in srgb, var(--accent) 8%, transparent)"
+                      : "var(--surface-bg)",
+                  }}
+                >
+                  <div
+                    className={`font-semibold text-sm ${selected ? "" : ""}`}
+                    style={{
+                      color: selected
+                        ? "var(--accent)"
+                        : "var(--color-text-primary)",
+                    }}
+                  >
+                    {t}
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -579,7 +598,12 @@ export default function RecipeWizard() {
                 localStorage.removeItem("fridgeapp:recipeDetail");
               } catch (e) {}
             }}
-            className="rounded-full px-4 py-2 bg-[var(--surface-bg)] border-[var(--surface-border)] text-[var(--color-text-primary)]"
+            className="rounded-full px-4 py-2 border-2 hover:scale-[1.02] transition-all hover:shadow-md"
+            style={{
+              borderColor: "var(--surface-border)",
+              background: "var(--surface-bg)",
+              color: "var(--color-text-primary)",
+            }}
           >
             リセット
           </motion.button>

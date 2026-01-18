@@ -11,6 +11,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const userId = token.sub as string;
+    const { checkUserLimit } = await import("@/lib/aiLimit");
+    const limitCheck = await checkUserLimit(userId, "BARCODE_SCAN");
+    if (!limitCheck.ok) {
+      return NextResponse.json(
+        {
+          error:
+            "本日のバーコードスキャン上限に達しました（Freeプラン: 5回）。Proにアップグレードすると無制限になります。",
+        },
+        { status: 429 },
+      );
+    }
+
     const { barcode } = await req.json();
     if (!barcode) {
       return NextResponse.json(

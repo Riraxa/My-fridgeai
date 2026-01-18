@@ -45,7 +45,7 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={null}>
       <SettingsLayoutContent>{children}</SettingsLayoutContent>
     </Suspense>
   );

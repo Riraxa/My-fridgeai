@@ -48,18 +48,12 @@ export default function ProThankYouModal({
   };
 
   const handleOK = () => {
+    router.replace("/settings");
     onClose();
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          handleClose();
-        }
-      }}
-    >
+    <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="max-w-md card">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-center text-orange-500">

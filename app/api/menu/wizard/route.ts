@@ -42,14 +42,15 @@ export async function POST(req: NextRequest) {
     }
 
     // --- 🛑 利用回数制限 (AI Limit) ---
-    const limitParams = await import("@/lib/aiLimit").then((m) =>
-      m.canUseAI(userId),
-    );
-    if (!limitParams.allowed) {
+    // 設計書: Freeは1日1回まで。
+    const { checkUserLimit } = await import("@/lib/aiLimit");
+    const limitParams = await checkUserLimit(userId, "AI_MENU");
+    if (!limitParams.ok) {
       return NextResponse.json(
         {
-          error: limitParams.error,
-          remaining: limitParams.remaining,
+          error:
+            "本日の無料AI献立は終了しました（Freeプラン: 1回）。Proにアップグレードすると無制限に利用できます。",
+          remaining: 0,
         },
         { status: 403 },
       );
@@ -79,14 +80,13 @@ export async function POST(req: NextRequest) {
     }
 
     // --- 👤 ユーザー情報取得 (Pro判定用) ---
-    // canUseAIでもチェックしているが、最新のisProが必要なため取得
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isPro: true },
+      select: { plan: true },
     });
-    // @ts-ignore
+    const isPro = user?.plan === "PRO";
     const { getProFeatures } = await import("@/lib/proFeatures");
-    const features = getProFeatures(user?.isPro ?? false);
+    const features = getProFeatures(isPro);
 
     const briefItemList = usedFridgeItems.length
       ? usedFridgeItems.join(", ")
