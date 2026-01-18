@@ -63,16 +63,18 @@ export async function POST(request: NextRequest) {
     }
 
     // --- 🛑 利用回数制限 (AI Limit) ---
-    const limitParams = await import("@/lib/aiLimit").then((m) =>
-      m.canUseAI(userId!),
+    const limitResult = await import("@/lib/aiLimit").then((m) =>
+      m.checkUserLimit(userId!, "AI_MENU"),
     );
-    if (!limitParams.allowed) {
+    if (!limitResult.ok) {
       return NextResponse.json(
         {
-          error: limitParams.error,
-          remaining: limitParams.remaining,
+          error:
+            "本日のAI生成回数の上限に達しました。明日になるとリセットされます。",
+          remaining: limitResult.remaining,
+          resetAt: limitResult.resetAt,
         },
-        { status: 403 },
+        { status: 429 },
       );
     }
 
@@ -122,12 +124,12 @@ export async function POST(request: NextRequest) {
     }
 
     // --- 👤 ユーザー情報取得 (Pro判定用) ---
-    // canUseAIでもチェックしているが、最新のisProが必要なため取得
+    // checkUserLimitでもチェックしているが、最新のplanが必要なため取得
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isPro: true },
+      select: { plan: true },
     });
-    const features = getProFeatures(user?.isPro ?? false);
+    const features = getProFeatures(user?.plan === "PRO");
 
     // --- 🥕 消費期限チェック (Pro特典) ---
     // サニタイズされた食材リストを使用
