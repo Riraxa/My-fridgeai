@@ -90,31 +90,6 @@ function RegisterPageContent() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   }
 
-  async function savePassword() {
-    const res = await fetch("/api/auth/set-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name }),
-    });
-
-    // 成功時
-    if (res.ok) {
-      return true;
-    }
-
-    // ---- 失敗時 ----
-    let payload: any = null;
-    try {
-      payload = await res.json();
-    } catch {
-      payload = null;
-    }
-
-    // エラーメッセージの抽出（日本語化されたサーバーメッセージを優先）
-    const errorMsg = payload?.message || "ユーザー作成に失敗しました";
-    throw new Error(errorMsg);
-  }
-
   async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
     setMsg(null);
@@ -138,26 +113,29 @@ function RegisterPageContent() {
 
     setLoading(true);
     try {
-      // 1) create user record
-      await savePassword();
-
-      // 2) send magic link
-      const res: any = await signIn("email", {
-        email,
-        redirect: false,
-        callbackUrl: "/passkey-setup",
+      // 自作APIを使用してユーザー作成とメール送信を同時に行う
+      const res = await fetch("/api/auth/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name }),
       });
 
-      if (res?.error) {
-        console.warn("[email signIn] error res:", res);
-        throw new Error("確認メール送信に失敗しました。");
+      const result = await res.json();
+
+      if (!res.ok || !result.ok) {
+        throw new Error(result.message || "アカウント作成に失敗しました。");
       }
 
       setMsg({
         type: "ok",
         text: "確認メールを送信しました。メール内のリンクから登録を完了してください。",
       });
-      // 成功後はフォームをクリア、あるいは完了画面へ？今回はメッセージ表示のみ
+
+      // 成功後もフォームは表示したまま、入力値をクリア
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setName("");
     } catch (err: any) {
       console.error("register error:", err);
       setMsg({
@@ -364,7 +342,7 @@ function RegisterPageContent() {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full input rounded-lg border px-4 py-3 text-sm"
                   placeholder="表示名（任意）"
                 />
               </div>
@@ -373,7 +351,7 @@ function RegisterPageContent() {
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full input rounded-lg border px-4 py-3 text-sm"
                   placeholder="メールアドレス"
                   type="email"
                   autoComplete="email"
@@ -384,7 +362,7 @@ function RegisterPageContent() {
                 <input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full input rounded-lg border px-4 py-3 pr-10 text-sm"
                   placeholder="パスワード（8文字以上）"
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
@@ -392,7 +370,7 @@ function RegisterPageContent() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:text-accent transition-colors"
                   aria-label={
                     showPassword ? "パスワードを隠す" : "パスワードを表示する"
                   }
@@ -442,7 +420,7 @@ function RegisterPageContent() {
                 <input
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-white dark:bg-gray-800 rounded-lg border px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full input rounded-lg border px-4 py-3 pr-10 text-sm"
                   placeholder="パスワード（確認）"
                   type={showConfirm ? "text" : "password"}
                   autoComplete="new-password"
@@ -450,7 +428,7 @@ function RegisterPageContent() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:text-accent transition-colors"
                   aria-label={
                     showConfirm
                       ? "パスワード（確認）を隠す"

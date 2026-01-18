@@ -39,10 +39,10 @@ export default function VerifyEmailInner() {
         // 成功レスポンス（JSON expected）
         await res.json().catch(() => null);
         setStatus("success");
-        setMessage("メール確認が完了しました。ホームへ移動します…");
+        setMessage("メール確認が完了しました。パスキー設定へ移動します…");
 
         // 短いアニメーションを見せてから遷移
-        setTimeout(() => router.push("/home"), 1400);
+        setTimeout(() => router.push("/passkey-setup"), 1400);
       } catch (err) {
         setStatus("error");
         setMessage(
@@ -234,7 +234,7 @@ export default function VerifyEmailInner() {
             >
               {message ??
                 (status === "pending"
-                  ? "確認処理を実行しています。完了後、自動的にホームへ移動します。"
+                  ? "確認処理を実行しています。完了後、自動的にパスキー設定へ移動します。"
                   : "")}
             </p>
 

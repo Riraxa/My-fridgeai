@@ -2,28 +2,95 @@
 "use client";
 
 import { useSession, signOut, signIn } from "next-auth/react";
+import type { Session } from "next-auth";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { Button } from "@/app/components/ui/button";
 import PasskeyManager from "./PasskeyManager";
 import { useEffect, useRef, useState } from "react";
 import ProModal from "@/app/components/ProModal";
 
+// スケルトンUIコンポーネント
+function SettingsSkeleton() {
+  return (
+    <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4">
+      {/* Pro Plan Section Skeleton */}
+      <div className="p-4 border-2 border-orange-400/30 rounded-xl animate-pulse">
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-3 w-32"></div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+      </div>
+
+      {/* User Info Skeleton */}
+      <div>
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4 w-24"></div>
+        <div className="card">
+          <div className="space-y-4">
+            <div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2 w-12"></div>
+              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+            </div>
+            <div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2 w-20"></div>
+              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-48"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Theme Settings Skeleton */}
+      <div>
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4 w-24"></div>
+        <div className="card">
+          <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded mb-2 w-24"></div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+        </div>
+      </div>
+
+      {/* Security Skeleton */}
+      <div>
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4 w-24"></div>
+        <div className="card">
+          <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AccountSettings() {
   const { data: session, status, update } = useSession();
   const { theme, setTheme } = useTheme();
   const [showProModal, setShowProModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [cachedSession, setCachedSession] = useState<Session | null>(null);
   const didSyncSession = useRef(false);
+
+  // セッションデータをキャッシュして、読み込み中も前回のデータを表示
+  useEffect(() => {
+    if (session && !cachedSession) {
+      setCachedSession(session);
+    } else if (session && cachedSession) {
+      setCachedSession(session);
+    }
+  }, [session, cachedSession]);
+
+  // 表示用のセッションデータ（キャッシュされたデータか現在のセッション）
+  const displaySession = session || cachedSession;
 
   useEffect(() => {
     if (status === "authenticated" && !didSyncSession.current) {
       didSyncSession.current = true;
+      setIsSyncing(true);
+      // バックグラウンドで請求情報を同期
       void (async () => {
         try {
           await fetch("/api/billing/sync", { method: "POST" });
         } catch {
           // ignore sync errors here
+        } finally {
+          setIsSyncing(false);
+          await update();
         }
-        await update();
       })();
     }
   }, [status, update]);
@@ -92,12 +159,12 @@ export default function AccountSettings() {
     }
   };
 
-  // ローディング時は簡易表示（必要ならスケルトンに差し替えてください）
-  if (status === "loading") return <div>読み込み中...</div>;
-  if (!session?.user) return <div>ログインしてください</div>;
+  // ローディング時はスケルトン表示（ただしキャッシュがあれば即時表示）
+  if (status === "loading" && !cachedSession) return <SettingsSkeleton />;
+  if (!displaySession?.user) return <div>ログインしてください</div>;
 
   // 型安全に boolean 化
-  const isPro = (session.user as any)?.plan === "PRO";
+  const isPro = (displaySession.user as any)?.plan === "PRO";
 
   return (
     // 画面中央に寄せるために mx-auto と左右パディングを追加
@@ -114,40 +181,50 @@ export default function AccountSettings() {
                 >
                   Pro サポーター 🌟
                 </div>
-                {session?.user && (session.user as any).cancelAtPeriodEnd ? (
-                  <span className="text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
-                    解約予約中
-                  </span>
-                ) : (
-                  <span
-                    className="text-xs px-3 py-1.5 rounded-full font-semibold"
-                    style={{
-                      background:
-                        "color-mix(in srgb, var(--accent) 15%, transparent)",
-                      color: "var(--accent)",
-                      border:
-                        "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-                    }}
-                  >
-                    有効
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {isSyncing && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                      同期中
+                    </div>
+                  )}
+                  {displaySession?.user &&
+                  (displaySession.user as any).cancelAtPeriodEnd ? (
+                    <span className="text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                      解約予約中
+                    </span>
+                  ) : (
+                    <span
+                      className="text-xs px-3 py-1.5 rounded-full font-semibold"
+                      style={{
+                        background:
+                          "color-mix(in srgb, var(--accent) 15%, transparent)",
+                        color: "var(--accent)",
+                        border:
+                          "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                      }}
+                    >
+                      有効
+                    </span>
+                  )}
+                </div>
               </div>
               <p
                 className="text-base leading-relaxed"
                 style={{ color: "var(--color-text-secondary)" }}
               >
-                {session?.user && (session.user as any).cancelAtPeriodEnd
+                {displaySession?.user &&
+                (displaySession.user as any).cancelAtPeriodEnd
                   ? "Proプランは解約済みです。"
                   : "ご支援ありがとうございます！あなたのサポートが開発の力になります。"}
               </p>
-              {session?.user &&
-                (session.user as any).cancelAtPeriodEnd &&
-                (session.user as any).stripeCurrentPeriodEnd && (
+              {displaySession?.user &&
+                (displaySession.user as any).cancelAtPeriodEnd &&
+                (displaySession.user as any).stripeCurrentPeriodEnd && (
                   <p className="text-sm font-medium mt-2 text-orange-600 dark:text-orange-400">
                     機能は{" "}
                     {new Date(
-                      (session.user as any).stripeCurrentPeriodEnd,
+                      (displaySession.user as any).stripeCurrentPeriodEnd,
                     ).toLocaleDateString()}{" "}
                     までご利用いただけます。
                   </p>
@@ -166,7 +243,8 @@ export default function AccountSettings() {
                 style={{ color: "var(--color-text-secondary)" }}
               >
                 お支払い方法の変更や、
-                {session?.user && (session.user as any).cancelAtPeriodEnd
+                {displaySession?.user &&
+                (displaySession.user as any).cancelAtPeriodEnd
                   ? "解約のキャンセル"
                   : "プランの解約"}{" "}
                 などの手続きを行えます。
@@ -174,7 +252,8 @@ export default function AccountSettings() {
               <div className="flex justify-center">
                 <Button
                   variant={
-                    session?.user && (session.user as any).cancelAtPeriodEnd
+                    displaySession?.user &&
+                    (displaySession.user as any).cancelAtPeriodEnd
                       ? "default"
                       : "destructive"
                   }
@@ -182,7 +261,8 @@ export default function AccountSettings() {
                   disabled={isPortalLoading}
                   className="w-full sm:w-auto border-2 hover:scale-[1.02] transition-all"
                   style={
-                    session?.user && (session.user as any).cancelAtPeriodEnd
+                    displaySession?.user &&
+                    (displaySession.user as any).cancelAtPeriodEnd
                       ? {}
                       : {
                           borderColor: "var(--accent)",
@@ -193,7 +273,8 @@ export default function AccountSettings() {
                 >
                   {isPortalLoading
                     ? "読み込み中..."
-                    : session?.user && (session.user as any).cancelAtPeriodEnd
+                    : displaySession?.user &&
+                        (displaySession.user as any).cancelAtPeriodEnd
                       ? "解約をキャンセルする"
                       : "Proプランを解約する"}
                 </Button>
@@ -233,13 +314,15 @@ export default function AccountSettings() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-500">名前</label>
-              <div className="font-medium">{session.user.name || "未設定"}</div>
+              <div className="font-medium">
+                {displaySession.user.name || "未設定"}
+              </div>
             </div>
             <div>
               <label className="block text-sm text-gray-500">
                 メールアドレス
               </label>
-              <div className="font-medium">{session.user.email}</div>
+              <div className="font-medium">{displaySession.user.email}</div>
             </div>
           </div>
         </div>

@@ -162,8 +162,11 @@ export default function PasskeySetupPage() {
       const cred: any = (await navigator.credentials.create({
         publicKey,
       } as any)) as any;
-      if (!cred)
-        throw new Error("No credential created (operation cancelled?)");
+      if (!cred) {
+        // ユーザーがキャンセルした場合、エラーを投げずに静かに終了
+        setPasskeyRegistering(false);
+        return;
+      }
 
       const serialized = serializeAttestation(cred);
       console.log("webauthn: attestation serialized", serialized);
@@ -176,10 +179,20 @@ export default function PasskeySetupPage() {
 
       setMsg({ type: "ok", text: "パスキーを登録しました。" });
       // navigate home
-      router.replace("/");
+      router.replace("/home");
     } catch (err: any) {
       console.error("passkey register error:", err);
-      // friendly messages
+
+      // ユーザーがキャンセルした場合はエラーメッセージを表示しない
+      if (
+        err?.name === "NotAllowedError" ||
+        err?.message?.includes("cancelled")
+      ) {
+        // 静かにキャンセル処理を終了
+        return;
+      }
+
+      // その他のエラーのみ表示
       const friendly =
         err?.message && typeof err.message === "string"
           ? err.message
@@ -195,7 +208,7 @@ export default function PasskeySetupPage() {
     setLoading(true);
     try {
       await markSkipOnServer();
-      router.replace("/");
+      router.replace("/home");
     } catch (err: any) {
       console.error("skip error:", err);
       setMsg({
@@ -209,35 +222,64 @@ export default function PasskeySetupPage() {
 
   return (
     <motion.div
-      className="min-h-screen flex items-center justify-start pt-12 pb-8"
+      className="min-h-screen flex items-center justify-center pt-12 pb-8"
       initial="hidden"
       animate="show"
       variants={fadeInUp}
     >
-      <div className="w-full max-w-md h-screen mx-auto flex flex-col justify-between items-center -translate-y-6 p-6">
-        <div className="flex flex-col items-center gap-2">
-          <h2 className="mt-2 text-center text-lg font-semibold text-primary">
-            セキュリティを強化しましょう
-          </h2>
-          <p className="text-center text-secondary mt-0">
-            パスキーを登録すると、次回からパスワード不要で安全にログインできます。推奨設定です。
-          </p>
-        </div>
+      <div className="w-full max-w-md mx-auto p-6">
+        <div className="space-y-8">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-primary mb-6">
+              セキュリティを強化しましょう
+            </h2>
+          </div>
 
-        <div className="w-full">
-          <div className="flex flex-col gap-4">
-            <div className="text-sm text-center">
-              アカウントが作成されました。続けてパスキーを登録しますか？（推奨）
+          <div className="text-center space-y-6">
+            <p className="text-secondary text-sm leading-relaxed max-w-xs mx-auto text-center">
+              パスキーを登録すると、次回からパスワード不要で安全にログインできます。推奨設定です。
+            </p>
+
+            {/* パスキーアイコン */}
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
+              style={{
+                background:
+                  "color-mix(in srgb, var(--accent) 15%, transparent)",
+              }}
+            >
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{ color: "var(--accent)" }}
+              >
+                <path
+                  d="M12 2C9.243 2 7 4.243 7 7c0 1.646.804 3.103 2.041 4H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-4.041C16.196 10.103 17 8.646 17 7c0-2.757-2.243-5-5-5zM9 7c0-1.654 1.346-3 3-3s3 1.346 3 3-1.346 3-3 3-3-1.346-3-3zm0 8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4H9v-4z"
+                  fill="currentColor"
+                />
+              </svg>
             </div>
 
-            {msg && (
-              <div
-                className={`text-sm ${msg.type === "error" ? "text-red-600" : "text-green-700"} text-center`}
-              >
-                {msg.text}
-              </div>
-            )}
+            <p className="text-sm text-muted text-center">
+              アカウントが作成されました。続けてパスキーを登録しますか？（推奨）
+            </p>
+          </div>
 
+          {msg && (
+            <div
+              className={`text-sm p-3 rounded-lg text-center mb-6 ${
+                msg.type === "error"
+                  ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
+                  : "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+              }`}
+            >
+              {msg.text}
+            </div>
+          )}
+
+          <div className="space-y-3">
             <motion.button
               type="button"
               onClick={handleRegister}
@@ -245,7 +287,8 @@ export default function PasskeySetupPage() {
               whileTap={buttonTap.whileTap}
               whileHover={buttonTap.whileHover}
               transition={springTransition}
-              className="w-full bg-black dark:bg-white dark:text-black text-white font-semibold py-3 rounded-full"
+              className="w-full font-semibold py-3 rounded-full text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+              style={{ background: "var(--accent)" }}
             >
               {passkeyRegistering ? "登録中…" : "パスキーを登録する（推奨）"}
             </motion.button>
@@ -257,16 +300,14 @@ export default function PasskeySetupPage() {
               whileTap={buttonTap.whileTap}
               whileHover={buttonTap.whileHover}
               transition={springTransition}
-              className="w-full bg-white border rounded-full py-3 text-sm"
+              className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
             >
               今はスキップしてホームへ
             </motion.button>
           </div>
         </div>
 
-        <div className="w-full text-center text-xs text-muted mt-2">
-          © My-FridgeAI
-        </div>
+        <div className="text-center text-xs text-muted mt-8">© My-FridgeAI</div>
       </div>
     </motion.div>
   );
