@@ -6,9 +6,10 @@ import { authOptions } from "@/lib/auth";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -21,7 +22,7 @@ export async function GET(
 
     const generation = await prisma.menuGeneration.findUnique({
       where: {
-        id: params.id,
+        id: id,
         userId: userId, // セキュリティ：自分の生成のみアクセス可能
       },
       select: {
