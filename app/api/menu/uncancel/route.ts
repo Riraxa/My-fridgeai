@@ -1,9 +1,19 @@
-//app/api/menu/cancel/route.ts
+//app/api/menu/uncancel/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { increaseAmountLevel } from "@/lib/inventory";
+
+// Helper function (copied from inventory.ts since it's not exported)
+function decreaseAmountLevel(current: string): string {
+  const levels = ["たっぷり", "普通", "少ない", "ほぼない", "なし"];
+  const currentIndex = levels.indexOf(current);
+
+  if (currentIndex === -1) return "普通";
+
+  const nextIndex = Math.min(currentIndex + 1, levels.length - 1);
+  return levels[nextIndex];
+}
 
 export async function POST(req: Request) {
   try {
@@ -22,30 +32,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "History not found" }, { status: 404 });
     }
 
-    if (history.status === "cancelled") {
-      return NextResponse.json({ error: "Already cancelled" }, { status: 400 });
+    if (history.status !== "cancelled") {
+      return NextResponse.json({ error: "Not cancelled" }, { status: 400 });
     }
 
-    if (new Date() > history.cancellableUntil) {
-      return NextResponse.json(
-        { error: "Cancellation period expired" },
-        { status: 400 },
-      );
-    }
-
-    // Restore Inventory
+    // Remove Inventory again (reverse the restoration)
     const usedIngredients = history.usedIngredients as any[]; // [{name, amount, unit}]
-
-    // We need to restore based on name match logic again
     const inventory = await prisma.ingredient.findMany({ where: { userId } });
 
     await prisma.$transaction(async (tx) => {
       for (const used of usedIngredients) {
-        // Find matching ingredient to restore to.
-        // If deleted, we might need to recreate?
-        // Logic: If user has ingredient with same name, add back.
-        // If not, recreate it!
-
+        // Find matching ingredient to remove from.
         let stock = inventory.find(
           (i) =>
             i.name.toLowerCase().trim() === used.name.toLowerCase().trim() ||
@@ -53,36 +50,19 @@ export async function POST(req: Request) {
             used.name.toLowerCase().startsWith(i.name.toLowerCase()),
         );
 
-        // Re-fetch to be sure if inside transaction? matching logic is local though.
-
         if (stock) {
           if (stock.amount !== null) {
-            // Add back amount
+            // Remove amount
             await tx.ingredient.update({
               where: { id: stock.id },
-              data: { amount: { increment: used.amount } },
+              data: { amount: { decrement: used.amount } },
             });
           } else if (stock.amountLevel) {
-            // Increase level
-            const newLevel = increaseAmountLevel(stock.amountLevel);
+            // Decrease level
+            const newLevel = decreaseAmountLevel(stock.amountLevel);
             await tx.ingredient.update({
               where: { id: stock.id },
               data: { amountLevel: newLevel },
-            });
-          }
-        } else {
-          // Ingredient was deleted or didn't exist?
-          // If it was deleted (consumed entirely), we should ideally restore it.
-          // Recreating as "Ordinary" or specific amount
-          if (used.amount) {
-            await tx.ingredient.create({
-              data: {
-                userId,
-                name: used.name,
-                amount: used.amount,
-                unit: used.unit,
-                category: "Restored",
-              },
             });
           }
         }
@@ -90,16 +70,16 @@ export async function POST(req: Request) {
 
       await tx.cookingHistory.update({
         where: { id: cookingHistoryId },
-        data: { status: "cancelled" },
+        data: { status: "completed" },
       });
     });
 
     return NextResponse.json({
       success: true,
-      message: "Cooking cancelled and inventory restored",
+      message: "Uncancel successful and inventory consumed again",
     });
   } catch (error) {
-    console.error("Cancel Error:", error);
+    console.error("Uncancel Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

@@ -1,3 +1,4 @@
+//app/components/ProModal.tsx
 "use client";
 
 import { useState } from "react";
@@ -83,20 +84,28 @@ export default function ProModal({ open, onClose }: ProModalProps) {
             >
               <li>
                 AI献立生成が{" "}
-                <span className="font-bold text-accent">無制限</span>
+                <span className="font-bold" style={{ color: "var(--accent)" }}>
+                  無制限
+                </span>
               </li>
               <li>
                 食材登録数が{" "}
-                <span className="font-bold text-accent">無制限</span>{" "}
+                <span className="font-bold" style={{ color: "var(--accent)" }}>
+                  無制限
+                </span>{" "}
                 (通常100件)
               </li>
               <li>
                 家族グループ作成 & 共有{" "}
-                <span className="font-bold text-accent">可能</span>
+                <span className="font-bold" style={{ color: "var(--accent)" }}>
+                  可能
+                </span>
               </li>
               <li>
                 バーコードスキャン{" "}
-                <span className="font-bold text-accent">無制限</span>
+                <span className="font-bold" style={{ color: "var(--accent)" }}>
+                  無制限
+                </span>
               </li>
               <li>期限優先、栄養バランス考慮など</li>
             </ul>

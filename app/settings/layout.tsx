@@ -15,13 +15,40 @@ function SettingsLayoutContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const proStatus = searchParams.get("pro");
+
     if (proStatus === "success") {
-      setShowThankYouModal(true);
+      // localStorageにフラグを保存してから移動
+      localStorage.setItem("showProThankYou", "true");
+
+      // 微小な非同期処理でタイミングを調整
+      Promise.resolve().then(() => {
+        setTimeout(() => {
+          router.replace("/settings");
+        }, 1000);
+      });
+      return;
     } else if (proStatus === "cancel") {
       alert("Pro登録をキャンセルしました。");
       router.replace("/settings/account");
+      return;
+    }
+
+    // localStorageにフラグがあればモーダルを表示
+    const shouldShowModal = localStorage.getItem("showProThankYou");
+
+    if (shouldShowModal === "true") {
+      setShowThankYouModal(true);
+      localStorage.removeItem("showProThankYou");
     }
   }, [searchParams, router]);
+
+  const handleModalClose = () => {
+    setShowThankYouModal(false);
+    // モーダルが完全に閉じてからURLを更新
+    setTimeout(() => {
+      window.history.replaceState({}, "", "/settings");
+    }, 300);
+  };
 
   return (
     <div className="relative min-h-screen pb-20">
@@ -31,10 +58,7 @@ function SettingsLayoutContent({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       <NavBar />
-      <ProThankYouModal
-        open={showThankYouModal}
-        onClose={() => setShowThankYouModal(false)}
-      />
+      <ProThankYouModal open={showThankYouModal} onClose={handleModalClose} />
     </div>
   );
 }

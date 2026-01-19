@@ -1,4 +1,14 @@
+//app/components/menu-card.tsx
 "use client";
+
+import {
+  Clock,
+  Flame,
+  AlertTriangle,
+  XCircle,
+  BarChart2,
+  Lightbulb,
+} from "lucide-react";
 
 interface IngredientStatus {
   name: string;
@@ -16,9 +26,9 @@ interface AvailabilityData {
 
 interface MenuDish {
   name: string;
-  type: string; // 主菜, 副菜, etc.
+  type: string;
   description: string;
-  ingredients: { name: string; amount: string }[]; // Note: AI returns simple overview string for amount here usually
+  ingredients: { name: string; amount: string }[];
 }
 
 interface MenuPattern {
@@ -34,7 +44,7 @@ interface MenuCardProps {
   type: "main" | "altA" | "altB";
   menu: MenuPattern;
   availability: AvailabilityData;
-  nutrition?: any; // NutritionEvaluation
+  nutrition?: any;
   onSelect: () => void;
   isBest?: boolean;
 }
@@ -65,9 +75,15 @@ export default function MenuCard({
           <h3 className="text-lg font-bold text-gray-900">{menu.name}</h3>
           <p className="text-sm text-gray-500 mt-1">{menu.description}</p>
         </div>
-        <div className="text-right text-xs text-gray-500">
-          <div>⏱ {menu.cookingTime}</div>
-          <div>🔥 {menu.calories}</div>
+        <div className="text-right text-xs text-gray-500 space-y-1">
+          <div className="flex items-center justify-end gap-1">
+            <Clock size={12} />
+            <span>{menu.cookingTime}</span>
+          </div>
+          <div className="flex items-center justify-end gap-1">
+            <Flame size={12} />
+            <span>{menu.calories}</span>
+          </div>
         </div>
       </div>
 
@@ -101,23 +117,30 @@ export default function MenuCard({
         </div>
 
         {availability.insufficient.length > 0 && (
-          <div className="text-amber-600">
-            <span className="font-bold">⚠️ 不足:</span>{" "}
-            {availability.insufficient.map((i) => i.name).join(", ")}
+          <div className="text-amber-600 flex items-start gap-1">
+            <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+            <span>
+              <span className="font-bold">不足:</span>{" "}
+              {availability.insufficient.map((i) => i.name).join(", ")}
+            </span>
           </div>
         )}
         {availability.missing.length > 0 && (
-          <div className="text-red-500">
-            <span className="font-bold">❌ なし:</span>{" "}
-            {availability.missing.map((i) => i.name).join(", ")}
+          <div className="text-red-500 flex items-start gap-1">
+            <XCircle size={12} className="flex-shrink-0 mt-0.5" />
+            <span>
+              <span className="font-bold">なし:</span>{" "}
+              {availability.missing.map((i) => i.name).join(", ")}
+            </span>
           </div>
         )}
       </div>
 
       {nutrition && (
         <div className="bg-blue-50 border border-blue-100 rounded p-3 mb-4 text-xs">
-          <div className="font-bold text-blue-800 mb-2 flex items-center">
-            <span>📊 栄養バランス</span>
+          <div className="font-bold text-blue-800 mb-2 flex items-center gap-1">
+            <BarChart2 size={14} />
+            <span>栄養バランス</span>
           </div>
           <div className="grid grid-cols-2 gap-y-1 gap-x-4 mb-2 text-blue-900">
             <div className="flex justify-between">
@@ -146,8 +169,9 @@ export default function MenuCard({
             </div>
           </div>
           {nutrition.evaluation && (
-            <div className="text-blue-700 font-medium border-t border-blue-100 pt-1 mt-1">
-              💡 {nutrition.evaluation}
+            <div className="text-blue-700 font-medium border-t border-blue-100 pt-1 mt-1 flex items-center gap-1">
+              <Lightbulb size={12} />
+              <span>{nutrition.evaluation}</span>
             </div>
           )}
         </div>

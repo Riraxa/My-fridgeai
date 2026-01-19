@@ -1,4 +1,4 @@
-// app/components/FridgeProvider.tsx
+//app/components/FridgeProvider.tsx
 "use client";
 
 import React, {
@@ -13,9 +13,12 @@ import React, {
 type Item = {
   id: string;
   name: string;
-  quantity: number;
-  unit?: string;
-  expiry?: string | null;
+  quantity: number; // Legacy
+  amount?: number | null;
+  amountLevel?: string | null;
+  unit?: string | null;
+  expiry?: string | null; // Legacy
+  expirationDate?: string | null;
   category?: string;
 };
 
@@ -211,7 +214,13 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
             ? Number(it.quantity)
             : 1;
       const unit = it.unit ?? "個";
-      const expiry = it.hasOwnProperty("expiry") ? (it.expiry ?? null) : null;
+      const expiry = it.hasOwnProperty("expiry")
+        ? (it.expiry ?? null)
+        : it.hasOwnProperty("expirationDate")
+          ? it.expirationDate
+            ? new Date(it.expirationDate).toISOString()
+            : null
+          : null;
       const category = it.category ?? "その他";
 
       const isUpdate = typeof it.id === "string" && it.id.length > 0;

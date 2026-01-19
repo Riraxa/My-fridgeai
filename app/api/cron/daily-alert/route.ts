@@ -1,3 +1,4 @@
+//app/ api/ cron/ daily-alert/ route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { differenceInDays, differenceInHours } from "date-fns";

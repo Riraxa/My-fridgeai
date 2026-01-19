@@ -1,3 +1,4 @@
+//lib/nutrition.ts
 export interface NutritionInfo {
   calories: number;
   protein: number;
@@ -24,6 +25,13 @@ export interface NutritionEvaluation {
 export function evaluateNutrition(
   dishes: DishWithNutrition[],
 ): NutritionEvaluation {
+  if (!Array.isArray(dishes)) {
+    return {
+      total: { calories: 0, protein: 0, fat: 0, carbs: 0 },
+      balance: { proteinRatio: 0, fatRatio: 0, carbsRatio: 0 },
+      evaluation: "データがありません",
+    };
+  }
   const total: NutritionInfo = {
     calories: 0,
     protein: 0,

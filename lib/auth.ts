@@ -249,6 +249,7 @@ export const authOptions: NextAuthOptions = {
 
           if (dbUser) {
             (token as any).userId = dbUser.id; // DBの正当なCUIDをセット
+            (token as any).sub = dbUser.id; // JWTのsubフィールドにも設定
             (token as any).email = dbUser.email ?? email;
             (token as any).plan = dbUser.plan ?? "FREE";
             (token as any).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
@@ -257,6 +258,7 @@ export const authOptions: NextAuthOptions = {
           } else {
             // 最悪のフォールバック
             (token as any).userId = userId;
+            (token as any).sub = userId; // JWTのsubフィールドにも設定
             (token as any).email = email;
             (token as any).plan = (token as any).plan ?? "FREE";
           }
@@ -278,6 +280,10 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).stripeCurrentPeriodEnd = (
           token as any
         ).stripeCurrentPeriodEnd;
+
+        // Proステータスを動的に判定
+        const plan = (token as any).plan || "FREE";
+        (session.user as any).isPro = plan === "PRO" || plan === "MEMBER";
       }
       return session;
     },

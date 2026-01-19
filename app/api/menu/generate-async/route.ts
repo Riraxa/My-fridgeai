@@ -1,4 +1,4 @@
-// app/api/menu/generate/route.ts
+// app/api/menu/generate-async/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -59,7 +59,68 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Detect Expiring Items
+    // 3. Create pending generation record
+    const generation = await prisma.menuGeneration.create({
+      data: {
+        userId: userId,
+        status: "pending",
+        mainMenu: {} as any,
+        alternativeA: {} as any,
+        alternativeB: {} as any,
+        nutritionInfo: {} as any,
+        usedIngredients: {} as any,
+        shoppingList: {} as any,
+      },
+    });
+
+    // 4. Start background processing (don't await)
+    processMenuGeneration(
+      generation.id,
+      userId,
+      ingredients,
+      preferences || undefined,
+    ).catch((error) => {
+      console.error("Background processing failed:", error);
+      // Update status to failed
+      prisma.menuGeneration
+        .update({
+          where: { id: generation.id },
+          data: { status: "failed" },
+        })
+        .catch(console.error);
+    });
+
+    return NextResponse.json({
+      success: true,
+      menuGenerationId: generation.id,
+      message: "献立生成を開始しました",
+    });
+  } catch (error: any) {
+    console.error("Async Menu Generation Error:", error);
+    return NextResponse.json(
+      {
+        error: "献立生成の開始に失敗しました",
+        details: error.message || "Unknown error",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function processMenuGeneration(
+  generationId: string,
+  userId: string,
+  ingredients: any[],
+  preferences: any,
+) {
+  try {
+    // Update status to processing
+    await prisma.menuGeneration.update({
+      where: { id: generationId },
+      data: { status: "processing" },
+    });
+
+    // Detect Expiring Items
     const now = new Date();
     const expiringSoon = ingredients.filter((i) => {
       if (!i.expirationDate) return false;
@@ -68,13 +129,13 @@ export async function POST(req: Request) {
       return days <= 3;
     });
 
-    // 4. Generate Menus via AI
+    // Generate Menus via AI
     const menus = await generateMenus(ingredients, preferences, expiringSoon);
     if (!menus || !menus.main) {
       throw new Error("AIが有効な献立を生成できませんでした");
     }
 
-    // 5. Check Availability for ALL Menus
+    // Check Availability for ALL Menus
     const mainDetails = checkIngredientAvailability(
       (menus.main.dishes || []).flatMap((d: any) => d.ingredients || []),
       ingredients,
@@ -116,62 +177,32 @@ export async function POST(req: Request) {
       console.warn("Nutrition calculation failed:", e);
     }
 
-    // 6. Save to DB and Return
-    try {
-      const generation = await prisma.menuGeneration.create({
-        data: {
-          userId: userId,
-          mainMenu: menus.main as any,
-          alternativeA: menus.alternativeA as any,
-          alternativeB: menus.alternativeB as any,
-          nutritionInfo: nutritionInfo as any,
-          usedIngredients: {
-            main: mainDetails.available,
-            altA: altADetails.available,
-            altB: altBDetails.available,
-          } as any,
-          shoppingList: {
-            main: mainDetails.missing.concat(mainDetails.insufficient),
-            altA: altADetails.missing.concat(altADetails.insufficient),
-            altB: altBDetails.missing.concat(altBDetails.insufficient),
-          } as any,
-          status: "completed",
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        menuGenerationId: generation.id,
-        menus,
-        availability: {
-          main: mainDetails,
-          altA: altADetails,
-          altB: altBDetails,
-        },
-        nutrition: nutritionInfo,
-      });
-    } catch (saveError: any) {
-      console.error("Save Error:", saveError);
-      return NextResponse.json({
-        success: true,
-        menus,
-        availability: {
-          main: mainDetails,
-          altA: altADetails,
-          altB: altBDetails,
-        },
-        nutrition: nutritionInfo,
-        error: "データの保存に失敗しました",
-      });
-    }
-  } catch (error: any) {
-    console.error("Menu Generation Route Error:", error);
-    return NextResponse.json(
-      {
-        error: "献立生成中にエラーが発生しました",
-        details: error.message || "Unknown error",
+    // Update with completed data
+    await prisma.menuGeneration.update({
+      where: { id: generationId },
+      data: {
+        status: "completed",
+        mainMenu: menus.main as any,
+        alternativeA: menus.alternativeA as any,
+        alternativeB: menus.alternativeB as any,
+        nutritionInfo: nutritionInfo as any,
+        usedIngredients: {
+          main: mainDetails.available,
+          altA: altADetails.available,
+          altB: altBDetails.available,
+        } as any,
+        shoppingList: {
+          main: mainDetails.missing.concat(mainDetails.insufficient),
+          altA: altADetails.missing.concat(altADetails.insufficient),
+          altB: altBDetails.missing.concat(altBDetails.insufficient),
+        } as any,
       },
-      { status: 500 },
-    );
+    });
+  } catch (error: any) {
+    console.error("Background processing error:", error);
+    await prisma.menuGeneration.update({
+      where: { id: generationId },
+      data: { status: "failed" },
+    });
   }
 }

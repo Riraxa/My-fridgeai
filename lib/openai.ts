@@ -51,14 +51,14 @@ export async function callOpenAIOnce(
   try {
     const body: any = {
       model,
-      input: opts.input,
+      messages: [{ role: "user", content: opts.input }],
     };
     if (typeof opts.max_output_tokens === "number")
-      body.max_output_tokens = opts.max_output_tokens;
+      body.max_tokens = opts.max_output_tokens;
     if (typeof opts.temperature === "number")
       body.temperature = opts.temperature;
 
-    const res = await fetch("https://api.openai.com/v1/responses", {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

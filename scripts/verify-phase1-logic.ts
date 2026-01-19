@@ -1,6 +1,6 @@
+//scripts/verify-phase1-logic.ts
 import { PrismaClient } from "@prisma/client";
 import { calculateInventoryUpdates } from "../lib/inventory";
-import { normalizeAmount } from "../lib/inventory";
 
 const prisma = new PrismaClient();
 

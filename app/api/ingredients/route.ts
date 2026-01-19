@@ -1,3 +1,4 @@
+//app/api/ingredients/route.ts
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -95,9 +96,18 @@ export async function POST(req: NextRequest) {
 
     // 入力検証とサニタイズ
     const name = sanitizeString(body.name, 100);
-    const quantity = Math.max(0, Math.min(999999, Number(body.quantity) || 0));
     const unit = sanitizeString(body.unit, 20);
     const category = sanitizeString(body.category, 50);
+    const amountLevel = body.amountLevel
+      ? sanitizeString(body.amountLevel, 20)
+      : null;
+
+    // amount/quantity validation
+    let amountValue = body.amount !== undefined ? body.amount : body.quantity;
+    const amount =
+      amountValue !== null
+        ? Math.max(0, Math.min(999999, Number(amountValue) || 0))
+        : null;
 
     // 必須項目のチェック
     if (!name || name.trim().length === 0) {
@@ -105,11 +115,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 有効な日付のチェック
-    let expiryDate: Date | null = null;
-    if (body.expiry) {
-      const parsed = new Date(body.expiry);
+    let expirationDate: Date | null = null;
+    const rawDate = body.expirationDate || body.expiry;
+    if (rawDate) {
+      const parsed = new Date(rawDate);
       if (!isNaN(parsed.getTime()) && parsed > new Date("2000-01-01")) {
-        expiryDate = parsed;
+        expirationDate = parsed;
       }
     }
 
@@ -117,12 +128,11 @@ export async function POST(req: NextRequest) {
       data: {
         userId,
         name,
-        quantity, // Keep for backward compatibility
-        amount: quantity, // Sync to new field
-        amountLevel: "普通", // Default for now
+        quantity: amount || 0, // Legacy
+        amount,
+        amountLevel,
         unit: unit || "個",
-        // expiry removed
-        expirationDate: expiryDate, // Sync to new field
+        expirationDate,
         category: category || "その他",
       },
     });
