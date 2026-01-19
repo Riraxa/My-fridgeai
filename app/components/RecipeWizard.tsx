@@ -943,7 +943,7 @@ export default function RecipeWizard() {
           onWizardComplete(menus);
           setWizardOpen(false);
         }}
-        fridgeItems={(items ?? []).map((i: any) => i.name)}
+        fridgeItems={items ?? []}
         selectedTypes={selectedTypes}
         servings={servings}
         appetite={appetite}

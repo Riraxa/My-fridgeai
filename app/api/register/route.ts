@@ -10,15 +10,6 @@ const PASSWORD_POLICY = {
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?`~]).+$/,
 };
 
-function validatePassword(pw: string) {
-  if (typeof pw !== "string") return "パスワードの形式が不正です。";
-  if (pw.length < PASSWORD_POLICY.minLen)
-    return `パスワードは${PASSWORD_POLICY.minLen}文字以上にしてください。`;
-  if (!PASSWORD_POLICY.regex.test(pw))
-    return "パスワードには大文字・小文字・数字・記号を含めてください。";
-  return null;
-}
-
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
@@ -78,7 +69,7 @@ export async function POST(req: Request) {
 
     const hashed = await bcrypt.hash(String(password), 12);
 
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email,
         name: sanitizedName,

@@ -1,3 +1,4 @@
+//lib/inventory.ts
 import { Ingredient } from "@prisma/client";
 
 export interface RequiredIngredient {

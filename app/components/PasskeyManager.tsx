@@ -1,3 +1,4 @@
+//app/components/PasskeyManager.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -208,14 +209,20 @@ export default function PasskeyManager() {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium">パスキー設定</h3>
-      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+      <p
+        className="text-sm mb-4"
+        style={{ color: "var(--color-text-secondary)" }}
+      >
         パスワードの代わりに、指紋認証や顔認証で安全にログインできます。
       </p>
 
       {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
 
       {passkeys.length === 0 ? (
-        <p className="text-sm text-gray-600 mb-4 dark:text-gray-300">
+        <p
+          className="text-sm mb-4"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
           このアカウントでは、まだパスキーが登録されていません。
         </p>
       ) : (

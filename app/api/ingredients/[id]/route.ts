@@ -21,9 +21,16 @@ export async function PUT(
     where: { id, userId },
     data: {
       name: body.name,
-      quantity: Number(body.quantity || 0),
+      quantity: Number(
+        body.amount !== undefined ? body.amount : body.quantity || 0,
+      ),
+      amount: body.amount !== undefined ? Number(body.amount) : undefined,
+      amountLevel: body.amountLevel,
       unit: body.unit || "個",
-      expirationDate: body.expiry ? new Date(body.expiry) : null,
+      expirationDate:
+        body.expirationDate || body.expiry
+          ? new Date(body.expirationDate || body.expiry)
+          : null,
       category: body.category || "その他",
     },
   });

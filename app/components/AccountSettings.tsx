@@ -58,7 +58,7 @@ function SettingsSkeleton() {
 }
 
 export default function AccountSettings() {
-  const { data: session, status, update } = useSession();
+  const { data: session, status } = useSession();
   const { theme, setTheme } = useTheme();
   const [showProModal, setShowProModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -89,11 +89,10 @@ export default function AccountSettings() {
           // ignore sync errors here
         } finally {
           setIsSyncing(false);
-          await update();
         }
       })();
     }
-  }, [status, update]);
+  }, [status]);
 
   const handleDeleteAccount = async () => {
     if (
@@ -221,7 +220,10 @@ export default function AccountSettings() {
               {displaySession?.user &&
                 (displaySession.user as any).cancelAtPeriodEnd &&
                 (displaySession.user as any).stripeCurrentPeriodEnd && (
-                  <p className="text-sm font-medium mt-2 text-orange-600 dark:text-orange-400">
+                  <p
+                    className="text-sm font-medium mt-2"
+                    style={{ color: "var(--accent)" }}
+                  >
                     機能は{" "}
                     {new Date(
                       (displaySession.user as any).stripeCurrentPeriodEnd,
@@ -285,7 +287,10 @@ export default function AccountSettings() {
           <div className="p-4 border-2 border-orange-400 relative overflow-hidden rounded-xl">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex-1">
-                <h3 className="font-bold text-lg mb-1 text-orange-600 dark:text-orange-400">
+                <h3
+                  className="font-bold text-lg mb-1"
+                  style={{ color: "var(--accent)" }}
+                >
                   Proプランで応援する
                 </h3>
                 <ul className="text-sm space-y-1 text-muted-foreground">
@@ -296,7 +301,12 @@ export default function AccountSettings() {
               </div>
               <Button
                 onClick={() => setShowProModal(true)}
-                className="bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-md whitespace-nowrap"
+                className="font-bold shadow-md whitespace-nowrap"
+                style={{
+                  background: "var(--accent)",
+                  color: "#fff",
+                  border: "none",
+                }}
               >
                 Proで応援する
               </Button>
@@ -313,13 +323,21 @@ export default function AccountSettings() {
         <div className="card">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-500">名前</label>
+              <label
+                className="block text-sm"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                名前
+              </label>
               <div className="font-medium">
                 {displaySession.user.name || "未設定"}
               </div>
             </div>
             <div>
-              <label className="block text-sm text-gray-500">
+              <label
+                className="block text-sm"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
                 メールアドレス
               </label>
               <div className="font-medium">{displaySession.user.email}</div>
@@ -361,7 +379,10 @@ export default function AccountSettings() {
 
       {/* Danger Zone */}
       <section className="pt-8 border-t dark:border-gray-700">
-        <h2 className="text-xl font-bold text-red-600 mb-4">
+        <h2
+          className="text-xl font-bold mb-4"
+          style={{ color: "var(--color-text-primary)" }}
+        >
           危険な設定 / ログアウト
         </h2>
 
@@ -370,7 +391,12 @@ export default function AccountSettings() {
           <div className="space-y-4">
             <Button
               onClick={() => signOut({ callbackUrl: "/" })}
-              className="w-full bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              className="w-full"
+              style={{
+                background: "var(--surface-bg)",
+                color: "var(--color-text-primary)",
+                border: "1px solid var(--surface-border)",
+              }}
             >
               ログアウト
             </Button>
@@ -382,7 +408,10 @@ export default function AccountSettings() {
               >
                 アカウントを削除する
               </Button>
-              <p className="mt-2 text-sm text-gray-500">
+              <p
+                className="mt-2 text-sm"
+                style={{ color: "var(--color-text-muted)" }}
+              >
                 アカウントを削除すると、すべてのデータが永久に失われます。
               </p>
             </div>

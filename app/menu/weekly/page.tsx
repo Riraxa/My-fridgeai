@@ -1,11 +1,13 @@
 //app/menu/weekly/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import NavBar from "@/app/components/NavBar";
 
 interface Dish {
   name: string;
-  // other props
 }
 
 interface MenuPattern {
@@ -15,7 +17,7 @@ interface MenuPattern {
 }
 
 interface DailyMenuPlan {
-  date: string; // ISO string from API
+  date: string;
   dayOfWeek: string;
   menu: {
     main: MenuPattern;
@@ -29,11 +31,37 @@ interface WeeklyPlanResponse {
 }
 
 export default function WeeklyPlanningPage() {
+  const router = useRouter();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isPro, setIsPro] = useState<boolean | null>(null);
+
+  // Check if user is Pro
+  useEffect(() => {
+    async function checkPlan() {
+      try {
+        const res = await fetch("/api/user/me");
+        if (res.ok) {
+          const data = await res.json();
+          setIsPro(data.user?.plan === "PRO");
+        } else {
+          setIsPro(false);
+        }
+      } catch {
+        setIsPro(false);
+      }
+    }
+    checkPlan();
+  }, []);
 
   const handleGenerate = async () => {
+    if (!isPro) {
+      alert("1週間プランはProプラン限定機能です。");
+      return;
+    }
+
     if (
       !confirm(
         "1週間分の献立を生成しますか？\n（在庫状況から最適なプランを作成します）",
@@ -61,10 +89,48 @@ export default function WeeklyPlanningPage() {
     }
   };
 
+  // Show loading while checking plan
+  if (isPro === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center pb-32">
+        <div className="text-gray-500">読み込み中...</div>
+        <NavBar />
+      </div>
+    );
+  }
+
+  // Not Pro - show upgrade message
+  if (!isPro) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl pb-32">
+        <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
+          <span>🗓️</span> 1週間献立プラン
+        </h1>
+
+        <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
+          <div className="text-6xl mb-4">🔒</div>
+          <h2 className="text-xl font-bold mb-2">Proプラン限定機能です</h2>
+          <p className="text-gray-600 mb-6">
+            1週間分の献立をAIで一括生成する機能は、
+            <br />
+            Proプランにアップグレードするとご利用いただけます。
+          </p>
+          <button
+            onClick={() => router.push("/settings/account")}
+            className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
+          >
+            Proプランにアップグレード
+          </button>
+        </div>
+        <NavBar />
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl pb-32">
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <span>🗓️</span> 1週間献立プラン (Beta)
+        <span>🗓️</span> 1週間献立プラン
       </h1>
 
       {error && (
@@ -88,29 +154,27 @@ export default function WeeklyPlanningPage() {
             onClick={handleGenerate}
             className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
           >
-            プランを作成する (Pro)
+            プランを作成する
           </button>
-          <p className="text-xs text-gray-400 mt-4">
-            ※Proプラン限定機能です。生成には時間がかかります。
+        </div>
+      )}
+
+      {loading && (
+        <div className="text-center py-20">
+          <div className="text-4xl mb-4 animate-pulse">⚡</div>
+          <h2 className="text-xl font-bold text-gray-700">
+            7日分の献立を一気に生成中...
+          </h2>
+          <p className="text-gray-500">
+            在庫と賞味期限を計算して、最適なプランを作成します。
+            <br />
+            （約10〜15秒お待ちください）
           </p>
         </div>
       )}
 
-      <div className="text-center py-20">
-        <div className="animate-spin text-4xl mb-4">⚡</div>
-        <h2 className="text-xl font-bold text-gray-700">
-          7日分の献立を一気に生成中...
-        </h2>
-        <p className="text-gray-500">
-          在庫と賞味期限を計算して、最適なプランを作成します。
-          <br />
-          （約10〜15秒お待ちください）
-        </p>
-      </div>
-
       {weeklyPlan && (
         <div className="space-y-8">
-          {/* Weekly Grid */}
           <div className="grid md:grid-cols-2 gap-4">
             {weeklyPlan.weeklyMenus.map((day, i) => (
               <div
@@ -149,7 +213,6 @@ export default function WeeklyPlanningPage() {
             ))}
           </div>
 
-          {/* Consolidated Shopping List */}
           <div className="bg-green-50 rounded-xl p-6 border border-green-100">
             <h2 className="text-xl font-bold text-green-800 mb-4 flex items-center">
               <span>🛒</span> まとめて買い物リスト
@@ -173,6 +236,7 @@ export default function WeeklyPlanningPage() {
           </div>
         </div>
       )}
+      <NavBar />
     </div>
   );
 }

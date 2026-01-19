@@ -18,8 +18,8 @@ export default function NavBar() {
       label: "ホーム",
     },
     {
-      to: "/recipes",
-      active: pathname?.startsWith("/recipes"),
+      to: "/menu/generate",
+      active: pathname?.startsWith("/menu"),
       icon: <ChefHat size={18} />,
       label: "献立",
     },
@@ -41,7 +41,7 @@ export default function NavBar() {
   const getActiveIndex = () => {
     if (pathname?.startsWith("/settings")) return 3;
     if (pathname?.startsWith("/shopping-list")) return 2;
-    if (pathname?.startsWith("/recipes")) return 1;
+    if (pathname?.startsWith("/menu")) return 1;
     if (pathname === "/" || pathname?.startsWith("/home")) return 0;
     return 0;
   };

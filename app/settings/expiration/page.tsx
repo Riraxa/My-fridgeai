@@ -1,12 +1,15 @@
+//app/settings/expiration/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import NavBar from "@/app/components/NavBar";
 
 export default function ExpirationSettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isPro, setIsPro] = useState<boolean | null>(null);
 
   const [settings, setSettings] = useState({
     expirationCriticalDays: 2,
@@ -15,9 +18,20 @@ export default function ExpirationSettingsPage() {
   });
 
   useEffect(() => {
-    fetch("/api/settings/expiration")
-      .then((res) => res.json())
-      .then((data) => {
+    async function fetchData() {
+      try {
+        // Check user plan
+        const userRes = await fetch("/api/user/me");
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setIsPro(userData.user?.plan === "PRO");
+        } else {
+          setIsPro(false);
+        }
+
+        // Fetch settings
+        const res = await fetch("/api/settings/expiration");
+        const data = await res.json();
         if (data.expirationCriticalDays !== undefined) {
           setSettings({
             expirationCriticalDays: data.expirationCriticalDays,
@@ -25,12 +39,14 @@ export default function ExpirationSettingsPage() {
             expirationPriorityWeight: data.expirationPriorityWeight,
           });
         }
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error(err);
+        setIsPro(false);
+      } finally {
         setLoading(false);
-      });
+      }
+    }
+    fetchData();
   }, []);
 
   const handleSave = async () => {
@@ -55,19 +71,54 @@ export default function ExpirationSettingsPage() {
     }
   };
 
-  if (loading) return <div className="p-8">読み込み中...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center pb-32">
+        <div className="text-gray-500">読み込み中...</div>
+        <NavBar />
+      </div>
+    );
+  }
+
+  // Not Pro - redirect or show message
+  if (!isPro) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl pb-32">
+        <h1 className="text-2xl font-bold mb-6 text-gray-900 flex items-center gap-2">
+          <span>⚡</span> 賞味期限優先度設定
+        </h1>
+
+        <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
+          <div className="text-6xl mb-4">🔒</div>
+          <h2 className="text-xl font-bold mb-2">Proプラン限定機能です</h2>
+          <p className="text-gray-600 mb-6">
+            賞味期限の優先度設定は、
+            <br />
+            Proプランにアップグレードするとご利用いただけます。
+          </p>
+          <button
+            onClick={() => router.push("/settings/account")}
+            className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
+          >
+            Proプランにアップグレード
+          </button>
+        </div>
+        <NavBar />
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6 text-gray-900 flex items-center">
-        <span>⚡</span> 賞味期限優先度設定 (Pro)
+    <div className="container mx-auto px-4 py-8 max-w-2xl pb-32">
+      <h1 className="text-2xl font-bold mb-6 text-gray-900 flex items-center gap-2">
+        <span>⚡</span> 賞味期限優先度設定
       </h1>
 
       <div className="bg-white rounded-xl shadow-sm border p-6 space-y-8">
         {/* Critical Days */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            🔥 最優先で消費する期限（残り日数）
+            最優先で消費する期限（残り日数）
           </label>
           <div className="flex items-center gap-4">
             <input
@@ -95,7 +146,7 @@ export default function ExpirationSettingsPage() {
         {/* Warning Days */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            ⚠️ 優先的に消費する期限（残り日数）
+            優先的に消費する期限（残り日数）
           </label>
           <div className="flex items-center gap-4">
             <input
@@ -123,7 +174,7 @@ export default function ExpirationSettingsPage() {
         {/* Priority Weight */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            🎯 AIによる採用率（優先度）
+            AIによる採用率（優先度）
           </label>
           <div className="flex items-center gap-4">
             <input
@@ -172,6 +223,7 @@ export default function ExpirationSettingsPage() {
           ← 献立生成に戻る
         </a>
       </div>
+      <NavBar />
     </div>
   );
 }

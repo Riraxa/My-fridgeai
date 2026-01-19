@@ -22,6 +22,12 @@ export interface GeneratedMenu {
     }[];
     steps: string[];
     tips: string;
+    nutrition?: {
+      calories: number;
+      protein: number;
+      fat: number;
+      carbs: number;
+    };
   }[];
 }
 
@@ -142,107 +148,80 @@ ${warningList}
 
 3. **避けたい調理法は絶対に使わないこと**
 
-# 提案する献立パターン（必ず3パターン）
+# 提案する献立パターン（必ず3パターン、各3品構成）
 
 **1. メイン提案**
-- 最も栄養バランスが良く、賞味期限の近い食材を優先
-- 定食スタイル（主菜・副菜・汁物の3品構成）
-- 和食、洋食、中華のいずれか
+- 最も栄養バランスが良く、賞味期限の近い食材を優先。
+- 定食スタイル（主菜・副菜・汁物）。
+- 全料理に nutrition 要。
 
-**2. 代替案A（ジャンル違い）**
-- メイン提案と異なるジャンル
-  例: メインが和食なら → 洋食 or 中華
-- 同じく3品構成
+**2. 代替案A**
+- 別ジャンル。3品構成。
+- 全料理に nutrition 要。
 
-**3. 代替案B（時短重視）**
-- 15分以内で完成する献立
-- 1〜2品でもOK（丼ものなど）
-- 手軽さ優先
+**3. 代替案B**
+- 15分以内の時短献立。
+- 全料理に nutrition 要。
 
-# 出力形式（必ずこのJSON形式で）
+# 出力形式（必ずこのJSON形式で。各 dishes に nutrition を含めること）
 
 {
   "main": {
-    "title": "今日のおすすめ和定食",
-    "reason": "鶏肉の賞味期限が明日なので優先的に使用。栄養バランスも良い献立です。",
-    "tags": ["和食", "消費期限優先", "栄養バランス"],
+    "title": "今日のおすすめ定食",
+    "reason": "説明",
+    "tags": ["和食"],
     "dishes": [
       {
         "type": "主菜",
-        "name": "鶏の照り焼き",
+        "name": "料理名",
         "cookingTime": 20,
         "difficulty": 2,
-        "ingredients": [
-          {"name": "鶏もも肉", "amount": 200, "unit": "g"},
-          {"name": "醤油", "amount": 2, "unit": "大さじ"},
-          {"name": "みりん", "amount": 1, "unit": "大さじ"}
-        ],
-        "steps": [
-          "鶏肉を一口大に切る",
-          "フライパンで皮目から焼く",
-          "醤油とみりんを加えて煮詰める"
-        ],
-        "tips": "皮目をパリッと焼くと美味しい"
-      },
-      {
-        "type": "副菜",
-        "name": "ほうれん草のおひたし",
-        "cookingTime": 5,
-        "difficulty": 1,
-        "ingredients": [
-          {"name": "ほうれん草", "amount": 100, "unit": "g"},
-          {"name": "醤油", "amount": 1, "unit": "小さじ"}
-        ],
-        "steps": [
-          "ほうれん草を茹でる",
-          "水気を絞って醤油をかける"
-        ],
-        "tips": "茹ですぎに注意",
-        "nutrition": {
-            "calories": 50,
-            "protein": 3,
-            "fat": 1,
-            "carbs": 5
-        }
-      },
-      {
-        "type": "汁物",
-        "name": "豆腐と味噌汁",
-        "cookingTime": 5,
-        "difficulty": 1,
-        "ingredients": [
-          {"name": "豆腐", "amount": 100, "unit": "g"},
-          {"name": "味噌", "amount": 1, "unit": "大さじ"}
-        ],
-        "steps": [
-          "だしを沸かす",
-          "豆腐を入れて味噌を溶く"
-        ],
-        "tips": "味噌は最後に溶く",
-        "nutrition": {
-            "calories": 80,
-            "protein": 7,
-            "fat": 3,
-            "carbs": 6
-        }
+        "ingredients": [{"name": "食材", "amount": 100, "unit": "g"}],
+        "steps": ["手順1", "手順2"],
+        "tips": "コツ",
+        "nutrition": {"calories": 300, "protein": 20, "fat": 15, "carbs": 25}
       }
     ]
   },
   "alternativeA": {
-    "title": "洋風プレート",
-    "reason": "和食が苦手な場合の代替案。同じ食材で洋風に。",
-    "tags": ["洋食", "ヘルシー"],
-    "dishes": [...]
+    "title": "メニューA",
+    "reason": "理由",
+    "tags": ["洋食"],
+    "dishes": [
+      {
+        "type": "主菜",
+        "name": "料理名",
+        "cookingTime": 15,
+        "difficulty": 2,
+        "ingredients": [{"name": "食材", "amount": 100, "unit": "g"}],
+        "steps": ["手順1"],
+        "tips": "コツ",
+        "nutrition": {"calories": 250, "protein": 15, "fat": 10, "carbs": 30}
+      }
+    ]
   },
   "alternativeB": {
-    "title": "時短！親子丼",
-    "reason": "忙しい日向け。15分で完成。",
-    "tags": ["時短", "簡単", "丼もの"],
-    "dishes": [...]
+    "title": "スピードメニュー",
+    "reason": "理由",
+    "tags": ["時短"],
+    "dishes": [
+      {
+        "type": "主菜",
+        "name": "料理名",
+        "cookingTime": 10,
+        "difficulty": 1,
+        "ingredients": [{"name": "食材", "amount": 100, "unit": "g"}],
+        "steps": ["手順1"],
+        "tips": "コツ",
+        "nutrition": {"calories": 200, "protein": 12, "fat": 8, "carbs": 40}
+      }
+    ]
   }
 }
 
-**重要**: 必ずJSON形式で出力してください。余計な説明文は不要です。`;
+**重要**: 
+- 必ず有効なJSONのみを出力してください。
+- 全ての dishes 項目に nutrition（calories, protein, fat, carbs）の数値を必ず含めてください。`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -256,7 +235,7 @@ ${warningList}
       ],
       response_format: { type: "json_object" },
       temperature: 0.7,
-      max_tokens: 4000, // 3パターン分の長さを確保
+      max_tokens: 4000,
     });
 
     const content = completion.choices[0].message.content;
@@ -264,10 +243,28 @@ ${warningList}
 
     const result = JSON.parse(content) as MenuGenerationResult;
 
-    // Validation: Ensure all required fields exist
-    if (!result.main || !result.alternativeA || !result.alternativeB) {
-      throw new Error("AI did not return all 3 menu patterns");
+    // Validation
+    const isValid = (menu: any) =>
+      menu && menu.title && Array.isArray(menu.dishes);
+    if (
+      !isValid(result.main) ||
+      !isValid(result.alternativeA) ||
+      !isValid(result.alternativeB)
+    ) {
+      throw new Error("AI returned incomplete menu data");
     }
+
+    // Normalize
+    const normalize = (menu: GeneratedMenu) => {
+      menu.dishes.forEach((dish) => {
+        if (!dish.nutrition) {
+          dish.nutrition = { calories: 0, protein: 0, fat: 0, carbs: 0 };
+        }
+      });
+    };
+    normalize(result.main);
+    normalize(result.alternativeA);
+    normalize(result.alternativeB);
 
     return result;
   } catch (error) {
