@@ -9,6 +9,7 @@ declare module "next-auth" {
       email?: string | null;
       emailVerified?: Date | null;
       isPro: boolean;
+      accounts?: { provider: string }[];
     } & DefaultSession["user"];
   }
 

@@ -111,6 +111,13 @@ export async function POST(req: Request) {
     const expectedChallenge = user.verifyToken;
     const { origin, rpID } = getWebAuthnRP();
 
+    // デバッグ情報（本番環境でも重要）
+    console.log("[webauthn][register] Debug info:", {
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+      challenge: expectedChallenge?.substring(0, 20) + "...",
+    });
+
     // ---- WebAuthn 検証 ----
     let verification;
     try {
@@ -121,7 +128,14 @@ export async function POST(req: Request) {
         expectedRPID: rpID,
       });
     } catch (err: any) {
-      console.error("[webauthn][register] verify error:", err);
+      console.error("[webauthn][register] verify error:", {
+        message: err.message,
+        name: err.name,
+        stack: err.stack,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        challengePreview: expectedChallenge?.substring(0, 20) + "...",
+      });
       // Detailed error might be too technical, keeping it somewhat generic but clear
       return NextResponse.json(
         { ok: false, message: "認証情報の検証に失敗しました" },
