@@ -33,6 +33,13 @@ export default function BarcodeScanner({
     let active = true;
 
     const init = async () => {
+      // video要素がDOMに確実に追加されるまで待機
+      let attempts = 0;
+      while (!videoRef.current && attempts < 10) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        attempts++;
+      }
+
       try {
         // HTTPSチェック
         if (
@@ -40,6 +47,13 @@ export default function BarcodeScanner({
           location.hostname !== "localhost"
         ) {
           throw new Error("カメラを使用するにはHTTPS接続が必要です");
+        }
+
+        // video要素の存在確認
+        if (!videoRef.current) {
+          throw new Error(
+            "ビデオ要素の準備に失敗しました。ページを再読み込みしてください。",
+          );
         }
 
         const reader = new BrowserMultiFormatReader();
@@ -53,11 +67,6 @@ export default function BarcodeScanner({
         setSupported(true);
 
         const selectedDeviceId = devices[0].deviceId;
-
-        // video要素が準備できるまで待機
-        if (!videoRef.current) {
-          throw new Error("ビデオ要素が準備できません");
-        }
 
         await reader.decodeFromVideoDevice(
           selectedDeviceId,
