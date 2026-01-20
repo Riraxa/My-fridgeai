@@ -122,6 +122,15 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async signIn({ user, account, profile }) {
+      console.log("[NextAuth] signIn callback:", {
+        user: user ? { id: user.id, email: user.email } : null,
+        account: account
+          ? { provider: account.provider, type: account.type }
+          : null,
+        profile: profile ? { email: (profile as any)?.email } : null,
+        timestamp: new Date().toISOString(),
+      });
+
       if (account?.provider === "credentials") {
         if (!user?.id) return false;
         return true;
@@ -229,6 +238,13 @@ export const authOptions: NextAuthOptions = {
     },
 
     async jwt({ token, user }) {
+      console.log("[NextAuth] JWT callback:", {
+        hasToken: !!token,
+        hasUser: !!user,
+        tokenKeys: token ? Object.keys(token) : [],
+        timestamp: new Date().toISOString(),
+      });
+
       try {
         const incomingUserId =
           (user as any)?.id ??
@@ -302,6 +318,13 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }) {
+      console.log("[NextAuth] Session callback:", {
+        hasSession: !!session,
+        hasToken: !!token,
+        tokenKeys: token ? Object.keys(token) : [],
+        timestamp: new Date().toISOString(),
+      });
+
       if (session.user) {
         (session.user as any).id = (token as any).userId;
         (session.user as any).email = (token as any).email;
