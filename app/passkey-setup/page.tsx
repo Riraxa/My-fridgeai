@@ -135,11 +135,24 @@ export default function PasskeySetupPage() {
 
   async function markCompleteOnServer() {
     // mark passkeySetupCompleted = true
-    await fetch("/api/auth/complete-passkey-setup", {
+    const res = await fetch("/api/auth/complete-passkey-setup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        // 認証エラーの場合は再ログインが必要
+        throw new Error(
+          "セッションが有効期限切れです。再度ログインしてください。",
+        );
+      }
+      throw new Error(error?.error || "登録完了処理に失敗しました");
+    }
+
+    return res.json();
   }
 
   async function markSkipOnServer() {
