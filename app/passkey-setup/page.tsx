@@ -100,28 +100,9 @@ export default function PasskeySetupPage() {
     null,
   );
 
-  // 詳細なデバッグログ
-  useEffect(() => {
-    console.log("[passkey-setup] Page state:", {
-      status,
-      session: session
-        ? {
-            userId: session.user?.id,
-            email: session.user?.email,
-            expires: session.expires,
-          }
-        : null,
-      userAgent: navigator.userAgent,
-      url: window.location.href,
-      timestamp: new Date().toISOString(),
-    });
-  }, [status, session]);
-
   // guard: must be authenticated (this page is only reachable after clicking magic link)
   useEffect(() => {
-    console.log("[passkey-setup] useEffect - status:", status);
     if (status === "unauthenticated") {
-      console.log("[passkey-setup] Redirecting to login - unauthenticated");
       router.replace("/login");
     }
   }, [status, router]);
