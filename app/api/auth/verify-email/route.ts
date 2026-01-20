@@ -13,6 +13,16 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
+
+    // 詳細なデバッグログ
+    console.log("[verify-email] Request received:", {
+      url: req.url,
+      token: token ? token.substring(0, 20) + "..." : null,
+      userAgent: req.headers.get("user-agent")?.substring(0, 50),
+      referer: req.headers.get("referer"),
+      timestamp: new Date().toISOString(),
+    });
+
     if (!token) {
       // JSON の場合は JSON を返す（フロント呼び出し）
       const accept = req.headers.get("accept") ?? "";
@@ -76,6 +86,11 @@ export async function GET(req: Request) {
             { status: 200 },
           );
         }
+        console.log("[verify-email] Redirecting to passkey-setup:", {
+          email: existingUser.email,
+          redirectUrl: `${BASE_URL}/passkey-setup?email=${encodeURIComponent(existingUser.email ?? "")}`,
+          timestamp: new Date().toISOString(),
+        });
         return NextResponse.redirect(
           `${BASE_URL}/passkey-setup?email=${encodeURIComponent(existingUser.email ?? "")}`,
         );
@@ -107,6 +122,15 @@ export async function GET(req: Request) {
           { status: 200 },
         );
       }
+      console.log(
+        "[verify-email] New user created, redirecting to passkey-setup:",
+        {
+          email: newUser.email,
+          userId: newUser.id,
+          redirectUrl: `${BASE_URL}/passkey-setup?email=${encodeURIComponent(newUser.email ?? "")}`,
+          timestamp: new Date().toISOString(),
+        },
+      );
       return NextResponse.redirect(
         `${BASE_URL}/passkey-setup?email=${encodeURIComponent(newUser.email ?? "")}`,
       );
