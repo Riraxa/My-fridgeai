@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { encode } from "next-auth/jwt";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
@@ -13,15 +14,6 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
-
-    // 詳細なデバッグログ
-    console.log("[verify-email] Request received:", {
-      url: req.url,
-      token: token ? token.substring(0, 20) + "..." : null,
-      userAgent: req.headers.get("user-agent")?.substring(0, 50),
-      referer: req.headers.get("referer"),
-      timestamp: new Date().toISOString(),
-    });
 
     if (!token) {
       // JSON の場合は JSON を返す（フロント呼び出し）
@@ -86,14 +78,25 @@ export async function GET(req: Request) {
             { status: 200 },
           );
         }
-        console.log("[verify-email] Redirecting to passkey-setup:", {
-          email: existingUser.email,
-          redirectUrl: `${BASE_URL}/passkey-setup?email=${encodeURIComponent(existingUser.email ?? "")}`,
-          timestamp: new Date().toISOString(),
-        });
-        return NextResponse.redirect(
+        const response = NextResponse.redirect(
           `${BASE_URL}/passkey-setup?email=${encodeURIComponent(existingUser.email ?? "")}`,
         );
+        const token = await encode({
+          token: {
+            sub: existingUser.id,
+            email: existingUser.email,
+            name: existingUser.name,
+          },
+          secret: process.env.NEXTAUTH_SECRET!,
+        });
+        response.cookies.set("next-auth.session-token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 30 * 24 * 60 * 60, // 30日
+        });
+        return response;
       }
 
       // create real user
@@ -122,18 +125,28 @@ export async function GET(req: Request) {
           { status: 200 },
         );
       }
-      console.log(
-        "[verify-email] New user created, redirecting to passkey-setup:",
-        {
-          email: newUser.email,
-          userId: newUser.id,
-          redirectUrl: `${BASE_URL}/passkey-setup?email=${encodeURIComponent(newUser.email ?? "")}`,
-          timestamp: new Date().toISOString(),
-        },
-      );
-      return NextResponse.redirect(
+      const response = NextResponse.redirect(
         `${BASE_URL}/passkey-setup?email=${encodeURIComponent(newUser.email ?? "")}`,
       );
+
+      const token = await encode({
+        token: {
+          sub: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+        },
+        secret: process.env.NEXTAUTH_SECRET!,
+      });
+
+      response.cookies.set("next-auth.session-token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60, // 30日
+      });
+
+      return response;
     }
 
     if (ev.user) {
@@ -153,9 +166,28 @@ export async function GET(req: Request) {
           { status: 200 },
         );
       }
-      return NextResponse.redirect(
+      const response = NextResponse.redirect(
         `${BASE_URL}/passkey-setup?email=${encodeURIComponent(ev.user.email ?? "")}`,
       );
+
+      const token = await encode({
+        token: {
+          sub: ev.user.id,
+          email: ev.user.email,
+          name: ev.user.name,
+        },
+        secret: process.env.NEXTAUTH_SECRET!,
+      });
+
+      response.cookies.set("next-auth.session-token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60, // 30日
+      });
+
+      return response;
     }
 
     // Fallback
