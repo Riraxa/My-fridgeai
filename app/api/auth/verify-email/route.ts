@@ -77,7 +77,7 @@ export async function GET(req: Request) {
           );
         }
         return NextResponse.redirect(
-          `${BASE_URL}/post-verify?email=${encodeURIComponent(existingUser.email ?? "")}`,
+          `${BASE_URL}/passkey-setup?email=${encodeURIComponent(existingUser.email ?? "")}`,
         );
       }
 
@@ -108,7 +108,7 @@ export async function GET(req: Request) {
         );
       }
       return NextResponse.redirect(
-        `${BASE_URL}/post-verify?email=${encodeURIComponent(newUser.email ?? "")}`,
+        `${BASE_URL}/passkey-setup?email=${encodeURIComponent(newUser.email ?? "")}`,
       );
     }
 
@@ -130,7 +130,7 @@ export async function GET(req: Request) {
         );
       }
       return NextResponse.redirect(
-        `${BASE_URL}/post-verify?email=${encodeURIComponent(ev.user.email ?? "")}`,
+        `${BASE_URL}/passkey-setup?email=${encodeURIComponent(ev.user.email ?? "")}`,
       );
     }
 
