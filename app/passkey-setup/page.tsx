@@ -100,12 +100,52 @@ export default function PasskeySetupPage() {
     null,
   );
 
+  // URLパラメータからメールアドレスを取得
+  const [emailFromUrl, setEmailFromUrl] = useState("");
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const email = urlParams.get("email");
+    if (email) {
+      setEmailFromUrl(email);
+    }
+  }, []);
+
+  // メール認証直後の自動ログイン処理
+  useEffect(() => {
+    if (status === "unauthenticated" && emailFromUrl) {
+      // メール認証後のユーザーを自動ログインさせる
+      const autoLogin = async () => {
+        try {
+          const res = await fetch("/api/auth/auto-login-after-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: emailFromUrl }),
+          });
+
+          if (res.ok) {
+            // ログイン成功、セッションを更新
+            window.location.reload();
+          } else {
+            // 自動ログイン失敗、手動ログインへ
+            router.replace(`/login?email=${encodeURIComponent(emailFromUrl)}`);
+          }
+        } catch (error) {
+          console.error("Auto login failed:", error);
+          router.replace(`/login?email=${encodeURIComponent(emailFromUrl)}`);
+        }
+      };
+
+      autoLogin();
+    }
+  }, [status, emailFromUrl, router]);
+
   // guard: must be authenticated (this page is only reachable after clicking magic link)
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (status === "unauthenticated" && !emailFromUrl) {
       router.replace("/login");
     }
-  }, [status, router]);
+  }, [status, router, emailFromUrl]);
 
   const email = session?.user?.email ?? "";
 
