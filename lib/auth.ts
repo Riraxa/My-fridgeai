@@ -9,27 +9,17 @@ import { cookies } from "next/headers";
 
 const isProd = process.env.NODE_ENV === "production";
 
-// 本番環境でのNextAuth URL設定
-const nextAuthUrl =
-  process.env.NEXTAUTH_URL ||
-  (process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000");
-
-console.log("[NextAuth] Configuration:", {
-  NODE_ENV: process.env.NODE_ENV,
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-  VERCEL_URL: process.env.VERCEL_URL,
-  NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
-  finalUrl: nextAuthUrl,
-  isProd,
-});
-
+// 本番環境ではNextAuth URLを明示的に設定
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
 
   // 本番環境でのURL設定を明示的に指定
-  ...(isProd && { url: nextAuthUrl }),
+  ...(isProd && {
+    url:
+      process.env.NEXTAUTH_URL ||
+      process.env.VERCEL_URL ||
+      process.env.NEXT_PUBLIC_BASE_URL,
+  }),
 
   providers: [
     GoogleProvider({
