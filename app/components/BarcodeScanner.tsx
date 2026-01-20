@@ -23,6 +23,7 @@ export default function BarcodeScanner({
 
   const [supported, setSupported] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
 
   const { setBarcodeOpen } = useFridge();
 
@@ -33,6 +34,14 @@ export default function BarcodeScanner({
 
     const init = async () => {
       try {
+        // HTTPSチェック
+        if (
+          location.protocol !== "https:" &&
+          location.hostname !== "localhost"
+        ) {
+          throw new Error("カメラを使用するにはHTTPS接続が必要です");
+        }
+
         const reader = new BrowserMultiFormatReader();
         codeReaderRef.current = reader;
 
@@ -45,9 +54,14 @@ export default function BarcodeScanner({
 
         const selectedDeviceId = devices[0].deviceId;
 
+        // video要素が準備できるまで待機
+        if (!videoRef.current) {
+          throw new Error("ビデオ要素が準備できません");
+        }
+
         await reader.decodeFromVideoDevice(
           selectedDeviceId,
-          videoRef.current!,
+          videoRef.current,
           async (result, err) => {
             if (!active) return;
 
@@ -67,9 +81,30 @@ export default function BarcodeScanner({
             }
           },
         );
+
+        // カメラストリームが開始されたことを確認
+        setTimeout(() => {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            setCameraReady(true);
+          } else {
+            setError("カメラストリームの開始に失敗しました");
+          }
+        }, 2000);
       } catch (e: any) {
         console.error("バーコードスキャナ初期化失敗:", e);
-        setError(e?.message ?? "カメラ初期化に失敗しました");
+
+        // より詳細なエラーメッセージ
+        let errorMessage = e?.message ?? "カメラ初期化に失敗しました";
+        if (e?.name === "NotAllowedError") {
+          errorMessage =
+            "カメラへのアクセスが拒否されました。ブラウザの設定でカメラアクセスを許可してください。";
+        } else if (e?.name === "NotFoundError") {
+          errorMessage = "カメラデバイスが見つかりません。";
+        } else if (e?.name === "NotReadableError") {
+          errorMessage = "カメラが他のアプリケーションで使用されています。";
+        }
+
+        setError(errorMessage);
         setSupported(false);
       }
     };
@@ -110,12 +145,20 @@ export default function BarcodeScanner({
         )}
 
         {supported === true && (
-          <video
-            ref={videoRef}
-            className="w-full h-64 object-cover"
-            muted
-            playsInline
-          />
+          <div className="relative">
+            <video
+              ref={videoRef}
+              className="w-full h-64 object-cover"
+              muted
+              playsInline
+              autoPlay
+            />
+            {!cameraReady && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <p>カメラを起動しています...</p>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

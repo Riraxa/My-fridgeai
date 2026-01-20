@@ -1,3 +1,4 @@
+// app/components/AddEditModal.tsx
 "use client";
 import React, { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
@@ -65,7 +66,7 @@ export default function AddEditModal({
     setEstimatedExpiry(null);
     setEstimatedCategory(null);
     setDaysFromPurchase(null);
-  }, [item]);
+  }, [item, estimatedExpiry]);
 
   // Debounced estimation - only for new items (not editing)
   useEffect(() => {

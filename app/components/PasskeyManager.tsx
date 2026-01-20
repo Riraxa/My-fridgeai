@@ -79,6 +79,11 @@ export default function PasskeyManager() {
   const [newPasskeyId, setNewPasskeyId] = useState<string | null>(null);
   const [newPasskeyName, setNewPasskeyName] = useState("");
 
+  // Googleログインユーザーかチェック
+  const isGoogleUser = session?.user?.accounts?.some(
+    (account) => account.provider === "google",
+  );
+
   const fetchPasskeys = useCallback(async () => {
     if (!session?.user?.email) return;
     setLoading(true);
@@ -194,6 +199,18 @@ export default function PasskeyManager() {
       }, 500);
     });
   };
+
+  // Googleログインユーザーの場合はパスキー設定を表示しない
+  if (isGoogleUser) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">パスキー設定</h3>
+        <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+          Googleアカウントでログインしているため、パスキー設定は不要です。Google側のセキュリティ設定をご利用ください。
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

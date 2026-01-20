@@ -247,6 +247,18 @@ export const authOptions: NextAuthOptions = {
             });
           }
 
+          // 3. アカウント情報を取得
+          const accounts: { provider: string }[] = [];
+          if (dbUser) {
+            const accountData = await prisma.account.findMany({
+              where: { userId: dbUser.id },
+              select: {
+                provider: true,
+              },
+            });
+            accounts.push(...accountData);
+          }
+
           if (dbUser) {
             (token as any).userId = dbUser.id; // DBの正当なCUIDをセット
             (token as any).sub = dbUser.id; // JWTのsubフィールドにも設定
@@ -255,12 +267,14 @@ export const authOptions: NextAuthOptions = {
             (token as any).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
             (token as any).stripeCurrentPeriodEnd =
               dbUser.stripeCurrentPeriodEnd;
+            (token as any).accounts = accounts; // アカウント情報をセット
           } else {
             // 最悪のフォールバック
             (token as any).userId = userId;
             (token as any).sub = userId; // JWTのsubフィールドにも設定
             (token as any).email = email;
             (token as any).plan = (token as any).plan ?? "FREE";
+            (token as any).accounts = [];
           }
         }
       } catch (e) {
@@ -284,6 +298,9 @@ export const authOptions: NextAuthOptions = {
         // Proステータスを動的に判定
         const plan = (token as any).plan || "FREE";
         (session.user as any).isPro = plan === "PRO" || plan === "MEMBER";
+
+        // アカウントプロバイダー情報を追加
+        (session.user as any).accounts = (token as any).accounts || [];
       }
       return session;
     },

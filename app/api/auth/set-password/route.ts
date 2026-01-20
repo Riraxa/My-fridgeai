@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
+import { resend, EMAIL_FROM } from "@/lib/mail/resend";
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 256;
@@ -30,26 +30,6 @@ function maskEmail(email: string) {
   }
 }
 
-function makeTransporter() {
-  const host = process.env.EMAIL_HOST;
-  const port = Number(process.env.EMAIL_PORT || 587);
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASSWORD;
-
-  if (!host || !user || !pass) {
-    // 詳細は控える。デプロイ前に env を確認すること。
-    throw new Error("メール送信環境が未設定です");
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: process.env.EMAIL_SECURE === "true",
-    auth: { user, pass },
-  });
-}
-
-/** HTML + plain テキストでプロっぽいメールを作る */
 function buildVerificationEmail(to: string, verificationUrl: string) {
   const subject = "My-FridgeAI — メールアドレスを確認してください";
   const plain = [
@@ -94,31 +74,6 @@ function buildVerificationEmail(to: string, verificationUrl: string) {
   `;
 
   return { subject, plain, html };
-}
-
-async function sendVerificationEmailSafe(to: string, verificationUrl: string) {
-  const transporter = makeTransporter();
-  const from = process.env.EMAIL_FROM || process.env.EMAIL_USER || "";
-  // ログは機密情報を出さない
-  console.info("[mail] sending verification", {
-    to: maskEmail(to),
-    fromConfigured: !!from,
-  });
-
-  const { subject, plain, html } = buildVerificationEmail(to, verificationUrl);
-  const info = await transporter.sendMail({
-    from,
-    to,
-    subject,
-    text: plain,
-    html,
-  });
-
-  console.info("[mail] sent", {
-    to: maskEmail(to),
-    messageId: info?.messageId ?? null,
-  });
-  return info;
 }
 
 export async function POST(req: Request) {
@@ -237,7 +192,35 @@ export async function POST(req: Request) {
       // 送信（リンクはフロントページへのもの）
       const verificationUrl = `${BASE_URL}/verify-email?token=${encodeURIComponent(newPlainToken)}`;
       try {
-        await sendVerificationEmailSafe(email, verificationUrl);
+        const { subject, plain, html } = buildVerificationEmail(
+          email,
+          verificationUrl,
+        );
+
+        console.info("[mail] sending verification", {
+          to: maskEmail(email),
+          from: EMAIL_FROM,
+        });
+
+        const { error } = await resend.emails.send({
+          from: EMAIL_FROM,
+          to: [email],
+          subject,
+          text: plain,
+          html,
+        });
+
+        if (error) {
+          console.error("[mail] send failed", {
+            err: String(error),
+            to: maskEmail(email),
+          });
+          throw error;
+        }
+
+        console.info("[mail] sent", {
+          to: maskEmail(email),
+        });
         return NextResponse.json({ ok: true, resent: true }, { status: 200 });
       } catch (mailErr) {
         console.error(
@@ -318,7 +301,35 @@ export async function POST(req: Request) {
     // メール送信
     const verificationUrl = `${BASE_URL}/verify-email?token=${encodeURIComponent(plainToken)}`;
     try {
-      await sendVerificationEmailSafe(email, verificationUrl);
+      const { subject, plain, html } = buildVerificationEmail(
+        email,
+        verificationUrl,
+      );
+
+      console.info("[mail] sending verification", {
+        to: maskEmail(email),
+        from: EMAIL_FROM,
+      });
+
+      const { error } = await resend.emails.send({
+        from: EMAIL_FROM,
+        to: [email],
+        subject,
+        text: plain,
+        html,
+      });
+
+      if (error) {
+        console.error("[mail] send failed", {
+          err: String(error),
+          to: maskEmail(email),
+        });
+        throw error;
+      }
+
+      console.info("[mail] sent", {
+        to: maskEmail(email),
+      });
     } catch (sendErr) {
       console.error("[set-password] email send failed (no secret output)", {
         err: String(sendErr),
