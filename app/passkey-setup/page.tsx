@@ -101,19 +101,21 @@ export default function PasskeySetupPage() {
   );
 
   // 詳細なデバッグログ
-  console.log("[passkey-setup] Page state:", {
-    status,
-    session: session
-      ? {
-          userId: session.user?.id,
-          email: session.user?.email,
-          expires: session.expires,
-        }
-      : null,
-    userAgent: navigator.userAgent,
-    url: window.location.href,
-    timestamp: new Date().toISOString(),
-  });
+  useEffect(() => {
+    console.log("[passkey-setup] Page state:", {
+      status,
+      session: session
+        ? {
+            userId: session.user?.id,
+            email: session.user?.email,
+            expires: session.expires,
+          }
+        : null,
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      timestamp: new Date().toISOString(),
+    });
+  }, [status, session]);
 
   // guard: must be authenticated (this page is only reachable after clicking magic link)
   useEffect(() => {
