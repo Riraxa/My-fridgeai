@@ -18,9 +18,6 @@ function hashToken(token: string) {
 }
 
 export async function POST(req: Request) {
-  const startTime = Date.now();
-  console.log("[password-reset] Request started at:", new Date().toISOString());
-
   try {
     const body = await req.json().catch(() => ({}));
     const emailRaw = body?.email;
@@ -31,20 +28,8 @@ export async function POST(req: Request) {
       );
     }
     const email = emailRaw.toLowerCase().trim();
-    console.log(
-      "[password-reset] Email processed:",
-      email.replace(/(.{2}).*(@.*)/, "$1***$2"),
-      "at:",
-      Date.now() - startTime,
-      "ms",
-    );
 
     const user = await prisma.user.findUnique({ where: { email } });
-    console.log(
-      "[password-reset] DB query completed at:",
-      Date.now() - startTime,
-      "ms",
-    );
 
     // Security: always respond the same to avoid user enumeration.
     // If user exists, create token & send mail. If not, still return ok (but do not create DB record).
@@ -76,12 +61,6 @@ export async function POST(req: Request) {
 
     const resetUrl = `${BASE_URL.replace(/\/$/, "")}/reset-password/confirm?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
-    console.log(
-      "[password-reset] About to send email at:",
-      Date.now() - startTime,
-      "ms",
-    );
-
     const { error } = await resend.emails.send({
       from: EMAIL_FROM,
       to: [email],
@@ -93,29 +72,10 @@ export async function POST(req: Request) {
              <p>もし身に覚えがない場合は本メールを破棄してください。</p>`,
     });
 
-    console.log(
-      "[password-reset] Resend API call completed at:",
-      Date.now() - startTime,
-      "ms",
-    );
-
     if (error) {
-      console.error("[mail] password reset send failed", {
-        err: String(error),
-        to: email.replace(/(.{2}).*(@.*)/, "$1***$2"),
-        timeElapsed: Date.now() - startTime,
-      });
+      console.error("[password-reset] send failed:", String(error));
       throw error;
     }
-
-    console.log(
-      "[password-reset] Email sent successfully at:",
-      Date.now() - startTime,
-      "ms",
-      {
-        to: email.replace(/(.{2}).*(@.*)/, "$1***$2"),
-      },
-    );
 
     return NextResponse.json({
       ok: true,
