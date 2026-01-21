@@ -13,12 +13,9 @@ const isProd = process.env.NODE_ENV === "production";
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
 
-  // 本番環境でのURL設定を明示的に指定
+  // 信頼されるホストを明示的に指定してリファラーチェックを緩和
   ...(isProd && {
-    url:
-      process.env.NEXTAUTH_URL ||
-      process.env.VERCEL_URL ||
-      process.env.NEXT_PUBLIC_BASE_URL,
+    trustHost: true,
   }),
 
   providers: [
@@ -91,25 +88,20 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30日
-  },
-
-  // JWT設定を本番環境用に最適化
-  jwt: {
-    maxAge: 30 * 24 * 60 * 60, // 30日
+    updateAge: 24 * 60 * 60, // 1日ごとに更新
   },
 
   cookies: {
     sessionToken: {
       name: isProd
-        ? `__Secure-next-auth.session-token`
-        : `next-auth.session-token`,
+        ? "__Secure-next-auth.session-token"
+        : "next-auth.session-token",
       options: {
         httpOnly: true,
-        sameSite: isProd ? "strict" : "lax",
+        sameSite: "lax",
         path: "/",
         secure: isProd,
-        domain: isProd && process.env.VERCEL_URL ? undefined : undefined,
-        maxAge: 30 * 24 * 60 * 60, // 30日
+        maxAge: 30 * 24 * 60 * 60,
       },
     },
   },
@@ -336,6 +328,6 @@ export const authOptions: NextAuthOptions = {
     },
   },
 
-  debug: !isProd,
+  debug: false,
   secret: process.env.NEXTAUTH_SECRET,
 };
