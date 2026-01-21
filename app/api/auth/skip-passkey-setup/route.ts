@@ -9,6 +9,14 @@ export async function POST(req: NextRequest) {
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
+      cookieName: "next-auth.session-token", // 明示的にクッキー名を指定
+    });
+
+    console.log("[SKIP-PASSKEY] Token check:", {
+      hasToken: !!token,
+      tokenSub: token?.sub,
+      tokenEmail: token?.email,
+      timestamp: new Date().toISOString(),
     });
 
     if (!token?.sub) {

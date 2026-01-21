@@ -97,8 +97,9 @@ export default function BarcodeScanner({
             setCameraReady(true);
           } else {
             setError("カメラストリームの開始に失敗しました");
+            setSupported(false);
           }
-        }, 2000);
+        }, 3000);
       } catch (e: any) {
         console.error("バーコードスキャナ初期化失敗:", e);
 
@@ -139,9 +140,7 @@ export default function BarcodeScanner({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-2xl overflow-hidden bg-black p-6 text-white">
-        {supported === null && <p>カメラを初期化しています…</p>}
-
-        {supported === false && (
+        {supported === false ? (
           <div>
             <p>{error ?? "このブラウザではバーコードが読み取れません"}</p>
             <button
@@ -151,9 +150,7 @@ export default function BarcodeScanner({
               閉じる
             </button>
           </div>
-        )}
-
-        {supported === true && (
+        ) : (
           <div className="relative">
             <video
               ref={videoRef}
@@ -162,9 +159,13 @@ export default function BarcodeScanner({
               playsInline
               autoPlay
             />
-            {!cameraReady && (
+            {(supported === null || !cameraReady) && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <p>カメラを起動しています...</p>
+                <p>
+                  {supported === null
+                    ? "カメラを初期化しています…"
+                    : "カメラを起動しています..."}
+                </p>
               </div>
             )}
           </div>

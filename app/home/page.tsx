@@ -42,7 +42,7 @@ export default function HomePage() {
     if (mounted && status === "unauthenticated") {
       router.push("/login");
     }
-  }, [status, mounted, router]);
+  }, [status, mounted, session, router]);
 
   useEffect(() => {
     const openAdd = () => setAddOpen(true);

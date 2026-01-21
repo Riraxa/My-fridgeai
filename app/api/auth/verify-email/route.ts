@@ -46,6 +46,11 @@ export async function GET(req: Request) {
       return NextResponse.redirect(redirectUrl);
     }
 
+    const userEmail = ev.pendingUser?.email || ev.user?.email;
+    if (!userEmail) {
+      return NextResponse.redirect(`${BASE_URL}/verify-request?status=invalid`);
+    }
+
     // mark used
     await prisma.emailVerification.update({
       where: { id: ev.id },
@@ -54,10 +59,13 @@ export async function GET(req: Request) {
 
     if (ev.pendingUser) {
       const pending = ev.pendingUser;
-      // check existing user with same email
+      // 既存ユーザーのチェック
       const existingUser = await prisma.user.findUnique({
         where: { email: pending.email },
       });
+
+      let userId: string;
+      let email: string;
 
       if (existingUser) {
         await prisma.pendingUser.delete({ where: { id: pending.id } });
@@ -65,88 +73,49 @@ export async function GET(req: Request) {
           where: { id: existingUser.id },
           data: { emailVerified: new Date() },
         });
-
-        const accept = req.headers.get("accept") ?? "";
-        if (accept.includes("application/json")) {
-          return NextResponse.json(
-            {
-              ok: true,
-              action: "verified",
-              email: existingUser.email,
-              redirect: "/home",
-            },
-            { status: 200 },
-          );
-        }
-        const response = NextResponse.redirect(
-          `${BASE_URL}/passkey-setup?email=${encodeURIComponent(existingUser.email ?? "")}`,
-        );
-        const token = await encode({
-          token: {
-            sub: existingUser.id,
-            email: existingUser.email,
-            name: existingUser.name,
+        userId = existingUser.id;
+        email = existingUser.email!;
+      } else {
+        // 新規ユーザー作成
+        const newUser = await prisma.user.create({
+          data: {
+            email: pending.email,
+            name: pending.name ?? undefined,
+            password: pending.password ?? undefined,
+            status: "active",
+            emailVerified: new Date(),
           },
-          secret: process.env.NEXTAUTH_SECRET!,
         });
-        response.cookies.set("next-auth.session-token", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 30 * 24 * 60 * 60, // 30日
-        });
-        return response;
+        await prisma.pendingUser.delete({ where: { id: pending.id } });
+        userId = newUser.id;
+        email = newUser.email!;
       }
 
-      // create real user
-      const newUser = await prisma.user.create({
+      // 認証用の一時トークン（verifyToken）を生成・保存
+      const authToken = crypto.randomBytes(32).toString("hex");
+      await prisma.user.update({
+        where: { id: userId },
         data: {
-          email: pending.email,
-          name: pending.name ?? undefined,
-          password: pending.password ?? undefined,
-          status: "active",
-          emailVerified: new Date(),
+          verifyToken: authToken,
+          verifyTokenCreatedAt: new Date(),
         },
       });
 
-      // delete pending
-      await prisma.pendingUser.delete({ where: { id: pending.id } });
-
+      // JSONリクエストの場合はトークンを返してクライアント側で signIn させる
       const accept = req.headers.get("accept") ?? "";
       if (accept.includes("application/json")) {
-        return NextResponse.json(
-          {
-            ok: true,
-            action: "created",
-            email: newUser.email,
-            redirect: "/home",
-          },
-          { status: 200 },
-        );
+        return NextResponse.json({
+          ok: true,
+          token: authToken,
+          email: email,
+          redirect: "/passkey-setup",
+        });
       }
-      const response = NextResponse.redirect(
-        `${BASE_URL}/passkey-setup?email=${encodeURIComponent(newUser.email ?? "")}`,
+
+      // confirm ページへリダイレクトして signIn を実行させる
+      return NextResponse.redirect(
+        `${BASE_URL}/verify-email/confirm?token=${authToken}&email=${encodeURIComponent(email)}`,
       );
-
-      const token = await encode({
-        token: {
-          sub: newUser.id,
-          email: newUser.email,
-          name: newUser.name,
-        },
-        secret: process.env.NEXTAUTH_SECRET!,
-      });
-
-      response.cookies.set("next-auth.session-token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 30 * 24 * 60 * 60, // 30日
-      });
-
-      return response;
     }
 
     if (ev.user) {
@@ -154,55 +123,36 @@ export async function GET(req: Request) {
         where: { id: ev.userId as string },
         data: { emailVerified: new Date() },
       });
+
+      const authToken = crypto.randomBytes(32).toString("hex");
+      await prisma.user.update({
+        where: { id: ev.userId as string },
+        data: {
+          verifyToken: authToken,
+          verifyTokenCreatedAt: new Date(),
+        },
+      });
+
+      const userEmail = ev.user.email ?? "";
       const accept = req.headers.get("accept") ?? "";
       if (accept.includes("application/json")) {
-        return NextResponse.json(
-          {
-            ok: true,
-            action: "updated",
-            email: ev.user.email,
-            redirect: "/home",
-          },
-          { status: 200 },
-        );
+        return NextResponse.json({
+          ok: true,
+          token: authToken,
+          email: userEmail,
+          redirect: "/passkey-setup",
+        });
       }
-      const response = NextResponse.redirect(
-        `${BASE_URL}/passkey-setup?email=${encodeURIComponent(ev.user.email ?? "")}`,
+
+      return NextResponse.redirect(
+        `${BASE_URL}/verify-email/confirm?token=${authToken}&email=${encodeURIComponent(userEmail)}`,
       );
-
-      const token = await encode({
-        token: {
-          sub: ev.user.id,
-          email: ev.user.email,
-          name: ev.user.name,
-        },
-        secret: process.env.NEXTAUTH_SECRET!,
-      });
-
-      response.cookies.set("next-auth.session-token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 30 * 24 * 60 * 60, // 30日
-      });
-
-      return response;
     }
 
     // Fallback
-    const accept = req.headers.get("accept") ?? "";
-    if (accept.includes("application/json")) {
-      return NextResponse.json(
-        { ok: false, message: "invalid" },
-        { status: 400 },
-      );
-    }
     return NextResponse.redirect(`${BASE_URL}/verify-request?status=invalid`);
   } catch (err: any) {
-    console.error("[verify-email] error (no secret output)", {
-      err: String(err),
-    });
+    console.error("[verify-email] error", err);
     return NextResponse.json(
       { ok: false, message: "server error" },
       { status: 500 },

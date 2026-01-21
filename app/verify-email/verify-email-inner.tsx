@@ -2,12 +2,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
 
 type Status = "pending" | "success" | "invalid" | "error";
 
 export default function VerifyEmailInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { status: authStatus } = useSession();
   const [status, setStatus] = useState<Status>("pending");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -37,12 +39,31 @@ export default function VerifyEmailInner() {
         }
 
         // 成功レスポンス（JSON expected）
-        await res.json().catch(() => null);
-        setStatus("success");
-        setMessage("メール確認が完了しました。パスキー設定へ移動します…");
+        const body = await res.json().catch(() => null);
+        if (!body?.token || !body?.email) {
+          throw new Error("認証データが不足しています。");
+        }
 
-        // 短いアニメーションを見せてから遷移
-        setTimeout(() => router.push("/passkey-setup"), 1400);
+        // バックグラウンドで signIn を実行
+        const signInResult = await signIn("credentials", {
+          email: body.email,
+          token: body.token,
+          redirect: false,
+        });
+
+        if (signInResult?.error) {
+          setStatus("invalid");
+          setMessage("認証処理に失敗しました。再度ログインしてください。");
+          return;
+        }
+
+        setStatus("success");
+        setMessage("メール確認が完了しました。セキュリティ設定へ移動します…");
+
+        // 短い演出の後に遷移
+        setTimeout(() => {
+          router.replace("/passkey-setup");
+        }, 1400);
       } catch (err) {
         setStatus("error");
         setMessage(

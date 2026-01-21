@@ -105,7 +105,7 @@ export default function PasskeySetupPage() {
     if (status === "unauthenticated") {
       router.replace("/login");
     }
-  }, [status, router]);
+  }, [status, session, router]);
 
   const email = session?.user?.email ?? "";
 
