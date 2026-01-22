@@ -6,10 +6,11 @@ import { MoreHorizontal, Trash2, Edit3 } from "lucide-react";
 import { useFridge } from "./FridgeProvider";
 import AddEditModal from "./AddEditModal";
 import { createPortal } from "react-dom";
+import { Ingredient } from "@/types";
 
 interface IngredientListProps {
   searchQuery?: string;
-  filteredItems?: any[];
+  filteredItems?: Ingredient[];
 }
 
 export default function IngredientList({
@@ -18,7 +19,7 @@ export default function IngredientList({
 }: IngredientListProps) {
   const { items, addOrUpdateItem, deleteItem } = useFridge();
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [editingItem, setEditingItem] = useState<Ingredient | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -38,23 +39,16 @@ export default function IngredientList({
     return [...source].sort((a, b) => {
       const dateA = a.expirationDate
         ? new Date(a.expirationDate).getTime()
-        : a.expiry
-          ? new Date(a.expiry).getTime()
-          : Infinity;
+        : Infinity;
       const dateB = b.expirationDate
         ? new Date(b.expirationDate).getTime()
-        : b.expiry
-          ? new Date(b.expiry).getTime()
-          : Infinity;
+        : Infinity;
       return dateA - dateB;
     });
   }, [filteredItems, items]);
 
-  const getExpiryBadge = (
-    expirationDate: string | null | undefined,
-    expiry: string | null | undefined,
-  ) => {
-    const dateStr = expirationDate || expiry;
+  const getExpiryBadge = (expirationDate: string | Date | null | undefined) => {
+    const dateStr = expirationDate;
     if (!dateStr)
       return (
         <span
@@ -160,7 +154,7 @@ export default function IngredientList({
                   >
                     {it.name}
                   </div>
-                  {getExpiryBadge(it.expirationDate, it.expiry)}
+                  {getExpiryBadge(it.expirationDate)}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -187,8 +181,10 @@ export default function IngredientList({
                   <div className="flex gap-1 mr-1">
                     <button
                       onClick={() => {
-                        setEditingItem(it);
-                        setExpandedId(null);
+                        if (it.id) {
+                          setEditingItem(it);
+                          setExpandedId(null);
+                        }
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm transition"
                       style={{
@@ -201,7 +197,7 @@ export default function IngredientList({
                       <span>編集</span>
                     </button>
                     <button
-                      onClick={() => handleDelete(it.id)}
+                      onClick={() => it.id && handleDelete(it.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm transition"
                       style={{
                         background: "var(--surface-bg)",
@@ -222,7 +218,11 @@ export default function IngredientList({
                   </div>
                 )}
                 <button
-                  onClick={() => handleToggle(it.id)}
+                  onClick={() => {
+                    if (it.id) {
+                      handleToggle(it.id);
+                    }
+                  }}
                   className={`rounded-full p-2 transition ${expandedId === it.id ? "" : "hover:bg-gray-50/50"}`}
                   style={{ color: "var(--color-text-secondary)" }}
                 >
@@ -253,7 +253,7 @@ export default function IngredientList({
                 >
                   <AddEditModal
                     item={editingItem}
-                    onSave={(it: any) => {
+                    onSave={(it: Ingredient) => {
                       addOrUpdateItem(it);
                       setEditingItem(null);
                     }}

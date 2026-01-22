@@ -126,8 +126,9 @@ export default function AccountSettings() {
 
       alert("アカウントを削除しました。");
       await signOut({ callbackUrl: "/" });
-    } catch (err: any) {
-      alert(`エラー: ${err?.message ?? String(err)}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`エラー: ${message}`);
     }
   };
 
@@ -151,8 +152,9 @@ export default function AccountSettings() {
       if (data.url) {
         window.location.href = data.url;
       }
-    } catch (err: any) {
-      alert(`エラー: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`エラー: ${message}`);
     } finally {
       setIsPortalLoading(false);
     }
@@ -163,7 +165,7 @@ export default function AccountSettings() {
   if (!displaySession?.user) return <div>ログインしてください</div>;
 
   // 型安全に boolean 化
-  const isPro = (displaySession.user as any)?.plan === "PRO";
+  const isPro = (displaySession.user as any).plan === "PRO";
 
   return (
     // 画面中央に寄せるために mx-auto と左右パディングを追加

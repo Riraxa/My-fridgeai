@@ -261,7 +261,7 @@ export default function PasskeyManager() {
                   >
                     {generateDisplayName(passkey)}
                   </div>
-                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-300">
+                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
                     <span>
                       登録日：
                       {new Date(passkey.createdAt).toLocaleDateString("ja-JP")}
@@ -329,7 +329,7 @@ export default function PasskeyManager() {
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               placeholder="例：自分のノートPC"
-              className="w-full p-2 border rounded mb-4 dark:bg-gray-700 dark:border-gray-600"
+              className="w-full p-2 border rounded mb-4 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
               maxLength={100}
             />
             <div className="flex justify-end gap-2">
@@ -367,7 +367,7 @@ export default function PasskeyManager() {
               value={newPasskeyName}
               onChange={(e) => setNewPasskeyName(e.target.value)}
               placeholder="例：自分のノートPC、iPhone"
-              className="w-full p-2 border rounded mb-4 dark:bg-gray-700 dark:border-gray-600"
+              className="w-full p-2 border rounded mb-4 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
               maxLength={100}
             />
             <div className="flex justify-end gap-2">

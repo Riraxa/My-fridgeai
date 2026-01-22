@@ -8,10 +8,11 @@ const INVITE_BASE_URL = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost
 
 export async function GET(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token)
+  if (!token?.sub) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
 
-  const userId = token.sub as string;
+  const userId = token.sub;
 
   const household = await prisma.household.findFirst({
     where: { ownerId: userId },
@@ -45,10 +46,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token)
+  if (!token?.sub) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
 
-  const userId = token.sub as string;
+  const userId = token.sub;
 
   // ユーザーがHouseholdのOwnerかチェック
   const household = await prisma.household.findFirst({

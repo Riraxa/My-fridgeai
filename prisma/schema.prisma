@@ -23,7 +23,6 @@ model User {
   allowedIps      String[]
   aiMenuCount     Int       @default(0) @map("ai_menu_count")
   aiMenuLastReset DateTime? @map("ai_menu_last_reset")
-  // --- 🆕 利用制限カウンタ ---
   aiDailyCount      Int       @default(0)
   dailyBarcodeCount Int       @default(0)
   dailyResetAt      DateTime?
@@ -393,7 +392,7 @@ model MenuGeneration {
 model CookingHistory {
   id                String   @id @default(cuid())
   userId            String
-  menuGenerationId  String
+  menuGenerationId  String?
   
   status            String   @default("completed") // completed | cancelled
   cookedAt          DateTime @default(now())
@@ -408,7 +407,7 @@ model CookingHistory {
   cancellableUntil  DateTime
   
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  menuGeneration    MenuGeneration @relation(fields: [menuGenerationId], references: [id])
+  menuGeneration    MenuGeneration? @relation(fields: [menuGenerationId], references: [id])
   
   @@index([userId, cookedAt])
 }

@@ -12,15 +12,11 @@ export async function POST(req: NextRequest) {
       secret: process.env.NEXTAUTH_SECRET,
     });
 
-    // subまたはuserIdからユーザーIDを取得
-    const userId = token?.sub || (token as any)?.userId;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "ログインが必要です" },
-        { status: 401 },
-      );
+    if (!token?.sub) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
+
+    const userId = token.sub;
 
     // Re-authentication Check: Ensure session is fresh (< 5 minutes)
     // token.iat is in seconds

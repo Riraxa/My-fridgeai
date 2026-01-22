@@ -20,15 +20,11 @@ const getPlanByStatus = (status: Stripe.Subscription.Status) => {
 
 export async function POST(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token)
+  if (!token?.sub) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
 
-  const userId = ((token as any).userId ?? token.sub) as string | undefined;
-  if (!userId)
-    return NextResponse.json(
-      { error: "ユーザーが特定できません" },
-      { status: 400 },
-    );
+  const userId = token.sub;
 
   try {
     const user = await prisma.user.findUnique({
