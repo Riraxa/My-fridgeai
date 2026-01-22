@@ -1,4 +1,4 @@
-// app/components/BarcodeScanner.tsx
+//app/components/BarcodeScanner.tsx
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
@@ -15,8 +15,6 @@ export default function BarcodeScanner({
   onClose?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  // reset() が型定義に無い問題 → 型拡張で安全に扱う
   const codeReaderRef = useRef<
     (BrowserMultiFormatReader & { reset?: () => void }) | null
   >(null);
@@ -24,8 +22,9 @@ export default function BarcodeScanner({
   const [supported, setSupported] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [loading, setLoading] = useState(false); // 🆕 API呼び出し中
 
-  const { setBarcodeOpen } = useFridge();
+  const { setBarcodeOpen, openAddModal } = useFridge();
 
   useEffect(() => {
     if (!visible) return;
@@ -33,7 +32,6 @@ export default function BarcodeScanner({
     let active = true;
 
     const init = async () => {
-      // video要素がDOMに確実に追加されるまで待機
       let attempts = 0;
       while (!videoRef.current && attempts < 10) {
         await new Promise((resolve) => setTimeout(resolve, 50));
@@ -41,7 +39,6 @@ export default function BarcodeScanner({
       }
 
       try {
-        // HTTPSチェック
         if (
           location.protocol !== "https:" &&
           location.hostname !== "localhost"
@@ -49,7 +46,6 @@ export default function BarcodeScanner({
           throw new Error("カメラを使用するにはHTTPS接続が必要です");
         }
 
-        // video要素の存在確認
         if (!videoRef.current) {
           throw new Error(
             "ビデオ要素の準備に失敗しました。ページを再読み込みしてください。",
@@ -78,11 +74,60 @@ export default function BarcodeScanner({
               const code = result.getText();
               console.log("バーコード検出:", code);
 
-              if (onDetected) await onDetected(code);
+              // 🆕 カメラを一時停止してAPI呼び出し
+              setLoading(true);
 
-              stopScanner();
-              setBarcodeOpen(false);
-              onClose?.();
+              try {
+                const res = await fetch("/api/barcode/lookup", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ barcode: code }),
+                  credentials: "include",
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.product) {
+                  const { product } = data;
+
+                  // 賞味期限計算
+                  const expirationDate = product.expirationDays
+                    ? new Date(
+                        Date.now() +
+                          product.expirationDays * 24 * 60 * 60 * 1000,
+                      )
+                        .toISOString()
+                        .split("T")[0]
+                    : null;
+
+                  // AddItemModalをプリフィルで開く
+                  openAddModal({
+                    name: product.name,
+                    category: product.category || "その他",
+                    expirationDate,
+                    barcode: code,
+                    source: product.source,
+                  });
+
+                  stopScanner();
+                  setBarcodeOpen(false);
+                  onClose?.();
+                } else {
+                  // エラーハンドリング
+                  alert(
+                    data.error ||
+                      "商品情報が見つかりませんでした。手動で入力してください。",
+                  );
+                  setLoading(false);
+                }
+              } catch (err) {
+                console.error("Barcode API error:", err);
+                alert("通信エラーが発生しました。もう一度お試しください。");
+                setLoading(false);
+              }
+
+              // 既存のコールバック（互換性維持）
+              if (onDetected) await onDetected(code);
             }
 
             if (err && err.name !== "NotFoundException") {
@@ -91,7 +136,6 @@ export default function BarcodeScanner({
           },
         );
 
-        // カメラストリームが開始されたことを確認
         setTimeout(() => {
           if (videoRef.current && videoRef.current.readyState >= 2) {
             setCameraReady(true);
@@ -103,7 +147,6 @@ export default function BarcodeScanner({
       } catch (e: any) {
         console.error("バーコードスキャナ初期化失敗:", e);
 
-        // より詳細なエラーメッセージ
         let errorMessage = e?.message ?? "カメラ初期化に失敗しました";
         if (e?.name === "NotAllowedError") {
           errorMessage =
@@ -125,9 +168,8 @@ export default function BarcodeScanner({
       active = false;
       stopScanner();
     };
-  }, [visible, onDetected, onClose, setBarcodeOpen]);
+  }, [visible, onDetected, onClose, setBarcodeOpen, openAddModal]);
 
-  // reset() は型定義に存在しないためカスタム型で処理
   const stopScanner = () => {
     const reader = codeReaderRef.current;
     reader?.reset?.();
@@ -159,7 +201,24 @@ export default function BarcodeScanner({
               playsInline
               autoPlay
             />
-            {(supported === null || !cameraReady) && (
+            {/* バーコードガイドオーバーレイ */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-32 h-32 border-2 border-white/30 rounded-lg flex items-center justify-center">
+                <div className="w-full h-4 bg-white/20 rounded-sm"></div>
+              </div>
+            </div>
+
+            {/* ローディング表示 🆕 */}
+            {loading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+                <div className="text-center">
+                  <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
+                  <p className="text-sm">商品情報を取得中...</p>
+                </div>
+              </div>
+            )}
+
+            {(supported === null || !cameraReady) && !loading && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                 <p>
                   {supported === null

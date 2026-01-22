@@ -9,16 +9,10 @@ import { checkIngredientAvailability } from "@/lib/inventory";
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
-    const userId = session.user?.id;
-    if (!userId) {
-      return NextResponse.json(
-        { error: "User ID not found in session" },
-        { status: 401 },
-      );
-    }
+    const userId = session.user.id;
 
     // 1. Check User Plan & Rate Limits
     const user = await prisma.user.findUnique({

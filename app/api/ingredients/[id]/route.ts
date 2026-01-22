@@ -10,11 +10,11 @@ export async function PUT(
   const { id } = await context.params;
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token) {
+  if (!token?.sub) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const userId = token.sub as string;
+  const userId = token.sub;
   const body = await req.json();
 
   const updated = await prisma.ingredient.updateMany({
@@ -53,11 +53,11 @@ export async function DELETE(
   const { id } = await context.params;
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token) {
+  if (!token?.sub) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const userId = token.sub as string;
+  const userId = token.sub;
 
   await prisma.ingredient.deleteMany({ where: { id, userId } });
 

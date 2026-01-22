@@ -5,10 +5,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token)
+  if (!token?.sub) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
 
-  const userId = token.sub as string;
+  const userId = token.sub;
 
   try {
     // ユーザーが所属しているグループを探す

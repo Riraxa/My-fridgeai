@@ -5,6 +5,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { registerLocale } from "react-datepicker";
 import { ja } from "date-fns/locale";
+import { Ingredient } from "@/types";
 registerLocale("ja", ja);
 
 export default function AddEditModal({
@@ -12,8 +13,8 @@ export default function AddEditModal({
   onSave,
   onCancel,
 }: {
-  item: any | null;
-  onSave: (it: any) => void;
+  item: Ingredient | null;
+  onSave: (it: Ingredient) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(item?.name ?? "");
@@ -26,15 +27,9 @@ export default function AddEditModal({
   const [amountLevel, setAmountLevel] = useState(item?.amountLevel ?? "普通");
   const [unit, setUnit] = useState(item?.unit ?? "個");
   const [expiry, setExpiry] = useState<Date | null>(
-    item?.expirationDate
-      ? new Date(item.expirationDate)
-      : item?.expiry
-        ? new Date(item.expiry)
-        : null,
+    item?.expirationDate ? new Date(item.expirationDate) : null,
   );
-  const [noExpiry, setNoExpiry] = useState<boolean>(
-    !item?.expirationDate && !item?.expiry,
-  );
+  const [noExpiry, setNoExpiry] = useState<boolean>(!item?.expirationDate);
   const [category, setCategory] = useState(item?.category ?? "その他");
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -52,11 +47,7 @@ export default function AddEditModal({
     setAmount(item?.amount ?? item?.quantity ?? 1);
     setAmountLevel(item?.amountLevel ?? "普通");
     setUnit(item?.unit ?? "個");
-    const date = item?.expirationDate
-      ? new Date(item.expirationDate)
-      : item?.expiry
-        ? new Date(item.expiry)
-        : null;
+    const date = item?.expirationDate ? new Date(item.expirationDate) : null;
     setExpiry(date);
     // Only set noExpiry if there's no AI estimation in progress
     if (!estimatedExpiry) {
@@ -173,7 +164,7 @@ export default function AddEditModal({
               </label>
               <input
                 type="number"
-                value={amount as any}
+                value={amount}
                 onChange={(e) =>
                   setAmount(e.target.value === "" ? "" : Number(e.target.value))
                 }
@@ -247,7 +238,7 @@ export default function AddEditModal({
         </label>
 
         {!noExpiry && (
-          <div className="mt-2">
+          <div className="mt-2 text-center">
             <button
               onClick={() => setPickerOpen(!pickerOpen)}
               className="w-full rounded-xl border px-3 py-2 text-sm text-left text-[var(--color-text-primary)] border-[var(--surface-border)] bg-[var(--surface-bg)]"

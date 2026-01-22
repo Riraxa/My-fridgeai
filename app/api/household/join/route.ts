@@ -4,17 +4,18 @@ import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
-  const authHeader = await getToken({
+  const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
   });
-  if (!authHeader)
+  if (!token?.sub) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
 
-  const userId = authHeader.sub as string;
-  const { token } = await req.json();
+  const userId = token.sub;
+  const { token: inviteToken } = await req.json();
 
-  if (!token) {
+  if (!inviteToken) {
     return NextResponse.json(
       { error: "招待トークンが必要です。" },
       { status: 400 },
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const invite = await prisma.householdInvite.findUnique({
-      where: { token },
+      where: { token: inviteToken },
       include: { household: true },
     });
 

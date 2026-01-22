@@ -1,3 +1,4 @@
+//app/api/shopping-list/batch-add/route.ts
 import { getToken } from "next-auth/jwt";
 import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -10,10 +11,10 @@ export async function POST(req: NextRequest) {
       req: req,
       secret: process.env.NEXTAUTH_SECRET,
     });
-    if (!token) {
+    if (!token?.sub) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
-    const userId = token.sub as string;
+    const userId = token.sub;
 
     // レート制限
     const ip = req.headers.get("x-forwarded-for") || "unknown";

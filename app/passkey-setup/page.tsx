@@ -313,7 +313,7 @@ export default function PasskeySetupPage() {
               whileTap={buttonTap.whileTap}
               whileHover={buttonTap.whileHover}
               transition={springTransition}
-              className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
             >
               今はスキップしてホームへ
             </motion.button>

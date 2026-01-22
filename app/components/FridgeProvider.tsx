@@ -9,18 +9,9 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { Ingredient } from "@/types";
 
-type Item = {
-  id: string;
-  name: string;
-  quantity: number; // Legacy
-  amount?: number | null;
-  amountLevel?: string | null;
-  unit?: string | null;
-  expiry?: string | null; // Legacy
-  expirationDate?: string | null;
-  category?: string;
-};
+type Item = Ingredient & { id: string };
 
 type Usage = { date: string; count: number; premium: boolean };
 
@@ -214,27 +205,25 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
             ? Number(it.quantity)
             : 1;
       const unit = it.unit ?? "個";
-      const expiry = it.hasOwnProperty("expiry")
-        ? (it.expiry ?? null)
-        : it.hasOwnProperty("expirationDate")
-          ? it.expirationDate
-            ? new Date(it.expirationDate).toISOString()
-            : null
-          : null;
+      const expirationDate = it.expirationDate
+        ? new Date(it.expirationDate).toISOString()
+        : null;
       const category = it.category ?? "その他";
 
       const isUpdate = typeof it.id === "string" && it.id.length > 0;
 
       const withId: Item = isUpdate
         ? { ...(it as Item) }
-        : {
+        : ({
             id: `${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
             name,
             quantity,
+            amount: it.amount ?? quantity,
+            amountLevel: it.amountLevel ?? "普通",
             unit,
-            expiry,
+            expirationDate,
             category,
-          };
+          } as Item);
 
       try {
         const method = isUpdate ? "PUT" : "POST";
@@ -243,7 +232,15 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
           : "/api/ingredients";
         const payload = isUpdate
           ? { ...it }
-          : { name, quantity, unit, expiry, category };
+          : {
+              name,
+              quantity,
+              amount: it.amount ?? quantity,
+              amountLevel: it.amountLevel ?? "普通",
+              unit,
+              expirationDate,
+              category,
+            };
         const res = await fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },

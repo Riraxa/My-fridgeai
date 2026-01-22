@@ -15,12 +15,14 @@ import AddEditModal from "@/app/components/AddEditModal";
 import InventoryAlert from "@/app/components/inventory-alert";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
+import { Ingredient } from "@/types";
 
 export default function HomePage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
   const [isAddOpen, setAddOpen] = useState(false);
+  const [prefilledItem, setPrefilledItem] = useState<Ingredient | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -45,7 +47,10 @@ export default function HomePage() {
   }, [status, mounted, session, router]);
 
   useEffect(() => {
-    const openAdd = () => setAddOpen(true);
+    const openAdd = (e: any) => {
+      setPrefilledItem(e.detail || null);
+      setAddOpen(true);
+    };
     window.addEventListener("fridge_open_add", openAdd);
     return () => window.removeEventListener("fridge_open_add", openAdd);
   }, []);
@@ -55,7 +60,7 @@ export default function HomePage() {
     if (!items) return { total: 0, expiring: 0 };
     const total = items.length;
     const expiring = items.filter((it) => {
-      const dateStr = it.expirationDate || it.expiry;
+      const dateStr = it.expirationDate;
       if (!dateStr) return false;
       const days = Math.ceil(
         (new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
@@ -79,23 +84,60 @@ export default function HomePage() {
 
   const handleDetected = useCallback(
     async (code: string) => {
-      await addOrUpdateItem({
-        name: `バーコード:${code}`,
-        quantity: 1,
-        unit: "個",
-        category: "その他",
-      });
-      setToast?.("バーコードから食材を追加しました");
       setBarcodeOpen(false);
+      setToast?.("バーコードを照会中...");
+      try {
+        const res = await fetch(`/api/barcode/lookup?code=${code}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.product) {
+            setPrefilledItem({
+              name: data.product.name,
+              category: data.product.category || "その他",
+              expirationDate: data.product.estimatedExpiration || null,
+              unit: data.product.unit || "個",
+              amount: null,
+              amountLevel: "普通",
+            });
+            setAddOpen(true);
+            setToast?.(`製品「${data.product.name}」が見つかりました`);
+            return;
+          }
+        }
+        // Fallback or not found
+        setPrefilledItem({
+          name: `バーコード:${code}`,
+          category: "その他",
+          amount: null,
+          amountLevel: "普通",
+          unit: "個",
+          expirationDate: null,
+        });
+        setAddOpen(true);
+        setToast?.("製品情報が見つからなかったため、手動で入力してください");
+      } catch (e) {
+        console.error("Barcode lookup failed", e);
+        setPrefilledItem({
+          name: `バーコード:${code}`,
+          category: "その他",
+          amount: null,
+          amountLevel: "普通",
+          unit: "個",
+          expirationDate: null,
+        });
+        setAddOpen(true);
+        setToast?.("照会に失敗しました。手動で入力してください");
+      }
     },
-    [addOrUpdateItem, setToast, setBarcodeOpen],
+    [setToast, setBarcodeOpen, setAddOpen, setPrefilledItem],
   );
 
-  const handleSaveIngredient = async (it: any) => {
+  const handleSaveIngredient = async (it: Ingredient) => {
     setIsAdding(true);
     try {
       await addOrUpdateItem(it);
       setAddOpen(false);
+      setPrefilledItem(null);
     } finally {
       setIsAdding(false);
     }
@@ -283,9 +325,12 @@ export default function HomePage() {
               transition={springTransition}
             >
               <AddEditModal
-                item={null}
+                item={prefilledItem}
                 onSave={handleSaveIngredient}
-                onCancel={() => setAddOpen(false)}
+                onCancel={() => {
+                  setAddOpen(false);
+                  setPrefilledItem(null);
+                }}
               />
             </motion.div>
           </motion.div>
