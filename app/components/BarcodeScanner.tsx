@@ -1,17 +1,15 @@
-//app/components/BarcodeScanner.tsx
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { useFridge } from "./FridgeProvider";
+import { X, ScanLine } from "lucide-react"; // Import Icons
 
 export default function BarcodeScanner({
   visible,
-  onDetected,
   onClose,
 }: {
   visible: boolean;
-  onDetected?: (code: string) => void;
   onClose?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -22,7 +20,7 @@ export default function BarcodeScanner({
   const [supported, setSupported] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
-  const [loading, setLoading] = useState(false); // 🆕 API呼び出し中
+  const [loading, setLoading] = useState(false);
 
   const { setBarcodeOpen, openAddModal } = useFridge();
 
@@ -55,17 +53,18 @@ export default function BarcodeScanner({
         const reader = new BrowserMultiFormatReader();
         codeReaderRef.current = reader;
 
-        const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-        if (!devices || devices.length === 0) {
-          throw new Error("カメラが見つかりません");
-        }
+        // Force back camera (environment)
+        const constraints = {
+          video: {
+            facingMode: { ideal: "environment" },
+          },
+        };
 
         setSupported(true);
 
-        const selectedDeviceId = devices[0].deviceId;
-
-        await reader.decodeFromVideoDevice(
-          selectedDeviceId,
+        // decodeFromConstraints handles device selection better for "environment" preference
+        await reader.decodeFromConstraints(
+          constraints,
           videoRef.current,
           async (result, err) => {
             if (!active) return;
@@ -74,7 +73,9 @@ export default function BarcodeScanner({
               const code = result.getText();
               console.log("バーコード検出:", code);
 
-              // 🆕 カメラを一時停止してAPI呼び出し
+              // Only process one code at a time
+              if (loading) return;
+
               setLoading(true);
 
               try {
@@ -113,7 +114,7 @@ export default function BarcodeScanner({
                   setBarcodeOpen(false);
                   onClose?.();
                 } else {
-                  // エラーハンドリング
+                  // Not found -> Do NOT add automatically. Just warn user.
                   alert(
                     data.error ||
                       "商品情報が見つかりませんでした。手動で入力してください。",
@@ -125,13 +126,7 @@ export default function BarcodeScanner({
                 alert("通信エラーが発生しました。もう一度お試しください。");
                 setLoading(false);
               }
-
-              // 既存のコールバック（互換性維持）
-              if (onDetected) await onDetected(code);
-            }
-
-            if (err && err.name !== "NotFoundException") {
-              console.warn("バーコード読み取りエラー:", err);
+              // Removed onDetected callback to prevent external auto-add logic
             }
           },
         );
@@ -140,21 +135,27 @@ export default function BarcodeScanner({
           if (videoRef.current && videoRef.current.readyState >= 2) {
             setCameraReady(true);
           } else {
-            setError("カメラストリームの開始に失敗しました");
-            setSupported(false);
+            // Sometimes it takes longer, but usually if it's playing it's fine.
+            if (videoRef.current && !videoRef.current.paused) {
+              setCameraReady(true);
+            } else {
+              // Fallback check
+              setError("カメラストリームの開始に失敗しました");
+              setSupported(false);
+            }
           }
         }, 3000);
       } catch (e: any) {
         console.error("バーコードスキャナ初期化失敗:", e);
 
         let errorMessage = e?.message ?? "カメラ初期化に失敗しました";
-        if (e?.name === "NotAllowedError") {
+        // Customize error messages
+        if (
+          e?.name === "NotAllowedError" ||
+          e?.name === "PermissionDeniedError"
+        ) {
           errorMessage =
-            "カメラへのアクセスが拒否されました。ブラウザの設定でカメラアクセスを許可してください。";
-        } else if (e?.name === "NotFoundError") {
-          errorMessage = "カメラデバイスが見つかりません。";
-        } else if (e?.name === "NotReadableError") {
-          errorMessage = "カメラが他のアプリケーションで使用されています。";
+            "カメラへのアクセスが拒否されました。設定で許可してください。";
         }
 
         setError(errorMessage);
@@ -168,7 +169,7 @@ export default function BarcodeScanner({
       active = false;
       stopScanner();
     };
-  }, [visible, onDetected, onClose, setBarcodeOpen, openAddModal]);
+  }, [visible, onClose, setBarcodeOpen, openAddModal, loading]);
 
   const stopScanner = () => {
     const reader = codeReaderRef.current;
@@ -179,48 +180,77 @@ export default function BarcodeScanner({
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-2xl overflow-hidden bg-black p-6 text-white">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-4 bg-black/80 backdrop-blur-sm z-20">
+        <div className="flex items-center gap-2 font-bold text-lg">
+          <ScanLine size={24} />
+          <span>バーコード</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition"
+        >
+          <X size={24} />
+        </button>
+      </div>
+
+      <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
         {supported === false ? (
-          <div>
-            <p>{error ?? "このブラウザではバーコードが読み取れません"}</p>
+          <div className="text-center p-6">
+            <p className="mb-4 text-red-400">
+              {error ?? "このブラウザではバーコードが読み取れません"}
+            </p>
             <button
               onClick={onClose}
-              className="mt-4 rounded-full bg-white px-4 py-2 text-black"
+              className="px-6 py-2 rounded-full bg-white text-black font-medium"
             >
               閉じる
             </button>
           </div>
         ) : (
-          <div className="relative">
+          <div className="relative w-full h-full flex flex-col">
             <video
               ref={videoRef}
-              className="w-full h-64 object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
               muted
               playsInline
               autoPlay
             />
-            {/* バーコードガイドオーバーレイ */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-32 h-32 border-2 border-white/30 rounded-lg flex items-center justify-center">
-                <div className="w-full h-4 bg-white/20 rounded-sm"></div>
+
+            {/* Dark overlay with cutout */}
+            <div className="absolute inset-0 bg-black/50 z-10">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-48 bg-transparent box-shadow-cutout rounded-lg overflow-hidden border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+                {/* Corner Markers */}
+                <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-white"></div>
+                <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-white"></div>
+                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-white"></div>
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-white"></div>
+
+                {/* Laser Line Animation */}
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent via-red-500/20 to-transparent animate-scan-line"></div>
+                <div className="absolute top-1/2 left-0 w-full h-[2px] bg-red-500 shadow-[0_0_4px_rpba(255,0,0,0.8)] animate-scan-line-move"></div>
+              </div>
+
+              {/* Tips Text below the box */}
+              <div className="absolute top-[calc(50%+6rem)] left-0 w-full text-center text-sm text-white/80 px-4">
+                バーコードを枠内に合わせてください
               </div>
             </div>
 
-            {/* ローディング表示 🆕 */}
+            {/* Loading Overlay within camera area */}
             {loading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 backdrop-blur-sm">
                 <div className="text-center">
-                  <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
-                  <p className="text-sm">商品情報を取得中...</p>
+                  <div className="animate-spin h-10 w-10 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-lg font-medium">商品情報を取得中...</p>
                 </div>
               </div>
             )}
 
             {(supported === null || !cameraReady) && !loading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <p>
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black">
+                <p className="animate-pulse">
                   {supported === null
                     ? "カメラを初期化しています…"
                     : "カメラを起動しています..."}
@@ -230,6 +260,27 @@ export default function BarcodeScanner({
           </div>
         )}
       </div>
+
+      {/* Footer Instructions */}
+      <div className="bg-black/90 p-4 pb-8 z-20 text-center">
+        <p className="text-xs text-gray-400 mb-2">
+          商品が見つからない場合は、画面右上の「＋」ボタンから手動で追加してください。
+        </p>
+      </div>
+
+      <style jsx>{`
+        .animate-scan-line {
+          animation: scan 2s linear infinite;
+        }
+        @keyframes scan {
+          0% {
+            transform: translateY(-100%);
+          }
+          100% {
+            transform: translateY(100%);
+          }
+        }
+      `}</style>
     </div>
   );
 }

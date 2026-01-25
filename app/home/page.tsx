@@ -82,56 +82,6 @@ export default function HomePage() {
     );
   }, [items, searchQuery]);
 
-  const handleDetected = useCallback(
-    async (code: string) => {
-      setBarcodeOpen(false);
-      setToast?.("バーコードを照会中...");
-      try {
-        const res = await fetch(`/api/barcode/lookup?code=${code}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.product) {
-            setPrefilledItem({
-              name: data.product.name,
-              category: data.product.category || "その他",
-              expirationDate: data.product.estimatedExpiration || null,
-              unit: data.product.unit || "個",
-              amount: null,
-              amountLevel: "普通",
-            });
-            setAddOpen(true);
-            setToast?.(`製品「${data.product.name}」が見つかりました`);
-            return;
-          }
-        }
-        // Fallback or not found
-        setPrefilledItem({
-          name: `バーコード:${code}`,
-          category: "その他",
-          amount: null,
-          amountLevel: "普通",
-          unit: "個",
-          expirationDate: null,
-        });
-        setAddOpen(true);
-        setToast?.("製品情報が見つからなかったため、手動で入力してください");
-      } catch (e) {
-        console.error("Barcode lookup failed", e);
-        setPrefilledItem({
-          name: `バーコード:${code}`,
-          category: "その他",
-          amount: null,
-          amountLevel: "普通",
-          unit: "個",
-          expirationDate: null,
-        });
-        setAddOpen(true);
-        setToast?.("照会に失敗しました。手動で入力してください");
-      }
-    },
-    [setToast, setBarcodeOpen, setAddOpen, setPrefilledItem],
-  );
-
   const handleSaveIngredient = async (it: Ingredient) => {
     setIsAdding(true);
     try {
@@ -352,7 +302,6 @@ export default function HomePage() {
           >
             <BarcodeScanner
               visible={barcodeOpen}
-              onDetected={handleDetected}
               onClose={() => setBarcodeOpen(false)}
             />
           </motion.div>
