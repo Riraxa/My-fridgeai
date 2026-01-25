@@ -106,7 +106,10 @@ export default function PasskeyButton({ onSuccess }: PasskeyButtonProps) {
       const resOptions = await fetch("/api/auth/webauthn/register-options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: session.user.email }),
+        body: JSON.stringify({
+          email: session.user.email,
+          preferPlatform: true,
+        }),
       });
 
       if (!resOptions.ok) {

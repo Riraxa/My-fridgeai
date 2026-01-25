@@ -296,9 +296,9 @@ export default function AccountSettings() {
                   Proプランで応援する
                 </h3>
                 <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>✨ 献立生成が無制限</li>
+                  <li>✨ 1日の献立生成数が10回にUP</li>
+                  <li>📅 1週間分の献立を一括作成</li>
                   <li>🥕 期限切れ食材を優先消費</li>
-                  <li>🥗 栄養バランス改善</li>
                 </ul>
               </div>
               <Button
