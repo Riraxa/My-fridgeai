@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { email, preferPlatform } = body ?? {}; // preferPlatform?: boolean
+    const { email } = body ?? {};
 
     if (!email || typeof email !== "string") {
       return NextResponse.json(
@@ -119,19 +119,10 @@ export async function POST(req: Request) {
     const { rpID } = getWebAuthnRP();
     const userIDBuf = Buffer.from(String(user.id), "utf8");
 
-    // Choose authenticatorSelection based on preferPlatform flag.
-    // - preferPlatform === true  -> request platform authenticator (Windows Hello / Touch ID)
-    // - otherwise                -> default (cross-platform preferred)
-    const authenticatorSelection = preferPlatform
-      ? {
-          authenticatorAttachment: "platform" as const,
-          residentKey: "required" as const, // store discoverable credential on device
-          userVerification: "required" as const,
-        }
-      : {
-          residentKey: "preferred" as const,
-          userVerification: "preferred" as const,
-        };
+    const authenticatorSelection = {
+      residentKey: "preferred" as const,
+      userVerification: "preferred" as const,
+    };
 
     const opts = await generateRegistrationOptions({
       rpName: "My-FridgeAI",
@@ -143,6 +134,8 @@ export async function POST(req: Request) {
       attestationType: "none",
       authenticatorSelection,
       excludeCredentials,
+      // Support ES256 (-7) and RS256 (-257) explicitly for Windows Hello compatibility
+      supportedAlgorithmIDs: [-7, -257],
     });
 
     if (!opts?.challenge) {
@@ -171,7 +164,7 @@ export async function POST(req: Request) {
     });
 
     console.log(
-      `[webauthn][register-options] challenge 作成成功: userId=${user.id} preferPlatform=${!!preferPlatform}`,
+      `[webauthn][register-options] challenge 作成成功: userId=${user.id}`,
     );
 
     // Derive basePublicOptions from opts

@@ -60,11 +60,21 @@ export async function POST(req: Request) {
     // 3. Build allowCredentials
     // NOTE: omit 'transports' to avoid restricting authenticators (some browsers/platforms are picky).
     // Keep only id (base64url) and type. This helps platform authenticators (internal) surface.
-    const allowedCredentials = passkeys.map((pk) => ({
-      id: pk.credentialId, // stored as base64url in DB
-      type: "public-key" as const,
-      // do NOT set transports here to avoid accidentally excluding platform authenticators
-    }));
+    const allowedCredentials = passkeys.map((pk) => {
+      let transports: any[] = [];
+      try {
+        if (pk.transports) {
+          transports = JSON.parse(pk.transports);
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+      return {
+        id: pk.credentialId, // stored as base64url in DB
+        type: "public-key" as const,
+        transports,
+      };
+    });
 
     // 4. Generate options
     const opts = await generateAuthenticationOptions({
@@ -112,8 +122,6 @@ export async function POST(req: Request) {
             typeof c.id === "string"
               ? c.id.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
               : bufferToBase64url(c.id),
-          // remove transports if present to avoid restricting client-side choices
-          transports: undefined,
         }),
       );
     }
