@@ -113,7 +113,7 @@ export default function PasskeySetupPage() {
     const res = await fetch("/api/auth/webauthn/register-options", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, preferPlatform: true }),
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok || !j?.ok)

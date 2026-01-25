@@ -67,7 +67,7 @@ export default function ProModal({ open, onClose }: ProModalProps) {
         </DialogHeader>
 
         <div className="space-y-4 py-2 px-2 leading-relaxed">
-          <p>プランの制限（AI献立 1日1回など）に達しました 🍳</p>
+          <p>プランの制限（AI献立 1日2回など）に達しました 🍳</p>
 
           <div
             className="p-4 rounded-lg"
@@ -85,8 +85,9 @@ export default function ProModal({ open, onClose }: ProModalProps) {
               <li>
                 AI献立生成が{" "}
                 <span className="font-bold" style={{ color: "var(--accent)" }}>
-                  無制限
-                </span>
+                  1日10回
+                </span>{" "}
+                にUP
               </li>
               <li>
                 食材登録数が{" "}
