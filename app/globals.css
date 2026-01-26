@@ -427,6 +427,117 @@ input[type="date"] {
 }
 
 /* ===============================
+   最高の 動くインジケーター ナビゲーションバー
+   =============================== */
+
+/* 最高のタブバーのベーススタイル */
+.modern-tab-bar,
+.ios-tab-bar-modern,
+.android-tab-bar-modern,
+.windows-tab-bar-modern {
+  background: transparent;
+}
+
+/* 完璧な脈動アニメーション */
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.03);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.25);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+/* 最高の黒ガラス風インジケーター */
+.premium-dark-glass {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* 完璧なインジケーター移動（シューっと移動） */
+.perfect-indicator-move {
+  transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* アイコンのフェード効果 */
+.icon-fade {
+  transition: all 300ms ease;
+}
+
+/* ホバーエフェクト */
+.nav-item-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-item-hover::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.03) 50%,
+    transparent 100%
+  );
+  transition: left 600ms ease;
+  border-radius: 9999px;
+}
+
+.nav-item-hover:hover::before {
+  left: 100%;
+}
+
+/* ドロップシャドウ効果 */
+.drop-shadow-sm {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* モバイルでの最適化 */
+@media (max-width: 640px) {
+  .modern-tab-bar,
+  .ios-tab-bar-modern,
+  .android-tab-bar-modern,
+  .windows-tab-bar-modern {
+    /* ホームインジケーターとの重なりを防止 */
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* タップ領域の確保 */
+  .nav-item-hover {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* モバイルでのアニメーション最適化 */
+  .animate-pulse-subtle {
+    animation-duration: 2.5s;
+  }
+
+  .perfect-indicator-move {
+    transition-duration: 500ms;
+  }
+}
+
+/* ===============================
    モバイル ナビゲーション（OS標準対応）
    =============================== */
 
@@ -465,6 +576,96 @@ input[type="date"] {
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid rgba(0, 0, 0, 0.12);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Windowsスタイルのタブバー */
+.windows-tab-bar {
+  background: rgba(248, 249, 250, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* OS標準のセレクトボックス */
+.ios-select {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #1f2937;
+  font-size: 16px;
+  padding: 12px 16px;
+}
+
+.ios-select:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.android-select {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  color: #1f2937;
+  font-size: 16px;
+  padding: 12px 16px;
+}
+
+.android-select:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+.windows-select {
+  background: white;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  color: #1f2937;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+.windows-select:focus {
+  border-color: #0078d4;
+  box-shadow: 0 0 0 1px #0078d4;
+}
+
+/* セレクトボックスの矢印カスタマイズ */
+.ios-select::-webkit-calendar-picker-indicator,
+.android-select::-webkit-calendar-picker-indicator,
+.windows-select::-webkit-calendar-picker-indicator {
+  opacity: 0;
+}
+
+.ios-select::-webkit-inner-spin-button,
+.android-select::-webkit-inner-spin-button,
+.windows-select::-webkit-inner-spin-button {
+  display: none;
+}
+
+/* 疑似要素で矢印を追加 */
+.ios-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+.android-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+.windows-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 8px center;
+  background-repeat: no-repeat;
+  background-size: 12px;
+  padding-right: 32px;
 }
 
 /* モバイルでのナビゲーション最適化 */

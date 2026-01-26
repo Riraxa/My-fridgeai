@@ -10,103 +10,123 @@ export default function NavBar() {
   const pathname = usePathname();
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
+  const [isWindows, setIsWindows] = useState(false);
+  const [currentActiveIndex, setCurrentActiveIndex] = useState(-1);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     // OS検出
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
     const isAndroidDevice = /android/.test(userAgent);
+    const isWindowsDevice = /win/.test(userAgent);
 
     setIsIOS(isIOSDevice);
     setIsAndroid(isAndroidDevice);
+    setIsWindows(isWindowsDevice);
   }, []);
 
   const navItems = [
     {
       to: "/home",
-      active: pathname === "/" || pathname?.startsWith("/home"),
       icon: <Home size={20} />,
       label: "ホーム",
     },
     {
       to: "/menu/generate",
-      active: pathname?.startsWith("/menu"),
       icon: <ChefHat size={20} />,
       label: "献立",
     },
     {
       to: "/shopping-list",
-      active: pathname?.startsWith("/shopping-list"),
       icon: <ShoppingCart size={20} />,
       label: "買い物",
     },
     {
       to: "/settings",
-      active: pathname?.startsWith("/settings"),
       icon: <Settings size={20} />,
       label: "設定",
     },
   ];
 
+  // パスが変更されたときにアクティブインデックスを更新
+  useEffect(() => {
+    const newIndex = navItems.findIndex((item) => {
+      if (item.to === "/home") {
+        return pathname === "/" || pathname?.startsWith("/home");
+      }
+      return pathname?.startsWith(item.to);
+    });
+
+    if (newIndex !== -1 && newIndex !== currentActiveIndex) {
+      setCurrentActiveIndex(newIndex);
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+      }
+    }
+  }, [pathname, navItems, currentActiveIndex, isInitialLoad]);
+
   // OSに応じたクラス名を決定 - useMemoで最適化
   const navBarClass = useMemo(() => {
-    const baseClass = "fixed inset-x-0 bottom-0 z-50 border-t ";
+    const baseClass = "fixed inset-x-0 bottom-0 z-50 ";
     if (isIOS) {
-      return baseClass + "ios-tab-bar";
+      return baseClass + "ios-tab-bar-modern";
     } else if (isAndroid) {
-      return baseClass + "android-tab-bar";
+      return baseClass + "android-tab-bar-modern";
+    } else if (isWindows) {
+      return baseClass + "windows-tab-bar-modern";
     } else {
-      return baseClass + "bg-white/95 border-gray-200/50";
+      return baseClass + "modern-tab-bar";
     }
-  }, [isIOS, isAndroid]);
+  }, [isIOS, isAndroid, isWindows]);
 
   return (
     <nav className={navBarClass}>
-      <div className="max-w-md mx-auto">
-        <div className="grid grid-cols-4 h-16">
-          {navItems.map((item) => (
-            <Link
-              key={item.to}
-              href={item.to}
-              className={`flex flex-col items-center justify-center gap-1 transition-colors duration-200 relative ${
-                item.active
-                  ? isIOS
-                    ? "text-blue-600"
-                    : isAndroid
-                      ? "text-blue-700"
-                      : "text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <TabTransition>
-                <div
-                  className={`relative transition-transform duration-200 ${
-                    item.active ? "scale-110" : "scale-100"
-                  }`}
-                >
-                  {item.icon}
-                  {item.active && (
-                    <div
-                      className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${
-                        isIOS
-                          ? "bg-blue-600"
-                          : isAndroid
-                            ? "bg-blue-700"
-                            : "bg-blue-600"
-                      }`}
-                    />
-                  )}
-                </div>
-              </TabTransition>
-              <span
-                className={`text-xs font-medium transition-all duration-200 ${
-                  item.active ? "font-semibold" : "font-normal"
+      <div className="max-w-md mx-auto px-4 pb-4">
+        {/* 透明感のあるカプセル型ナビゲーション */}
+        <div className="bg-white/60 backdrop-blur-2xl rounded-full border border-white/50 shadow-lg px-3">
+          <div className="flex items-center justify-between py-2 relative min-w-[350px] px-3">
+            {navItems.map((item, index) => (
+              <Link
+                key={item.to}
+                href={item.to}
+                className={`group relative flex items-center justify-center w-full transition-colors duration-200 ${
+                  currentActiveIndex === index
+                    ? "bg-black/90 rounded-full px-2 py-1"
+                    : ""
                 }`}
               >
-                {item.label}
-              </span>
-            </Link>
-          ))}
+                <div className="relative flex flex-col items-center">
+                  {/* アイコン */}
+                  <div
+                    className={`transition-colors duration-200 ${
+                      currentActiveIndex === index
+                        ? "text-white"
+                        : "text-gray-600 group-hover:text-gray-800"
+                    }`}
+                  >
+                    {item.icon}
+                  </div>
+
+                  {/* ラベル */}
+                  <span
+                    className={`text-xs font-medium transition-colors duration-200 mt-1 whitespace-nowrap ${
+                      currentActiveIndex === index
+                        ? "text-white font-bold"
+                        : "opacity-60 group-hover:opacity-80 text-gray-600"
+                    }`}
+                    style={{
+                      minWidth: "50px",
+                      textAlign: "center",
+                      display: "block",
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* ホームインジケーター用の安全領域 */}

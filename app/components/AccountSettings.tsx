@@ -8,6 +8,8 @@ import { Button } from "@/app/components/ui/button";
 import PasskeyManager from "./PasskeyManager";
 import { useEffect, useRef, useState } from "react";
 import ProModal from "@/app/components/ProModal";
+import { useNativeConfirm } from "@/app/hooks/useOSDetection";
+import { useNativeSelect } from "@/app/hooks/useNativeSelect";
 
 // スケルトンUIコンポーネント
 function SettingsSkeleton() {
@@ -64,6 +66,8 @@ export default function AccountSettings() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [cachedSession, setCachedSession] = useState<Session | null>(null);
   const didSyncSession = useRef(false);
+  const { confirm: nativeConfirm } = useNativeConfirm();
+  const { getSelectClassName } = useNativeSelect();
 
   // セッションデータをキャッシュして、読み込み中も前回のデータを表示
   useEffect(() => {
@@ -100,11 +104,12 @@ export default function AccountSettings() {
   }, [status]);
 
   const handleDeleteAccount = async () => {
-    if (
-      !confirm(
-        "本当にアカウントを削除しますか？この操作は取り消せません。\n注意: セキュリティのため、直近でログインしていない場合は削除に失敗することがあります。",
-      )
-    ) {
+    const confirmed = nativeConfirm(
+      "本当にアカウントを削除しますか？この操作は取り消せません。\n注意: セキュリティのため、直近でログインしていない場合は削除に失敗することがあります。",
+      "アカウント削除の確認",
+    );
+
+    if (!confirmed) {
       return;
     }
 
@@ -147,7 +152,8 @@ export default function AccountSettings() {
 ・請求期間終了後、自動更新は行われません。
 ・返金は行われませんのでご了承ください。`;
 
-    if (!confirm(message)) return;
+    const confirmed = nativeConfirm(message, "解約の確認");
+    if (!confirmed) return;
 
     setIsPortalLoading(true);
     try {
@@ -368,7 +374,7 @@ export default function AccountSettings() {
             onChange={(e) =>
               setTheme(e.target.value as "system" | "light" | "dark")
             }
-            className="input mt-1"
+            className={getSelectClassName()}
           >
             <option value="system">OSに合わせる</option>
             <option value="light">ライト</option>

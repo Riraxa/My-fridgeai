@@ -2,8 +2,10 @@
 "use client";
 
 import { useState } from "react";
+import { useNativeSelect } from "@/app/hooks/useNativeSelect";
 
 export default function SupportForm() {
+  const { getSelectClassName } = useNativeSelect();
   const [formData, setFormData] = useState({
     type: "bug", // bug, feature, other
     subject: "",
@@ -59,7 +61,7 @@ export default function SupportForm() {
               onChange={(e) =>
                 setFormData({ ...formData, type: e.target.value })
               }
-              className="input"
+              className={getSelectClassName()}
             >
               <option value="bug">バグ報告</option>
               <option value="feature">機能提案</option>
