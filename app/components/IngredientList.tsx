@@ -17,7 +17,7 @@ export default function IngredientList({
   searchQuery,
   filteredItems,
 }: IngredientListProps) {
-  const { items, addOrUpdateItem, deleteItem } = useFridge();
+  const { items, addOrUpdateItem, deleteItem, deletingIds } = useFridge();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<Ingredient | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -144,12 +144,17 @@ export default function IngredientList({
         </div>
       ) : (
         displayItems.map((it) => (
-          <div key={it.id} className="relative transition">
-            <div className="flex items-center justify-between px-3 py-3">
-              <div className="flex-1 min-w-0 pr-2">
-                <div className="flex items-center gap-2 mb-1">
+          <div
+            key={it.id}
+            className={`relative transition ${
+              it.id && deletingIds.has(it.id) ? "opacity-50 scale-95" : ""
+            }`}
+          >
+            <div className="flex items-center justify-between px-3 py-3 sm:px-4">
+              <div className="flex-1 min-w-0 pr-2 sm:pr-3">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <div
-                    className="font-semibold truncate text-sm"
+                    className="font-semibold truncate text-sm sm:text-base"
                     style={{ color: "var(--color-text-primary)" }}
                   >
                     {it.name}
@@ -159,7 +164,7 @@ export default function IngredientList({
 
                 <div className="flex items-center gap-3">
                   <div
-                    className="text-xs font-medium"
+                    className="text-xs sm:text-sm font-medium"
                     style={{ color: "var(--color-text-secondary)" }}
                   >
                     {it.amountLevel ? (
@@ -186,7 +191,7 @@ export default function IngredientList({
                           setExpandedId(null);
                         }
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm transition"
+                      className="flex items-center gap-1.5 px-3 py-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium shadow-sm transition min-h-[44px]"
                       style={{
                         background: "var(--surface-bg)",
                         border: "1px solid var(--surface-border)",
@@ -194,26 +199,62 @@ export default function IngredientList({
                       }}
                     >
                       <Edit3 size={14} style={{ color: "var(--accent)" }} />
-                      <span>編集</span>
+                      <span className="hidden sm:inline">編集</span>
                     </button>
                     <button
                       onClick={() => it.id && handleDelete(it.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm transition"
+                      disabled={it.id ? deletingIds.has(it.id) : false}
+                      className={`flex items-center gap-1.5 px-3 py-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium shadow-sm transition min-h-[44px] ${
+                        it.id && deletingIds.has(it.id)
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
                       style={{
                         background: "var(--surface-bg)",
                         border: "1px solid #fecaca",
                         color: "#dc2626",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#fef2f2";
+                        if (!it.id || !deletingIds.has(it.id)) {
+                          e.currentTarget.style.backgroundColor = "#fef2f2";
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor =
-                          "var(--surface-bg)";
+                        if (!it.id || !deletingIds.has(it.id)) {
+                          e.currentTarget.style.backgroundColor =
+                            "var(--surface-bg)";
+                        }
                       }}
                     >
-                      <Trash2 size={14} />
-                      <span>削除</span>
+                      {it.id && deletingIds.has(it.id) ? (
+                        <>
+                          <svg
+                            className="animate-spin h-3 w-3"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                            />
+                          </svg>
+                          <span className="hidden sm:inline">削除中...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 size={14} />
+                          <span className="hidden sm:inline">削除</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
@@ -223,7 +264,7 @@ export default function IngredientList({
                       handleToggle(it.id);
                     }
                   }}
-                  className={`rounded-full p-2 transition ${expandedId === it.id ? "" : "hover:bg-gray-50/50"}`}
+                  className={`rounded-full p-2 sm:p-2 transition min-h-[44px] min-w-[44px] flex items-center justify-center ${expandedId === it.id ? "" : "hover:bg-gray-50/50"}`}
                   style={{ color: "var(--color-text-secondary)" }}
                 >
                   <MoreHorizontal size={18} />
@@ -245,7 +286,7 @@ export default function IngredientList({
                 exit={{ opacity: 0 }}
               >
                 <motion.div
-                  className="relative w-full max-w-sm rounded-[2rem] shadow-2xl bg-[var(--background)] p-6"
+                  className="relative w-full max-w-sm rounded-[2rem] shadow-2xl bg-[var(--background)] p-6 sm:max-w-md md:max-w-lg"
                   initial={{ scale: 0.9, opacity: 0, y: 20 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.9, opacity: 0, y: 20 }}

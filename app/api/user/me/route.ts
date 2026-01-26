@@ -1,17 +1,22 @@
 //app/api/user/me/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { NextRequest } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    const token = await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET,
+      secureCookie: process.env.NODE_ENV === "production",
+    });
+
+    if (!token || !token.sub) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = token.sub;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -49,7 +54,14 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("User API Error:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("User API Error:", error);
+      console.error(
+        "User API Error stack:",
+        error instanceof Error ? error.stack : "No stack trace",
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

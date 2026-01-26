@@ -191,7 +191,6 @@ function RegisterPageContent() {
               width={180}
               height={52}
               priority
-              style={{ objectFit: "contain" }}
             />
           ) : (
             <div style={{ width: 180, height: 52 }} />
@@ -208,7 +207,6 @@ function RegisterPageContent() {
               width={220}
               height={130}
               priority
-              style={{ objectFit: "contain" }}
             />
           ) : (
             <div style={{ width: 220, height: 130 }} />

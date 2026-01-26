@@ -111,13 +111,6 @@ export async function POST(req: Request) {
     const expectedChallenge = user.verifyToken;
     const { origin, rpID } = getWebAuthnRP();
 
-    // デバッグ情報（本番環境でも重要）
-    console.log("[webauthn][register] Debug info:", {
-      expectedOrigin: origin,
-      expectedRPID: rpID,
-      challenge: expectedChallenge?.substring(0, 20) + "...",
-    });
-
     // ---- WebAuthn 検証 ----
     let verification;
     try {
@@ -160,9 +153,7 @@ export async function POST(req: Request) {
 
     const credential = registrationInfo.credential;
 
-    const credentialIdBase64url = Buffer.from(credential.id).toString(
-      "base64url",
-    );
+    const credentialIdBase64url = credential.id;
 
     const publicKeyBase64 = Buffer.from(credential.publicKey).toString(
       "base64",
@@ -197,10 +188,6 @@ export async function POST(req: Request) {
       where: { id: user.id },
       data: { verifyToken: null, verifyTokenCreatedAt: null },
     });
-
-    console.log(
-      `[webauthn][register] 成功: userId=${user.id} credentialId=${credentialIdBase64url}`,
-    );
 
     return NextResponse.json({ ok: true });
   } catch (err) {

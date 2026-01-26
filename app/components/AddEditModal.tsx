@@ -19,10 +19,11 @@ export default function AddEditModal({
 }) {
   const [name, setName] = useState(item?.name ?? "");
   const [amountMode, setAmountMode] = useState<"precise" | "rough">(
-    item?.amountLevel ? "rough" : "precise",
+    "precise", // 常に詳細モードから開始
   );
   const [amount, setAmount] = useState<number | "">(
-    item?.amount ?? item?.quantity ?? 1,
+    item?.amount ?? item?.quantity ?? "",
+    // 新規時は空で初期化
   );
   const [amountLevel, setAmountLevel] = useState(item?.amountLevel ?? "普通");
   const [unit, setUnit] = useState(item?.unit ?? "個");
@@ -41,10 +42,13 @@ export default function AddEditModal({
   );
   const [daysFromPurchase, setDaysFromPurchase] = useState<number | null>(null);
 
+  // Saving state
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     setName(item?.name ?? "");
     setAmountMode(item?.amountLevel ? "rough" : "precise");
-    setAmount(item?.amount ?? item?.quantity ?? 1);
+    setAmount(item?.amount ?? item?.quantity ?? (item ? "" : ""));
     setAmountLevel(item?.amountLevel ?? "普通");
     setUnit(item?.unit ?? "個");
     const date = item?.expirationDate ? new Date(item.expirationDate) : null;
@@ -57,7 +61,7 @@ export default function AddEditModal({
     setEstimatedExpiry(null);
     setEstimatedCategory(null);
     setDaysFromPurchase(null);
-  }, [item, estimatedExpiry]);
+  }, [item]);
 
   // Debounced estimation - only for new items (not editing)
   useEffect(() => {
@@ -275,27 +279,73 @@ export default function AddEditModal({
         </button>
 
         <button
-          onClick={() => {
-            if (!name.trim()) return;
-            const payload: any = {
-              name: name.trim(),
-              category,
-              expirationDate: noExpiry
-                ? null
-                : expiry
-                  ? expiry.toISOString()
-                  : null,
-              amount: amountMode === "precise" ? Number(amount || 0) : null,
-              amountLevel: amountMode === "rough" ? amountLevel : null,
-              unit: amountMode === "precise" ? unit : null,
-              quantity: amountMode === "precise" ? Number(amount || 0) : 0, // Legacy support
-            };
-            if (item?.id) payload.id = item.id;
-            onSave(payload);
+          onClick={async () => {
+            if (!name.trim() || isSaving) return;
+
+            // 内容量のバリデーション
+            if (amountMode === "precise" && (amount === "" || amount === 0)) {
+              alert("内容量を入力してください");
+              return;
+            }
+
+            setIsSaving(true);
+            try {
+              const payload: any = {
+                name: name.trim(),
+                category,
+                expirationDate: noExpiry
+                  ? null
+                  : expiry
+                    ? expiry.toISOString()
+                    : null,
+                amount: amountMode === "precise" ? Number(amount || 0) : null,
+                amountLevel: amountMode === "rough" ? amountLevel : null,
+                unit: amountMode === "precise" ? unit : null,
+                quantity:
+                  amountMode === "precise"
+                    ? Number(amount || 0)
+                    : amountMode === "rough"
+                      ? 0
+                      : (item?.quantity ?? 0), // Legacy support
+              };
+              if (item?.id) payload.id = item.id;
+              await onSave(payload);
+            } finally {
+              setIsSaving(false);
+            }
           }}
-          className="flex-1 ml-2 bg-[var(--accent)] hover:brightness-110 text-white rounded-full py-2.5 text-sm font-medium shadow-sm transition"
+          disabled={isSaving}
+          className={`flex-1 ml-2 rounded-full py-2.5 text-sm font-medium shadow-sm transition ${
+            isSaving
+              ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+              : "bg-[var(--accent)] hover:brightness-110 text-white"
+          }`}
         >
-          {item ? "更新" : "保存"}
+          {isSaving ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              追加中...
+            </span>
+          ) : item ? (
+            "更新"
+          ) : (
+            "保存"
+          )}
         </button>
       </div>
     </div>

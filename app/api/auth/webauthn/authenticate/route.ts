@@ -1,11 +1,9 @@
 // app/api/auth/webauthn/authenticate/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import type { Passkey } from "@prisma/client";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { getWebAuthnRP } from "@/lib/webauthnRP";
 import crypto from "crypto";
-import { cookies } from "next/headers";
 
 /** helpers */
 function base64urlToBase64(s: string) {
@@ -34,10 +32,7 @@ function normalizeBase64url(input: string | ArrayBuffer | Uint8Array) {
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 }
-function base64urlToBuffer(s: string) {
-  const b64 = base64urlToBase64(s);
-  return Buffer.from(b64, "base64");
-}
+
 function parsePublicKeyFromStored(stored: string) {
   // stored could be base64 (standard) or base64url; detect and convert to Buffer
   if (stored.includes("-") || stored.includes("_")) {
@@ -83,9 +78,6 @@ export async function POST(req: Request) {
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     if (user.allowedIps && user.allowedIps.length > 0) {
       if (!user.allowedIps.includes(ip)) {
-        console.warn(
-          `[webauthn] blocked login attempt from unauthorized IP: ${ip} for user: ${email}`,
-        );
         return NextResponse.json(
           {
             ok: false,
@@ -98,7 +90,6 @@ export async function POST(req: Request) {
 
     // 3. Challenge Verification
     if (!user.verifyToken) {
-      console.warn("[webauthn] no challenge stored on user", user.id);
       return NextResponse.json(
         {
           ok: false,
@@ -108,7 +99,6 @@ export async function POST(req: Request) {
       );
     }
     if (user.verifyExpires && new Date() > new Date(user.verifyExpires)) {
-      console.warn("[webauthn] challenge expired for user", user.id);
       return NextResponse.json(
         {
           ok: false,
@@ -148,11 +138,6 @@ export async function POST(req: Request) {
       }) ?? null;
 
     if (!pk) {
-      console.warn(
-        "[webauthn] unknown credential for user",
-        user.id,
-        assertionIdBase64url,
-      );
       return NextResponse.json(
         {
           ok: false,
@@ -166,7 +151,7 @@ export async function POST(req: Request) {
     const { origin, rpID } = getWebAuthnRP();
 
     const credential = {
-      id: pk.credentialId,
+      id: normalizeBase64url(pk.credentialId),
       publicKey: parsePublicKeyFromStored(pk.publicKey),
       counter: Number(pk.signCount ?? 0),
     };
@@ -174,27 +159,25 @@ export async function POST(req: Request) {
     const respAny = assertionResponse as any;
     const responseForVerify: any = {
       authenticatorData: respAny.response?.authenticatorData
-        ? base64urlToBuffer(
-            normalizeBase64url(respAny.response.authenticatorData),
-          )
+        ? normalizeBase64url(respAny.response.authenticatorData)
         : undefined,
       clientDataJSON: respAny.response?.clientDataJSON
-        ? base64urlToBuffer(normalizeBase64url(respAny.response.clientDataJSON))
+        ? normalizeBase64url(respAny.response.clientDataJSON)
         : undefined,
       signature: respAny.response?.signature
-        ? base64urlToBuffer(normalizeBase64url(respAny.response.signature))
+        ? normalizeBase64url(respAny.response.signature)
         : undefined,
       userHandle:
         respAny.response?.userHandle && respAny.response?.userHandle !== "null"
-          ? base64urlToBuffer(normalizeBase64url(respAny.response.userHandle))
+          ? normalizeBase64url(respAny.response.userHandle)
           : null,
     };
 
     const authResponsePayload: any = {
-      id: respAny.id,
+      id: normalizeBase64url(respAny.id),
       rawId: respAny.rawId
-        ? base64urlToBuffer(normalizeBase64url(respAny.rawId))
-        : base64urlToBuffer(assertionIdBase64url),
+        ? normalizeBase64url(respAny.rawId)
+        : normalizeBase64url(assertionIdBase64url),
       response: responseForVerify,
       type: respAny.type ?? "public-key",
     };
@@ -207,7 +190,7 @@ export async function POST(req: Request) {
         expectedOrigin: origin,
         expectedRPID: rpID,
         credential,
-      } as any);
+      });
     } catch (e: any) {
       console.error(
         "[webauthn authenticate] verifyAuthenticationResponse threw:",
@@ -220,7 +203,6 @@ export async function POST(req: Request) {
     }
 
     if (!verification || !verification.verified) {
-      console.warn("[webauthn] verification failed:", verification);
       return NextResponse.json(
         { ok: false, message: "認証に失敗しました。" },
         { status: 400 },
@@ -240,23 +222,18 @@ export async function POST(req: Request) {
     });
 
     // 7. Cleanup challenge & Issue One-Time Token
-    try {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { verifyToken: null, verifyExpires: null },
-      });
-    } catch (e) {
-      console.warn("[webauthn] failed to clear user.verifyToken:", e);
-    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { verifyToken: null, verifyExpires: null },
+    });
 
     const oneTime = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        verifyCode: oneTime,
+        verifyToken: oneTime,
         verifyExpires: expiresAt,
-        verifyToken: null,
       },
     });
 

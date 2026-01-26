@@ -1,130 +1,117 @@
 // components/NavBar.tsx
 "use client";
-import React from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Home, ChefHat, ShoppingCart, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import { springTransition } from "@/app/components/motion";
+import TabTransition from "@/app/components/PageTransition";
 
 export default function NavBar() {
   const pathname = usePathname();
+  const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+
+  useEffect(() => {
+    // OS検出
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+    const isAndroidDevice = /android/.test(userAgent);
+
+    setIsIOS(isIOSDevice);
+    setIsAndroid(isAndroidDevice);
+  }, []);
 
   const navItems = [
     {
       to: "/home",
       active: pathname === "/" || pathname?.startsWith("/home"),
-      icon: <Home size={18} />,
+      icon: <Home size={20} />,
       label: "ホーム",
     },
     {
       to: "/menu/generate",
       active: pathname?.startsWith("/menu"),
-      icon: <ChefHat size={18} />,
+      icon: <ChefHat size={20} />,
       label: "献立",
     },
     {
       to: "/shopping-list",
       active: pathname?.startsWith("/shopping-list"),
-      icon: <ShoppingCart size={18} />,
+      icon: <ShoppingCart size={20} />,
       label: "買い物",
     },
     {
       to: "/settings",
       active: pathname?.startsWith("/settings"),
-      icon: <Settings size={18} />,
+      icon: <Settings size={20} />,
       label: "設定",
     },
   ];
 
-  // より具体的なパスから優先的にチェック
-  const getActiveIndex = () => {
-    if (pathname?.startsWith("/settings")) return 3;
-    if (pathname?.startsWith("/shopping-list")) return 2;
-    if (pathname?.startsWith("/menu")) return 1;
-    if (pathname === "/" || pathname?.startsWith("/home")) return 0;
-    return 0;
-  };
-
-  const activeIndex = getActiveIndex();
+  // OSに応じたクラス名を決定 - useMemoで最適化
+  const navBarClass = useMemo(() => {
+    const baseClass = "fixed inset-x-0 bottom-0 z-50 border-t ";
+    if (isIOS) {
+      return baseClass + "ios-tab-bar";
+    } else if (isAndroid) {
+      return baseClass + "android-tab-bar";
+    } else {
+      return baseClass + "bg-white/95 border-gray-200/50";
+    }
+  }, [isIOS, isAndroid]);
 
   return (
-    <motion.div
-      className="fixed inset-x-0 bottom-0 z-40 mx-auto mb-2 w-full max-w-md rounded-2xl border border-gray-200 bg-white/80 p-2 shadow-2xl"
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={springTransition}
-    >
-      <div className="relative grid grid-cols-4 gap-2">
-        {/* アクティブインジケーター */}
-        <motion.div
-          className="absolute top-0 h-full w-1/4 rounded-2xl bg-gray-900"
-          animate={{
-            x: `${activeIndex * 100}%`,
-          }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-        />
+    <nav className={navBarClass}>
+      <div className="max-w-md mx-auto">
+        <div className="grid grid-cols-4 h-16">
+          {navItems.map((item) => (
+            <Link
+              key={item.to}
+              href={item.to}
+              className={`flex flex-col items-center justify-center gap-1 transition-colors duration-200 relative ${
+                item.active
+                  ? isIOS
+                    ? "text-blue-600"
+                    : isAndroid
+                      ? "text-blue-700"
+                      : "text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <TabTransition>
+                <div
+                  className={`relative transition-transform duration-200 ${
+                    item.active ? "scale-110" : "scale-100"
+                  }`}
+                >
+                  {item.icon}
+                  {item.active && (
+                    <div
+                      className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${
+                        isIOS
+                          ? "bg-blue-600"
+                          : isAndroid
+                            ? "bg-blue-700"
+                            : "bg-blue-600"
+                      }`}
+                    />
+                  )}
+                </div>
+              </TabTransition>
+              <span
+                className={`text-xs font-medium transition-all duration-200 ${
+                  item.active ? "font-semibold" : "font-normal"
+                }`}
+              >
+                {item.label}
+              </span>
+            </Link>
+          ))}
+        </div>
 
-        {navItems.map((item, index) => (
-          <NavItem
-            key={item.to}
-            to={item.to}
-            icon={item.icon}
-            label={item.label}
-            active={item.active}
-            index={index}
-          />
-        ))}
+        {/* ホームインジケーター用の安全領域 */}
+        <div className="h-safe-area-inset-bottom bg-inherit" />
       </div>
-    </motion.div>
-  );
-}
-
-function NavItem({
-  to,
-  icon,
-  label,
-  active,
-  index,
-}: {
-  to: string;
-  icon: React.ReactNode;
-  label: string;
-  active?: boolean;
-  index: number;
-}) {
-  return (
-    <Link href={to}>
-      <motion.div
-        className="relative flex flex-1 flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-xs transition z-10"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        transition={{ duration: 0.15, ease: "easeOut" }}
-      >
-        <motion.div
-          animate={{
-            scale: active ? 1.05 : 1,
-          }}
-          transition={{ duration: 0.15, ease: "easeOut" }}
-          style={{
-            color: active ? "white" : "rgb(107 114 128)",
-          }}
-        >
-          {icon}
-        </motion.div>
-        <motion.div
-          className="leading-none"
-          animate={{
-            fontWeight: active ? 600 : 400,
-          }}
-          transition={{ duration: 0.12, ease: "easeOut" }}
-          style={{
-            color: active ? "white" : "rgb(107 114 128)",
-          }}
-        >
-          {label}
-        </motion.div>
-      </motion.div>
-    </Link>
+    </nav>
   );
 }

@@ -22,17 +22,6 @@ export function getWebAuthnRP() {
     }
   }
 
-  // 本番環境でも重要なデバッグ情報を出力
-  console.log("[WebAuthn RP] Environment:", {
-    NODE_ENV: process.env.NODE_ENV,
-    BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
-    VERCEL_URL: process.env.VERCEL_URL,
-    finalBase: base,
-    finalOrigin: url.origin,
-    finalRpID: url.hostname,
-    protocol: url.protocol,
-  });
-
   return {
     origin: url.origin,
     rpID: url.hostname,

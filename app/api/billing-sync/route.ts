@@ -1,4 +1,4 @@
-// app/api/billing/sync/route.ts
+// app/api/billing-sync/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
@@ -140,7 +140,9 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: any) {
-    console.error("Billing sync error:", err);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Billing sync error:", err);
+    }
     return NextResponse.json({ error: "同期に失敗しました" }, { status: 500 });
   }
 }

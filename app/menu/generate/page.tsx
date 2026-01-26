@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import InventoryAlert from "@/app/components/inventory-alert";
 import MenuCard from "@/app/components/menu-card";
 import ErrorBoundary from "@/app/components/error-boundary";
 import NavBar from "@/app/components/NavBar";
@@ -19,6 +18,10 @@ import {
   History,
   Calendar,
 } from "lucide-react";
+import PageTransition, {
+  HeaderTransition,
+  ContentTransition,
+} from "@/app/components/PageTransition";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Helper to calculate total cooking time from dishes
@@ -387,8 +390,8 @@ export default function MenuGeneratePage() {
 
   return (
     <ErrorBoundary>
-      <div className="max-w-4xl mx-auto px-4 py-8 pb-32">
-        <div className="flex justify-between items-center mb-6">
+      <PageTransition className="max-w-4xl mx-auto px-4 py-8 pb-32">
+        <HeaderTransition className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-gray-900">AI献立提案</h1>
             <button
@@ -422,236 +425,236 @@ export default function MenuGeneratePage() {
               1週間分を作成する
             </a>
           )}
-        </div>
+        </HeaderTransition>
 
-        <InventoryAlert />
-
-        {isPro && (
-          <div className="flex justify-end mb-4">
-            <a
-              href="/settings/expiration"
-              className="text-xs flex items-center gap-1 transition"
-              style={{
-                color: "var(--color-text-secondary)",
-                textDecoration: "none",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "var(--accent)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "var(--color-text-secondary)";
-              }}
-            >
-              <Lightbulb size={12} />
-              賞味期限の優先度設定
-            </a>
-          </div>
-        )}
-
-        {!generated && (
-          <div className="modal-card rounded-lg shadow-sm p-8 text-center mb-8 relative overflow-hidden">
-            {usage && (
-              <div
-                className="absolute top-4 right-4 text-[10px] font-bold px-2 py-1 rounded"
+        <ContentTransition className="space-y-6">
+          {isPro && (
+            <div className="flex justify-end">
+              <a
+                href="/settings/expiration"
+                className="text-xs flex items-center gap-1 transition"
                 style={{
-                  background: "var(--surface-bg)",
-                  color: "var(--color-text-muted)",
+                  color: "var(--color-text-secondary)",
+                  textDecoration: "none",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "var(--accent)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "var(--color-text-secondary)";
                 }}
               >
-                本日の残り: {usage.remaining}/{usage.limit}
-              </div>
-            )}
-            <div className="mb-6">
-              <ChefHat
-                size={48}
-                className="mx-auto mb-2"
-                style={{ color: "var(--accent)" }}
-              />
-              <h2
-                className="text-xl font-medium"
-                style={{ color: "var(--color-text-primary)" }}
-              >
-                冷蔵庫の食材から献立を考えます
-              </h2>
-              <p
-                className="mt-2"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
-                現在、在庫が{" "}
-                <span
-                  className="font-bold"
+                <Lightbulb size={12} />
+                賞味期限の優先度設定
+              </a>
+            </div>
+          )}
+
+          {!generated && (
+            <div className="modal-card rounded-lg shadow-sm p-8 text-center relative overflow-hidden">
+              {usage && (
+                <div
+                  className="absolute top-4 right-4 text-[10px] font-bold px-2 py-1 rounded"
+                  style={{
+                    background: "var(--surface-bg)",
+                    color: "var(--color-text-muted)",
+                  }}
+                >
+                  本日の残り: {usage.remaining}/{usage.limit}
+                </div>
+              )}
+              <div className="mb-6">
+                <ChefHat
+                  size={48}
+                  className="mx-auto mb-2"
+                  style={{ color: "var(--accent)" }}
+                />
+                <h2
+                  className="text-xl font-medium"
                   style={{ color: "var(--color-text-primary)" }}
                 >
-                  {inventoryCount ?? "-"}
-                </span>{" "}
-                品あります。
-                <br />
-                そのうち{" "}
-                <span className="font-bold" style={{ color: "#f59e0b" }}>
-                  {expiringCount ?? "-"}
-                </span>{" "}
-                品の賞味期限が迫っています。
-              </p>
-            </div>
-
-            <button
-              onClick={handleGenerate}
-              disabled={loading}
-              className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                loading ? "cursor-not-allowed" : ""
-              }`}
-              style={{
-                background: loading
-                  ? "color-mix(in srgb, var(--accent) 70%, transparent)"
-                  : "var(--accent)",
-                color: "#fff",
-              }}
-            >
-              {loading ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  AIが考え中...
-                </>
-              ) : (
-                "献立を提案してもらう"
-              )}
-            </button>
-
-            {error && (
-              <div className="mt-4 text-red-600 bg-red-50 p-3 rounded flex items-center gap-2 justify-center">
-                <AlertTriangle size={16} />
-                {error}
-                <button
-                  onClick={handleGenerate}
-                  className="ml-2 underline text-sm"
+                  冷蔵庫の食材から献立を考えます
+                </h2>
+                <p
+                  className="mt-2"
+                  style={{ color: "var(--color-text-secondary)" }}
                 >
-                  再試行
+                  現在、在庫が{" "}
+                  <span
+                    className="font-bold"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
+                    {inventoryCount ?? "-"}
+                  </span>{" "}
+                  品あります。
+                  <br />
+                  そのうち{" "}
+                  <span className="font-bold" style={{ color: "#f59e0b" }}>
+                    {expiringCount ?? "-"}
+                  </span>{" "}
+                  品の賞味期限が迫っています。
+                </p>
+              </div>
+
+              <button
+                onClick={handleGenerate}
+                disabled={loading}
+                className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                  loading ? "cursor-not-allowed" : ""
+                }`}
+                style={{
+                  background: loading
+                    ? "color-mix(in srgb, var(--accent) 70%, transparent)"
+                    : "var(--accent)",
+                  color: "#fff",
+                }}
+              >
+                {loading ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    AIが考え中...
+                  </>
+                ) : (
+                  "献立を提案してもらう"
+                )}
+              </button>
+
+              {error && (
+                <div className="mt-4 text-red-600 bg-red-50 p-3 rounded flex items-center gap-2 justify-center">
+                  <AlertTriangle size={16} />
+                  {error}
+                  <button
+                    onClick={handleGenerate}
+                    className="ml-2 underline text-sm"
+                  >
+                    再試行
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {generated && (
+            <div className="space-y-8">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <CheckCircle size={20} className="text-green-500" />
+                  おすすめの献立
+                </h2>
+                <button
+                  onClick={() => setGenerated(null)}
+                  className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                >
+                  <ArrowLeft size={14} />
+                  戻る
                 </button>
               </div>
-            )}
-          </div>
-        )}
 
-        {generated && (
-          <div className="space-y-8 animate-fade-in">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <CheckCircle size={20} className="text-green-500" />
-                おすすめの献立
-              </h2>
-              <button
-                onClick={() => setGenerated(null)}
-                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-              >
-                <ArrowLeft size={14} />
-                戻る
-              </button>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <MenuCard
+                  type="main"
+                  menu={{
+                    name: generated.menus.main?.title || "献立",
+                    description: generated.menus.main?.reason || "",
+                    cookingTime: calculateCookingTime(
+                      generated.menus.main?.dishes || [],
+                    ),
+                    difficulty: calculateDifficulty(
+                      generated.menus.main?.dishes || [],
+                    ),
+                    calories: generated.nutrition?.main?.total?.calories
+                      ? `${Math.round(generated.nutrition.main.total.calories)} kcal`
+                      : "N/A",
+                    dishes: generated.menus.main?.dishes || [],
+                  }}
+                  availability={
+                    generated.availability?.main || {
+                      available: [],
+                      missing: [],
+                      insufficient: [],
+                    }
+                  }
+                  nutrition={generated.nutrition?.main}
+                  onSelect={() => handleSelectMenu("main")}
+                  isBest={true}
+                />
+
+                <MenuCard
+                  type="altA"
+                  menu={{
+                    name: generated.menus.alternativeA?.title || "代替案A",
+                    description: generated.menus.alternativeA?.reason || "",
+                    cookingTime: calculateCookingTime(
+                      generated.menus.alternativeA?.dishes || [],
+                    ),
+                    difficulty: calculateDifficulty(
+                      generated.menus.alternativeA?.dishes || [],
+                    ),
+                    calories: generated.nutrition?.altA?.total?.calories
+                      ? `${Math.round(generated.nutrition.altA.total.calories)} kcal`
+                      : "N/A",
+                    dishes: generated.menus.alternativeA?.dishes || [],
+                  }}
+                  availability={
+                    generated.availability?.altA || {
+                      available: [],
+                      missing: [],
+                      insufficient: [],
+                    }
+                  }
+                  nutrition={generated.nutrition?.altA}
+                  onSelect={() => handleSelectMenu("altA")}
+                />
+
+                <MenuCard
+                  type="altB"
+                  menu={{
+                    name: generated.menus.alternativeB?.title || "代替案B",
+                    description: generated.menus.alternativeB?.reason || "",
+                    cookingTime: calculateCookingTime(
+                      generated.menus.alternativeB?.dishes || [],
+                    ),
+                    difficulty: calculateDifficulty(
+                      generated.menus.alternativeB?.dishes || [],
+                    ),
+                    calories: generated.nutrition?.altB?.total?.calories
+                      ? `${Math.round(generated.nutrition.altB.total.calories)} kcal`
+                      : "N/A",
+                    dishes: generated.menus.alternativeB?.dishes || [],
+                  }}
+                  availability={
+                    generated.availability?.altB || {
+                      available: [],
+                      missing: [],
+                      insufficient: [],
+                    }
+                  }
+                  nutrition={generated.nutrition?.altB}
+                  onSelect={() => handleSelectMenu("altB")}
+                />
+              </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <MenuCard
-                type="main"
-                menu={{
-                  name: generated.menus.main?.title || "献立",
-                  description: generated.menus.main?.reason || "",
-                  cookingTime: calculateCookingTime(
-                    generated.menus.main?.dishes || [],
-                  ),
-                  difficulty: calculateDifficulty(
-                    generated.menus.main?.dishes || [],
-                  ),
-                  calories: generated.nutrition?.main?.total?.calories
-                    ? `${Math.round(generated.nutrition.main.total.calories)} kcal`
-                    : "N/A",
-                  dishes: generated.menus.main?.dishes || [],
-                }}
-                availability={
-                  generated.availability?.main || {
-                    available: [],
-                    missing: [],
-                    insufficient: [],
-                  }
-                }
-                nutrition={generated.nutrition?.main}
-                onSelect={() => handleSelectMenu("main")}
-                isBest={true}
-              />
-
-              <MenuCard
-                type="altA"
-                menu={{
-                  name: generated.menus.alternativeA?.title || "代替案A",
-                  description: generated.menus.alternativeA?.reason || "",
-                  cookingTime: calculateCookingTime(
-                    generated.menus.alternativeA?.dishes || [],
-                  ),
-                  difficulty: calculateDifficulty(
-                    generated.menus.alternativeA?.dishes || [],
-                  ),
-                  calories: generated.nutrition?.altA?.total?.calories
-                    ? `${Math.round(generated.nutrition.altA.total.calories)} kcal`
-                    : "N/A",
-                  dishes: generated.menus.alternativeA?.dishes || [],
-                }}
-                availability={
-                  generated.availability?.altA || {
-                    available: [],
-                    missing: [],
-                    insufficient: [],
-                  }
-                }
-                nutrition={generated.nutrition?.altA}
-                onSelect={() => handleSelectMenu("altA")}
-              />
-
-              <MenuCard
-                type="altB"
-                menu={{
-                  name: generated.menus.alternativeB?.title || "代替案B",
-                  description: generated.menus.alternativeB?.reason || "",
-                  cookingTime: calculateCookingTime(
-                    generated.menus.alternativeB?.dishes || [],
-                  ),
-                  difficulty: calculateDifficulty(
-                    generated.menus.alternativeB?.dishes || [],
-                  ),
-                  calories: generated.nutrition?.altB?.total?.calories
-                    ? `${Math.round(generated.nutrition.altB.total.calories)} kcal`
-                    : "N/A",
-                  dishes: generated.menus.alternativeB?.dishes || [],
-                }}
-                availability={
-                  generated.availability?.altB || {
-                    available: [],
-                    missing: [],
-                    insufficient: [],
-                  }
-                }
-                nutrition={generated.nutrition?.altB}
-                onSelect={() => handleSelectMenu("altB")}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </ContentTransition>
+      </PageTransition>
 
       {/* Recipe Detail Modal */}
       <AnimatePresence>

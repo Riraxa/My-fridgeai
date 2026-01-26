@@ -13,7 +13,7 @@ export default function FamilyPage() {
   const userPlan = (session.user as any).plan || "FREE";
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4 settings-page-enter-active">
+    <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4">
       <h2 className="text-xl font-bold mb-4">家族共有設定</h2>
       <div className="card">
         <FamilyManagement userPlan={userPlan} />

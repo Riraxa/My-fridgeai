@@ -163,10 +163,6 @@ export async function POST(req: Request) {
       },
     });
 
-    console.log(
-      `[webauthn][register-options] challenge 作成成功: userId=${user.id}`,
-    );
-
     // Derive basePublicOptions from opts
     const basePublicOptions: any = (opts as any).publicKey
       ? { ...(opts as any).publicKey }
