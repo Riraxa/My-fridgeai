@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
+      cookieName: "next-auth.session-token", // 明示的にクッキー名を指定
     });
 
     if (!token?.sub) {

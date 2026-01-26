@@ -107,6 +107,34 @@ export default function PasskeySetupPage() {
     }
   }, [status, session, router]);
 
+  // セッション有効性チェック
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.email) {
+      // セッションが有効か確認するための簡易チェック
+      const checkSession = async () => {
+        try {
+          const res = await fetch("/api/auth/complete-passkey-setup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+
+          // 401エラーの場合はセッションが切れていると判断
+          if (res.status === 401) {
+            console.log("Session expired, redirecting to login");
+            router.replace("/login");
+          }
+        } catch (error) {
+          console.log("Session check failed:", error);
+        }
+      };
+
+      // 少し遅延してチェックすることで、ページ遷移直後の誤検出を防ぐ
+      const timer = setTimeout(checkSession, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [status, session, router]);
+
   const email = session?.user?.email ?? "";
 
   async function getRegistrationOptions() {

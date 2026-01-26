@@ -14,11 +14,13 @@ export async function POST(req: NextRequest) {
       hasAuthHeader: !!authHeader,
       cookieNames: cookies.getAll().map((c) => c.name),
       userAgent: req.headers.get("user-agent")?.substring(0, 50),
+      timestamp: new Date().toISOString(),
     });
 
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
+      cookieName: "next-auth.session-token", // 明示的にクッキー名を指定
     });
 
     if (!token?.sub) {
