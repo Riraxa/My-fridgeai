@@ -6,6 +6,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { registerLocale } from "react-datepicker";
 import { ja } from "date-fns/locale";
 import { Ingredient } from "@/types";
+import { useNativeSelect } from "@/app/hooks/useNativeSelect";
 registerLocale("ja", ja);
 
 export default function AddEditModal({
@@ -17,6 +18,7 @@ export default function AddEditModal({
   onSave: (it: Ingredient) => void;
   onCancel: () => void;
 }) {
+  const { getSelectClassName } = useNativeSelect();
   const [name, setName] = useState(item?.name ?? "");
   const [amountMode, setAmountMode] = useState<"precise" | "rough">(
     "precise", // 常に詳細モードから開始
@@ -195,7 +197,7 @@ export default function AddEditModal({
             <select
               value={amountLevel}
               onChange={(e) => setAmountLevel(e.target.value)}
-              className="input-field w-full"
+              className={getSelectClassName()}
             >
               <option value="たっぷり">たっぷり</option>
               <option value="普通">普通</option>
@@ -218,7 +220,7 @@ export default function AddEditModal({
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="input-field w-full"
+            className={getSelectClassName()}
           >
             <option>冷蔵</option>
             <option>冷凍</option>

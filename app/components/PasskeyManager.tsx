@@ -285,9 +285,9 @@ export default function PasskeyManager() {
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+          <div className="modal-card relative w-full max-w-sm p-6">
             <h4 className="text-lg font-bold mb-2">パスキーを削除しますか？</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+            <p className="text-sm mb-4">
               この操作は取り消せません。
               <br />
               このデバイスからのパスキーログインはできなくなります。
