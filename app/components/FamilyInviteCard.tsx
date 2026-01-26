@@ -60,30 +60,73 @@ export default function FamilyInviteCard({
   return (
     <div className="card border-l-4 border-l-green-500">
       <h3 className="font-bold mb-3 flex items-center gap-2">
-        <span>👨‍👩‍👧‍👦</span> 家族招待
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+          />
+        </svg>
+        家族招待
       </h3>
 
       <div className="flex flex-col sm:flex-row gap-4 items-start">
         {/* QR Code */}
-        <div className="bg-white p-2 rounded-lg border shadow-sm flex-shrink-0 mx-auto sm:mx-0">
+        <div
+          className="p-2 rounded-lg border shadow-sm flex-shrink-0 mx-auto sm:mx-0"
+          style={{
+            background: "var(--surface-bg)",
+            borderColor: "var(--surface-border)",
+          }}
+        >
           <QRCode value={inviteUrl} size={100} />
         </div>
 
         {/* Info & Actions */}
         <div className="flex-1 w-full min-w-0 space-y-3">
           <div>
-            <div className="text-xs text-gray-500 mb-1">招待リンク</div>
-            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-md border dark:border-gray-700">
-              <code className="text-xs truncate flex-1 font-mono text-gray-700 dark:text-gray-300">
+            <div
+              className="text-xs mb-1"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              招待リンク
+            </div>
+            <div
+              className="flex items-center gap-2 p-2 rounded-md border"
+              style={{
+                background: "var(--surface-bg)",
+                borderColor: "var(--surface-border)",
+              }}
+            >
+              <code
+                className="text-xs truncate flex-1 font-mono"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
                 {inviteUrl}
               </code>
               <button
                 onClick={handleCopy}
-                className="text-gray-500 hover:text-green-600 transition-colors"
+                className="transition-colors"
+                style={{
+                  color: "var(--color-text-secondary)",
+                  background: "none",
+                  border: "none",
+                }}
                 title="コピー"
               >
                 {copying ? (
-                  <span className="text-green-600 text-xs font-bold">OK</span>
+                  <span
+                    style={{ color: "var(--accent)" }}
+                    className="text-xs font-bold"
+                  >
+                    OK
+                  </span>
                 ) : (
                   <Copy size={16} />
                 )}
@@ -92,7 +135,10 @@ export default function FamilyInviteCard({
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-y-2">
-            <div className="text-xs text-gray-500">
+            <div
+              className="text-xs"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
               有効期限:{" "}
               <span className="font-medium">
                 {format(new Date(expiresAt), "yyyy/MM/dd HH:mm", {

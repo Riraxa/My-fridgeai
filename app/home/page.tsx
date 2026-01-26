@@ -1,7 +1,7 @@
 //app/home/page.tsx
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import NotificationModal from "@/app/components/NotificationModal";
 import { Plus, Search, Bell, ScanLine } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -12,9 +12,11 @@ import IngredientList from "@/app/components/IngredientList";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import Toast from "@/app/components/Toast";
 import AddEditModal from "@/app/components/AddEditModal";
-import InventoryAlert from "@/app/components/inventory-alert";
-import { motion, AnimatePresence } from "framer-motion";
-import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
+import PageTransition, {
+  HeaderTransition,
+  ContentTransition,
+} from "@/app/components/PageTransition";
+import { AnimatePresence } from "framer-motion";
 import { Ingredient } from "@/types";
 
 export default function HomePage() {
@@ -26,6 +28,7 @@ export default function HomePage() {
   const [isAdding, setIsAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
   const {
     items,
@@ -55,31 +58,62 @@ export default function HomePage() {
     return () => window.removeEventListener("fridge_open_add", openAdd);
   }, []);
 
-  // 統計情報の計算
+  // 賞味期限チェックと通知作成
+  useEffect(() => {
+    if (session?.user?.id && items) {
+      const checkExpiringItems = async () => {
+        try {
+          await fetch("/api/notifications/check-expiring", {
+            method: "POST",
+          });
+        } catch (error) {
+          console.error("Failed to check expiring items:", error);
+        }
+      };
+
+      checkExpiringItems();
+    }
+  }, [session?.user?.id, items]);
+
+  // 統計情報の計算 - useCallbackで最適化
   const stats = useMemo(() => {
-    if (!items) return { total: 0, expiring: 0 };
-    const total = items.length;
-    const expiring = items.filter((it) => {
-      const dateStr = it.expirationDate;
-      if (!dateStr) return false;
-      const days = Math.ceil(
-        (new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-      );
-      return days <= 3 && days >= 0;
-    }).length;
-    return { total, expiring };
+    if (!items || items.length === 0) return { total: 0, expiring: 0 };
+
+    let expiring = 0;
+    const now = Date.now();
+    const threeDaysFromNow = now + 3 * 24 * 60 * 60 * 1000;
+
+    for (let i = 0; i < items.length; i++) {
+      const dateStr = items[i].expirationDate;
+      if (dateStr) {
+        const itemDate = new Date(dateStr).getTime();
+        if (itemDate >= now && itemDate <= threeDaysFromNow) {
+          expiring++;
+        }
+      }
+    }
+
+    return { total: items.length, expiring };
   }, [items]);
 
-  // 検索フィルタリング
+  // 検索フィルタリング - パフォーマンス最適化
   const filteredItems = useMemo(() => {
-    if (!items) return [];
-    if (!searchQuery.trim()) return items;
+    if (!items || !searchQuery.trim()) return items || [];
+
     const query = searchQuery.toLowerCase();
-    return items.filter(
-      (it) =>
-        it.name.toLowerCase().includes(query) ||
-        (it.category && it.category.toLowerCase().includes(query)),
-    );
+    const result = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (
+        item.name.toLowerCase().includes(query) ||
+        (item.category && item.category.toLowerCase().includes(query))
+      ) {
+        result.push(item);
+      }
+    }
+
+    return result;
   }, [items, searchQuery]);
 
   const handleSaveIngredient = async (it: Ingredient) => {
@@ -104,103 +138,108 @@ export default function HomePage() {
   if (!session) return null;
 
   return (
-    <motion.div
-      className="container mx-auto min-h-screen pb-32"
-      initial="hidden"
-      animate="show"
-      variants={fadeInUp}
-    >
-      <motion.header
-        className="sticky top-0 z-40 flex items-center justify-center border-b border-[var(--surface-border)] backdrop-blur-lg bg-[var(--background)]/70 px-4 py-3"
-        variants={fadeInUp}
-      >
+    <PageTransition className="container mx-auto min-h-screen pb-32">
+      <HeaderTransition className="sticky top-0 z-40 flex items-center justify-center border-b border-[var(--surface-border)] bg-[var(--background)]/95 px-4 py-3">
         <div className="text-lg font-bold">My-fridgeai</div>
-      </motion.header>
+      </HeaderTransition>
 
-      <main className="p-4 space-y-6">
-        {/* Action Buttons */}
-        <section className="flex justify-end gap-2">
-          <motion.button
-            onClick={() => setIsNotificationsOpen(true)}
-            className="p-2 rounded-full transition relative"
-            style={{
-              background: "var(--surface-bg)",
-              border: "1px solid var(--surface-border)",
-              color: "var(--color-text-secondary)",
-            }}
-            whileTap={buttonTap.whileTap}
-          >
-            <Bell size={20} />
-            {stats.expiring > 0 && (
-              <span
-                className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2"
-                style={{
-                  background: "#f59e0b",
-                  borderColor: "var(--background)",
-                }}
-              />
-            )}
-          </motion.button>
-          <motion.button
-            onClick={() => setBarcodeOpen(true)}
-            className="p-2 rounded-full transition"
-            style={{
-              background: "var(--surface-bg)",
-              border: "1px solid var(--surface-border)",
-              color: "var(--color-text-secondary)",
-            }}
-            whileTap={buttonTap.whileTap}
-          >
-            <ScanLine size={20} />
-          </motion.button>
-          <motion.button
-            onClick={() => setAddOpen(true)}
-            className="rounded-full p-2 shadow-lg"
-            style={{
-              background: "var(--accent)",
-              color: "#fff",
-            }}
-            whileTap={buttonTap.whileTap}
-            transition={springTransition}
-          >
-            <Plus size={20} />
-          </motion.button>
-        </section>
-
-        {/* Alerts */}
-        <InventoryAlert />
-
-        {/* Summary Cards */}
-        <section className="grid grid-cols-2 gap-3">
-          <div className="card p-4 flex flex-col items-center border border-[var(--surface-border)]">
+      <ContentTransition className="p-4 space-y-6">
+        {/* Action Buttons and Summary */}
+        <section className="flex justify-between items-start gap-4">
+          {/* Summary Cards */}
+          <div className="flex gap-2">
             <div
-              className="text-2xl font-black"
-              style={{ color: "var(--accent)" }}
+              className="p-2 rounded-lg transition flex flex-row items-center justify-between"
+              style={{
+                background: "var(--surface-bg)",
+                border: "1px solid var(--surface-border)",
+                width: "120px",
+              }}
             >
-              {stats.total}
+              <div
+                className="text-sm font-medium"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                在庫数
+              </div>
+              <div
+                className="text-xl font-bold"
+                style={{ color: "var(--accent)" }}
+              >
+                {stats.total}
+              </div>
             </div>
             <div
-              className="text-[10px] uppercase tracking-wider font-bold mt-1"
-              style={{ color: "var(--color-text-muted)" }}
+              className="p-2 rounded-lg transition flex flex-row items-center justify-between"
+              style={{
+                background: "var(--surface-bg)",
+                border: "1px solid var(--surface-border)",
+                width: "120px",
+              }}
             >
-              在庫数
+              <div
+                className="text-sm font-medium"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                期限間近
+              </div>
+              <div className="text-xl font-bold" style={{ color: "#f59e0b" }}>
+                {stats.expiring}
+              </div>
             </div>
           </div>
-          <div className="card p-4 flex flex-col items-center border border-[var(--surface-border)]">
-            <div className="text-2xl font-black" style={{ color: "#f59e0b" }}>
-              {stats.expiring}
-            </div>
-            <div
-              className="text-[10px] uppercase tracking-wider font-bold mt-1"
-              style={{ color: "var(--color-text-muted)" }}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setIsNotificationsOpen(true);
+                setHasUnreadNotifications(false);
+              }}
+              className="p-2 rounded-full transition relative"
+              style={{
+                background: "var(--surface-bg)",
+                border: "1px solid var(--surface-border)",
+                color: "var(--color-text-secondary)",
+              }}
             >
-              期限間近
-            </div>
+              <Bell size={20} />
+              {(stats.expiring > 0 || hasUnreadNotifications) && (
+                <span
+                  className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2"
+                  style={{
+                    background: "#f59e0b",
+                    borderColor: "var(--background)",
+                  }}
+                />
+              )}
+            </button>
+            <button
+              onClick={() => setBarcodeOpen(true)}
+              className="p-2 rounded-full transition"
+              style={{
+                background: "var(--surface-bg)",
+                border: "1px solid var(--surface-border)",
+                color: "var(--color-text-secondary)",
+              }}
+            >
+              <ScanLine size={20} />
+            </button>
+            <button
+              onClick={() => setAddOpen(true)}
+              className="rounded-full p-2 shadow-lg"
+              style={{
+                background: "var(--accent)",
+                color: "#fff",
+              }}
+            >
+              <Plus size={20} />
+            </button>
           </div>
         </section>
 
         {/* Search */}
-        <section className="relative">
+        <section className="relative mt-6">
           <Search
             size={18}
             className="absolute left-4 top-1/2 -translate-y-1/2"
@@ -220,7 +259,7 @@ export default function HomePage() {
         </section>
 
         {/* Ingredient List */}
-        <section>
+        <section className="mt-6">
           <div className="flex justify-between items-center mb-4 px-1">
             <h2 className="font-bold text-sm">在庫リスト</h2>
             {isAdding && (
@@ -241,7 +280,7 @@ export default function HomePage() {
                   <path
                     className="opacity-75"
                     fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
                 追加中...
@@ -249,31 +288,28 @@ export default function HomePage() {
             )}
           </div>
           <div className="card border border-[var(--surface-border)]">
-            <IngredientList
-              searchQuery={searchQuery}
-              filteredItems={filteredItems}
-            />
+            {mounted ? (
+              <IngredientList
+                searchQuery={searchQuery}
+                filteredItems={filteredItems}
+              />
+            ) : (
+              <div className="text-[var(--color-text-muted)] text-center py-8">
+                読み込み中...
+              </div>
+            )}
           </div>
         </section>
-      </main>
+      </ContentTransition>
 
       {/* Add Modal */}
       <AnimatePresence>
         {isAddOpen && (
-          <motion.div
+          <div
             className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
           >
-            <motion.div
-              className="w-full max-w-sm card p-6 shadow-2xl rounded-[2rem]"
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              transition={springTransition}
-            >
+            <div className="w-full max-w-sm card p-6 shadow-2xl rounded-[2rem]">
               <AddEditModal
                 item={prefilledItem}
                 onSave={handleSaveIngredient}
@@ -282,8 +318,8 @@ export default function HomePage() {
                   setPrefilledItem(null);
                 }}
               />
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -295,21 +331,17 @@ export default function HomePage() {
 
       <AnimatePresence>
         {barcodeOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <div>
             <BarcodeScanner
               visible={barcodeOpen}
               onClose={() => setBarcodeOpen(false)}
             />
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       <NavBar />
       <Toast msg={toast} onClose={() => setToast(null)} />
-    </motion.div>
+    </PageTransition>
   );
 }

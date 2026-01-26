@@ -1,0 +1,102 @@
+// app/api/notifications/check-expiring/route.ts
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { differenceInDays, differenceInHours } from "date-fns";
+
+export async function POST() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+
+    // ユーザーの設定を取得
+    const preferences = await prisma.userPreferences.findUnique({
+      where: { userId },
+    });
+
+    const alertDaysBefore = preferences?.alertDaysBefore || 3;
+
+    // 賞味期限が近い食材を取得
+    const ingredients = await prisma.ingredient.findMany({
+      where: { userId },
+    });
+
+    const expiringItems = ingredients.filter((i) => {
+      if (!i.expirationDate) return false;
+      const days = differenceInDays(i.expirationDate, new Date());
+      return days >= 0 && days <= alertDaysBefore;
+    });
+
+    const createdAlerts = [];
+
+    // 通知を作成
+    for (const item of expiringItems) {
+      // 既存の通知をチェック
+      const existingAlert = await prisma.inventoryAlert.findUnique({
+        where: {
+          userId_ingredientId_alertType: {
+            userId,
+            ingredientId: item.id,
+            alertType: "expiration",
+          },
+        },
+      });
+
+      // 23時間以内に通知済みの場合はスキップ
+      if (existingAlert && existingAlert.lastAlertedAt) {
+        const hoursSince = differenceInHours(
+          new Date(),
+          existingAlert.lastAlertedAt,
+        );
+        if (hoursSince < 23) {
+          continue;
+        }
+      }
+
+      // 通知を作成・更新
+      await prisma.inventoryAlert.upsert({
+        where: {
+          userId_ingredientId_alertType: {
+            userId,
+            ingredientId: item.id,
+            alertType: "expiration",
+          },
+        },
+        create: {
+          userId,
+          ingredientId: item.id,
+          alertType: "expiration",
+          alertDays: alertDaysBefore,
+          lastAlertedAt: new Date(),
+        },
+        update: {
+          lastAlertedAt: new Date(),
+          isActive: true,
+        },
+      });
+
+      createdAlerts.push({
+        id: item.id,
+        name: item.name,
+        daysRemaining: differenceInDays(item.expirationDate!, new Date()),
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      alertsCreated: createdAlerts.length,
+      expiringItems: createdAlerts,
+    });
+  } catch (error) {
+    console.error("Check Expiring API Error:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}

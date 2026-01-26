@@ -34,6 +34,8 @@ export type FridgeContextType = {
   setShopping: (s: any[]) => void;
   barcodeOpen: boolean;
   setBarcodeOpen: (v: boolean) => void;
+  deletingIds: Set<string>;
+  setDeletingIds: (ids: Set<string>) => void;
   recognizedLabels: string[];
   setRecognizedLabels: (v: string[]) => void;
   openBarcode: () => void;
@@ -116,6 +118,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
     initRecognized(),
   );
   const [barcodeOpen, setBarcodeOpen] = useState<boolean>(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   // persist to localStorage when these change (client-only)
   useEffect(() => {
@@ -219,7 +222,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
             name,
             quantity,
             amount: it.amount ?? quantity,
-            amountLevel: it.amountLevel ?? "普通",
+            amountLevel: it.amountLevel ?? null,
             unit,
             expirationDate,
             category,
@@ -236,7 +239,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
               name,
               quantity,
               amount: it.amount ?? quantity,
-              amountLevel: it.amountLevel ?? "普通",
+              amountLevel: it.amountLevel ?? null,
               unit,
               expirationDate,
               category,
@@ -300,6 +303,10 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
   /* ---------- deleteItem ---------- */
   const deleteItem = useCallback(async (id: string): Promise<boolean> => {
     if (!id) return false;
+
+    // 削除中の状態を追加
+    setDeletingIds((prev) => new Set(prev).add(id));
+
     try {
       const res = await fetch(`/api/ingredients/${encodeURIComponent(id)}`, {
         method: "DELETE",
@@ -308,6 +315,11 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         setItems((prev) => (prev ?? []).filter((p) => p.id !== id));
         setToast("食材を削除しました");
+        setDeletingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
         return true;
       } else {
         console.warn("deleteItem: server non-ok", res.status);
@@ -315,8 +327,15 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.debug("deleteItem: server unavailable - fallback", err);
     }
+
+    // ローカルフォールバック
     setItems((prev) => (prev ?? []).filter((p) => p.id !== id));
     setToast("食材を削除しました");
+    setDeletingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
     return true;
   }, []);
 
@@ -367,6 +386,8 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       setShopping,
       barcodeOpen,
       setBarcodeOpen,
+      deletingIds,
+      setDeletingIds,
       recognizedLabels,
       setRecognizedLabels,
       openBarcode,
@@ -390,6 +411,8 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       setShopping,
       barcodeOpen,
       setBarcodeOpen,
+      deletingIds,
+      setDeletingIds,
       recognizedLabels,
       setRecognizedLabels,
       openBarcode,
@@ -433,6 +456,8 @@ export function useFridge(): FridgeContextType {
       setShopping: () => {},
       barcodeOpen: false,
       setBarcodeOpen: () => {},
+      deletingIds: new Set(),
+      setDeletingIds: () => {},
       recognizedLabels: [],
       setRecognizedLabels: () => {},
       openBarcode: () => {},

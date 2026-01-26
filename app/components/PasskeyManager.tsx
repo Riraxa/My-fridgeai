@@ -205,7 +205,7 @@ export default function PasskeyManager() {
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-medium">パスキー設定</h3>
-        <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           Googleアカウントでログインしているため、パスキー設定は不要です。Google側のセキュリティ設定をご利用ください。
         </p>
       </div>
@@ -226,20 +226,14 @@ export default function PasskeyManager() {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium">パスキー設定</h3>
-      <p
-        className="text-sm mb-4"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <p className="text-sm mb-4 text-gray-600 dark:text-gray-400">
         パスワードの代わりに、指紋認証や顔認証で安全にログインできます。
       </p>
 
       {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
 
       {passkeys.length === 0 ? (
-        <p
-          className="text-sm mb-4"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
+        <p className="text-sm mb-4 text-gray-600 dark:text-gray-400">
           このアカウントでは、まだパスキーが登録されていません。
         </p>
       ) : (
@@ -247,7 +241,7 @@ export default function PasskeyManager() {
           {passkeys.map((passkey) => (
             <div
               key={passkey.id}
-              className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600"
+              className="p-3 rounded-lg border border-gray-200 dark:border-gray-600"
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
@@ -322,14 +316,14 @@ export default function PasskeyManager() {
       {renameModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+          <div className="modal-card relative w-full max-w-sm p-6">
             <h4 className="text-lg font-bold mb-4">パスキーの名前を変更</h4>
             <input
               type="text"
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               placeholder="例：自分のノートPC"
-              className="w-full p-2 border rounded mb-4 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+              className="w-full p-2 border rounded mb-4 bg-transparent text-gray-900 border-gray-300 dark:text-gray-200 dark:border-gray-600 placeholder:text-gray-500 dark:placeholder:text-gray-400"
               maxLength={100}
             />
             <div className="flex justify-end gap-2">
@@ -355,7 +349,7 @@ export default function PasskeyManager() {
       {showNamingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+          <div className="modal-card relative w-full max-w-sm p-6">
             <h4 className="text-lg font-bold mb-2">
               パスキーの登録が完了しました！
             </h4>
@@ -367,7 +361,7 @@ export default function PasskeyManager() {
               value={newPasskeyName}
               onChange={(e) => setNewPasskeyName(e.target.value)}
               placeholder="例：自分のノートPC、iPhone"
-              className="w-full p-2 border rounded mb-4 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+              className="w-full p-2 border rounded mb-4 bg-transparent text-gray-900 border-gray-300 dark:text-gray-200 dark:border-gray-600 placeholder:text-gray-500 dark:placeholder:text-gray-400"
               maxLength={100}
             />
             <div className="flex justify-end gap-2">

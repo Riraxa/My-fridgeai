@@ -1,3 +1,4 @@
+//app/components/SupportForm.tsx
 "use client";
 
 import { useState } from "react";
@@ -41,7 +42,7 @@ export default function SupportForm() {
   };
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4 settings-page-enter-active">
+    <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4">
       <h2 className="text-xl font-bold mb-4">お問い合わせ</h2>
       <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
         バグの報告や機能の提案、その他のお問い合わせはこちらから送信してください。

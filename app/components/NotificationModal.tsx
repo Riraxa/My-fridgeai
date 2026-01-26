@@ -2,9 +2,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Bell, Calendar, AlertCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { X, Bell, Calendar, AlertCircle, Trash2, ChefHat } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { springTransition } from "./motion";
+import { useRouter } from "next/navigation";
 
 interface Alert {
   id: string;
@@ -21,8 +22,11 @@ export default function NotificationModal({
 }: {
   onClose: () => void;
 }) {
+  const router = useRouter();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [swipingId, setSwipingId] = useState<string | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function fetchNotifications() {
@@ -40,6 +44,31 @@ export default function NotificationModal({
     }
     fetchNotifications();
   }, []);
+
+  const handleDelete = async (alertId: string) => {
+    setDeletingIds((prev) => new Set(prev).add(alertId));
+    try {
+      const res = await fetch(`/api/notifications?id=${alertId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setAlerts((prev) => prev.filter((alert) => alert.id !== alertId));
+      }
+    } catch (e) {
+      console.error("Failed to delete notification", e);
+    } finally {
+      setDeletingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(alertId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleGenerateMenu = () => {
+    onClose();
+    router.push("/menu/generate");
+  };
 
   return (
     <motion.div
@@ -121,49 +150,96 @@ export default function NotificationModal({
             </div>
           ) : (
             alerts.map((alert) => (
-              <div
+              <motion.div
                 key={alert.id}
-                className="p-3 rounded-2xl flex gap-3"
-                style={{
-                  background: "var(--surface-bg)",
-                  border: "1px solid var(--surface-border)",
+                className="relative"
+                initial={{ x: 0 }}
+                animate={{
+                  x: swipingId === alert.id ? -100 : 0,
+                  opacity: deletingIds.has(alert.id) ? 0 : 1,
                 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
               >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                {/* 削除ボタン背景 */}
+                <AnimatePresence>
+                  {swipingId === alert.id && (
+                    <motion.div
+                      className="absolute inset-0 bg-red-500 rounded-2xl flex items-center justify-end pr-4 z-0"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <Trash2 size={20} color="white" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* 通知アイテム */}
+                <motion.div
+                  className="p-3 rounded-2xl flex gap-3 relative z-10 cursor-pointer"
                   style={{
-                    background: "color-mix(in srgb, #f59e0b 20%, transparent)",
+                    background: "var(--surface-bg)",
+                    border: "1px solid var(--surface-border)",
+                  }}
+                  drag="x"
+                  dragConstraints={{ left: -100, right: 0 }}
+                  dragElastic={0.2}
+                  onDragStart={() => setSwipingId(alert.id)}
+                  onDragEnd={(e, info) => {
+                    if (info.offset.x < -50) {
+                      handleDelete(alert.id);
+                    }
+                    setSwipingId(null);
                   }}
                 >
-                  <AlertCircle size={20} style={{ color: "#f59e0b" }} />
-                </div>
-                <div className="flex-1 min-w-0">
                   <div
-                    className="text-sm font-bold truncate"
-                    style={{ color: "var(--color-text-primary)" }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background:
+                        "color-mix(in srgb, #f59e0b 20%, transparent)",
+                    }}
                   >
-                    賞味期限アラート: {alert.ingredient?.name || "食材"}
+                    <AlertCircle size={20} style={{ color: "#f59e0b" }} />
                   </div>
-                  <div
-                    className="text-[11px] mt-0.5 flex items-center gap-1"
-                    style={{ color: "var(--color-text-secondary)" }}
-                  >
-                    <Calendar size={12} />
-                    期限:{" "}
-                    {alert.ingredient?.expirationDate
-                      ? new Date(
-                          alert.ingredient.expirationDate,
-                        ).toLocaleDateString("ja-JP")
-                      : "未設定"}
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-sm font-bold truncate"
+                      style={{ color: "var(--color-text-primary)" }}
+                    >
+                      {alert.ingredient?.name}の賞味期限が近いです
+                    </div>
+                    <div
+                      className="text-[11px] mt-0.5 flex items-center gap-1"
+                      style={{ color: "var(--color-text-secondary)" }}
+                    >
+                      <Calendar size={12} />
+                      期限:{" "}
+                      {alert.ingredient?.expirationDate
+                        ? new Date(
+                            alert.ingredient.expirationDate,
+                          ).toLocaleDateString("ja-JP")
+                        : "未設定"}
+                    </div>
+                    <div
+                      className="text-[10px] mt-2"
+                      style={{ color: "var(--color-text-muted)" }}
+                    >
+                      {new Date(alert.lastAlertedAt).toLocaleString("ja-JP")}
+                    </div>
+                    <button
+                      onClick={handleGenerateMenu}
+                      className="mt-2 w-full px-3 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition"
+                      style={{
+                        background: "var(--accent)",
+                        color: "#fff",
+                      }}
+                    >
+                      <ChefHat size={12} />
+                      献立を生成しましょう
+                    </button>
                   </div>
-                  <div
-                    className="text-[10px] mt-2"
-                    style={{ color: "var(--color-text-muted)" }}
-                  >
-                    {new Date(alert.lastAlertedAt).toLocaleString("ja-JP")}
-                  </div>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             ))
           )}
         </div>

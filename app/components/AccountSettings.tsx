@@ -84,7 +84,12 @@ export default function AccountSettings() {
       // バックグラウンドで請求情報を同期
       void (async () => {
         try {
-          await fetch("/api/billing/sync", { method: "POST" });
+          // 一時的に新しいエンドポイントをテスト
+          await fetch("/api/billing-sync", {
+            method: "POST",
+            credentials: "include",
+            cache: "no-store",
+          });
         } catch {
           // ignore sync errors here
         } finally {
@@ -146,7 +151,10 @@ export default function AccountSettings() {
 
     setIsPortalLoading(true);
     try {
-      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const res = await fetch("/api/billing-portal", {
+        method: "POST",
+        credentials: "include",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Portalの起動に失敗しました");
       if (data.url) {
@@ -169,7 +177,7 @@ export default function AccountSettings() {
 
   return (
     // 画面中央に寄せるために mx-auto と左右パディングを追加
-    <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4 settings-page-enter-active">
+    <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4">
       {/* Pro Plan Section */}
       <section>
         {isPro ? (

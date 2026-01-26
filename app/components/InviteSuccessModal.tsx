@@ -53,36 +53,65 @@ export default function InviteSuccessModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-sm rounded-lg">
+      <DialogContent className="modal-card max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-center text-lg font-bold">
+          <DialogTitle
+            className="text-center text-lg font-bold"
+            style={{ color: "var(--color-text-primary)" }}
+          >
             家族招待リンクを作成しました！🎉
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col items-center space-y-6 py-4">
-          <p className="text-sm text-center text-gray-500">
+          <p
+            className="text-sm text-center"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
             家族がこのリンクから参加できます。
           </p>
 
-          <div className="bg-white p-4 rounded-xl border shadow-sm">
+          <div
+            className="p-4 rounded-xl border shadow-sm"
+            style={{
+              background: "var(--surface-bg)",
+              borderColor: "var(--surface-border)",
+            }}
+          >
             <QRCode value={inviteUrl} size={160} />
           </div>
 
           <div className="w-full space-y-2">
-            <div className="text-xs font-semibold text-gray-500 mb-1">
+            <div
+              className="text-xs font-semibold mb-1"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
               ▼ 招待リンク
             </div>
-            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 p-2 rounded-lg">
-              <div className="text-xs truncate flex-1 text-gray-600 dark:text-gray-300">
+            <div
+              className="flex items-center gap-2 p-2 rounded-lg"
+              style={{
+                background: "var(--surface-bg)",
+                borderColor: "var(--surface-border)",
+                border: "1px solid",
+              }}
+            >
+              <div
+                className="text-xs truncate flex-1"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
                 {inviteUrl}
               </div>
               <button
                 onClick={handleCopy}
-                className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+                className="p-1.5 rounded-md transition-colors hover-btn"
+                style={{ background: "transparent", border: "none" }}
                 title="コピー"
               >
-                <Copy size={16} className="text-gray-500" />
+                <Copy
+                  size={16}
+                  style={{ color: "var(--color-text-secondary)" }}
+                />
               </button>
             </div>
           </div>
@@ -104,12 +133,15 @@ export default function InviteSuccessModal({
             </Button>
           </div>
 
-          <div className="text-xs text-center space-y-1 text-gray-400">
+          <div
+            className="text-xs text-center space-y-1"
+            style={{ color: "var(--color-text-muted)" }}
+          >
             <p>
               有効期限：
               {format(new Date(expiresAt), "yyyy/MM/dd HH:mm", { locale: ja })}
             </p>
-            <p className="text-orange-500">
+            <p className="text-orange-500" style={{ color: "var(--accent)" }}>
               ※ このリンクは最新の1つのみ有効です
             </p>
           </div>

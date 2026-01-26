@@ -313,11 +313,7 @@ export default function VerifyEmailInner() {
         <div
           className="mt-6 text-xs"
           style={{ color: "var(--color-text-muted)" }}
-        >
-          <p>
-            もしメールが届かない場合は迷惑メールフォルダをご確認ください。ドメインの受信設定によっては受信を拒否されることがあります。
-          </p>
-        </div>
+        ></div>
       </section>
     </main>
   );

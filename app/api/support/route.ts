@@ -1,3 +1,4 @@
+//app/api/support/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import nodemailer from "nodemailer";
@@ -55,6 +56,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check email configuration
+    if (
+      !process.env.EMAIL_HOST ||
+      !process.env.EMAIL_PORT ||
+      !process.env.EMAIL_USER ||
+      !process.env.EMAIL_PASSWORD ||
+      !process.env.SUPPORT_EMAIL
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "メール設定が構成されていません。管理者にお問い合わせください。",
+        },
+        { status: 500 },
+      );
+    }
+
     // Send Email
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
@@ -69,13 +87,30 @@ export async function POST(req: NextRequest) {
       from: process.env.EMAIL_FROM,
       to: process.env.SUPPORT_EMAIL,
       subject: `[Support/${type}] ${subject}`,
-      text: `
-User: ${token?.email || "Guest"} (${token?.sub || "N/A"})
-IP: ${ip}
-Type: ${type}
-----------------------------------------
+      text: `🎫 サポートチケット受付
+=====================================
+送信日時: ${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}
+ユーザー: ${token?.email || "Guest"}
+ユーザーID: ${token?.sub || "N/A"}
+IPアドレス: ${ip}
+問い合わせ種別: ${type}
+
+📝 件名
+-------------------------------------
+${subject}
+
+💬 内容
+-------------------------------------
 ${description}
-        `,
+
+🔍 システム情報
+-------------------------------------
+User-Agent: ${req.headers.get("user-agent") || "Unknown"}
+Referer: ${req.headers.get("referer") || "None"}
+
+---
+このメールは My FridgeAI サポートシステムから自動送信されました。
+`,
       attachments: screenshotBase64
         ? [
             {
@@ -95,8 +130,20 @@ ${description}
       ok: true,
       message: "送信しました。ご協力ありがとうございます。",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("support api error:", error);
+
+    // Handle specific email connection errors
+    if (error.code === "ESOCKET" || error.message.includes("ECONNREFUSED")) {
+      return NextResponse.json(
+        {
+          error:
+            "メールサーバーに接続できません。管理者にお問い合わせください。",
+        },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json({ error: "送信に失敗しました" }, { status: 500 });
   }
 }

@@ -4,7 +4,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
 
 const tabs = [
   {
@@ -71,77 +70,49 @@ export default function Tabs() {
 
   return (
     <div className="mb-8">
-      <div className="relative">
-        {/* アクティブインジケーター */}
-        <motion.div
-          className="absolute top-0 h-full rounded-full border-2 shadow-lg"
-          style={{
-            borderColor: "var(--accent)",
-            background: "color-mix(in srgb, var(--accent) 8%, transparent)",
-          }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        />
+      {/* タブコンテナ */}
+      <div className="relative flex gap-2 bg-[var(--surface-bg)] p-1 rounded-xl border border-[var(--surface-border)]">
+        {tabs.map((tab, index) => {
+          const isActive = pathname === tab.href;
 
-        {/* タブコンテナ */}
-        <div className="relative flex gap-2 bg-[var(--surface-bg)] p-1 rounded-xl border border-[var(--surface-border)]">
-          {tabs.map((tab, index) => {
-            const isActive = pathname === tab.href;
-            const activeIndex = tabs.findIndex((t) => pathname === t.href);
-
-            return (
-              <Link
-                key={tab.name}
-                href={tab.href}
-                className={cn(
-                  "relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex-1",
-                  isActive
-                    ? "text-white shadow-md"
-                    : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]",
-                )}
-                style={{
-                  color: isActive ? "var(--accent)" : undefined,
-                }}
-              >
-                <motion.div
-                  className="flex items-center gap-2"
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
+          return (
+            <Link
+              key={tab.name}
+              href={tab.href}
+              className={cn(
+                "relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex-1",
+                isActive
+                  ? "text-white shadow-md"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]",
+              )}
+              style={{
+                color: isActive ? "var(--accent)" : undefined,
+                background: isActive
+                  ? "color-mix(in srgb, var(--accent) 12%, transparent)"
+                  : undefined,
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  style={{
+                    transform: isActive ? "scale(1.05)" : "scale(1)",
+                    transition: "transform 0.12s ease-out",
+                  }}
                 >
-                  <motion.div
-                    animate={{
-                      scale: isActive ? 1.05 : 1,
-                    }}
-                    transition={{ duration: 0.12, ease: "easeOut" }}
-                  >
-                    {tab.icon}
-                  </motion.div>
-                  <motion.span
-                    animate={{
-                      fontWeight: isActive ? 600 : 500,
-                    }}
-                    transition={{ duration: 0.12, ease: "easeOut" }}
-                  >
-                    {tab.name}
-                  </motion.span>
-                </motion.div>
-
-                {/* アクティブ時の背景アニメーション */}
-                {isActive && (
-                  <motion.div
-                    className="absolute inset-0 rounded-lg"
-                    style={{
-                      background:
-                        "color-mix(in srgb, var(--accent) 12%, transparent)",
-                    }}
-                    layoutId="activeTab"
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                  />
-                )}
-              </Link>
-            );
-          })}
-        </div>
+                  {tab.icon}
+                </div>
+                <span
+                  style={{
+                    fontWeight: isActive ? 600 : 500,
+                    transition: "font-weight 0.12s ease-out",
+                  }}
+                >
+                  {tab.name}
+                </span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

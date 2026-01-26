@@ -67,8 +67,6 @@ export default function ProModal({ open, onClose }: ProModalProps) {
         </DialogHeader>
 
         <div className="space-y-4 py-2 px-2 leading-relaxed">
-          <p>プランの制限（AI献立 1日2回など）に達しました 🍳</p>
-
           <div
             className="p-4 rounded-lg"
             style={{
@@ -77,7 +75,9 @@ export default function ProModal({ open, onClose }: ProModalProps) {
               borderRadius: "0.75rem",
             }}
           >
-            <p className="font-bold mb-2">Proにアップグレードすると</p>
+            <p className="font-bold mb-2">
+              Proにすると、できることが広がります
+            </p>
             <ul
               className="list-disc list-inside space-y-1 text-sm"
               style={{ color: "var(--color-text-secondary)" }}
@@ -87,44 +87,53 @@ export default function ProModal({ open, onClose }: ProModalProps) {
                 <span className="font-bold" style={{ color: "var(--accent)" }}>
                   1日10回
                 </span>{" "}
-                にUP
+                まで使える
               </li>
               <li>
-                食材登録数が{" "}
+                食材登録数{" "}
                 <span className="font-bold" style={{ color: "var(--accent)" }}>
                   無制限
                 </span>{" "}
-                (通常100件)
+                （Freeは100件まで）
               </li>
               <li>
-                家族グループ作成 & 共有{" "}
+                家族で冷蔵庫を{" "}
                 <span className="font-bold" style={{ color: "var(--accent)" }}>
-                  可能
-                </span>
+                  共有
+                </span>{" "}
+                できる
               </li>
               <li>
                 バーコードスキャン{" "}
                 <span className="font-bold" style={{ color: "var(--accent)" }}>
-                  無制限
+                  使い放題
                 </span>
               </li>
-              <li>期限優先、栄養バランス考慮など</li>
+              <li>期限優先・栄養バランス重視の献立提案</li>
             </ul>
           </div>
 
           <p>
-            このアプリは「冷蔵庫の中身をムダにしない」を
-            本気で考えて、高校生が一人で開発しています。
+            My-FridgeAIは、
+            <br />
+            「冷蔵庫の中身をムダにしたくない」
+            <br />
+            という思いから、高校生が一人で作っているアプリです。
           </p>
+
           <p>
-            もし役に立っていたら、 Proで応援してもらえると開発の励みになります！
+            いただく支援は、様々な機能改善やサーバーの安定化、使いやすさの改善に使わせていただきます。あなたの一押しが「もっと賢い提案」として返ってきます！
+          </p>
+
+          <p>
+            もし「これ、助かったな」「これからも続いてほしいな」と感じたら、Proで応援してもらえるととっても嬉しいです！！
           </p>
 
           <p
             className="text-right text-sm italic"
             style={{ color: "var(--color-text-muted)" }}
           >
-            — My-FridgeAI 開発者
+            — My-FridgeAI 開発者（起業家高校生）
           </p>
         </div>
 

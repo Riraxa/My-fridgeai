@@ -28,24 +28,41 @@ export default function ProThankYouModal({
       <DialogContent className="max-w-md card">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-center text-orange-500">
-            ありがとうございます！！
+            本当にありがとうございます
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4 text-center">
           <div className="space-y-4">
             <div className="text-5xl">🎉</div>
-            <p className="font-bold text-lg">
-              登録完了。Pro特典が有効になりました。
+            <p className="font-bold text-lg">Pro登録が完了しました。</p>
+            <p>
+              あなたの選択で、My-FridgeAIは一歩前に進みました。
+              <br />
+              Pro登録によるご支援は、AIの精度向上や
+              <br />
+              サーバーの安定化、新機能の開発に使われます。
             </p>
             <p>
-              このアプリは、高校生が一人でコツコツ作っています。
+              このアプリは、高校生が一人で
               <br />
-              いただいたPro登録は、サーバー代と、
+              「冷蔵庫のムダを減らしたい」という思いだけで
               <br />
-              より良い機能開発に使わせていただきます。
+              作り続けています。
+            </p>
+            <p>
+              今日からあなたは、
               <br />
-              ありがとうございます！
+              このアプリを一緒に育ててくれる
+              <br />
+              大切な応援者の一人です。
+            </p>
+            <p>
+              これからもっと便利に、もっと賢くしていきます。
+              <br />
+              その成長を、ぜひ見守ってください。
+              <br />
+              改めて、本当にありがとうございます。
             </p>
           </div>
         </div>
