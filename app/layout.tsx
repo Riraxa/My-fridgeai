@@ -21,6 +21,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Fridge AI",
   description: "AIで食材管理・献立作成ができるアプリ",
+  verification: {
+    google: "MC63axKn7PuRNgUa2LEQ-Ua70QSvtiCVRW9RgloHW0g",
+  },
   // ページ遷移のパフォーマンス最適化
   other: {
     "theme-color": "#ff914d",
