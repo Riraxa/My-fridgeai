@@ -119,7 +119,7 @@ export default function EnhancedPreferencesPage() {
         setSafety(safetyData);
         setTaste((prev) => ({ ...prev, ...tasteData }));
         setGenrePenalty(tasteData.recentGenrePenalty || {});
-        setIsPro(userData.plan === "PRO");
+        setIsPro(userData.user?.plan === "PRO");
       } catch (e) {
         console.error("Failed to fetch preferences", e);
       } finally {

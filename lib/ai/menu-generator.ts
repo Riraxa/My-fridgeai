@@ -62,11 +62,9 @@ export async function generateMenus(
   });
 
   // 1. Safety Layer (System Message - Immutable)
-  const allergenList = allergies
-    .map((a: any) => a.label || a.allergen)
-    .join(", ");
+  const allergenList = allergies.map((a) => a.label || a.allergen).join(", ");
   const restrictionNote = restrictions
-    .map((r: any) => `${r.type}${r.note ? `: ${r.note}` : ""}`)
+    .map((r) => `${r.type}${r.note ? `: ${r.note}` : ""}`)
     .join("; ");
 
   let safetyInstructions = `You are a professional cooking assistant.
