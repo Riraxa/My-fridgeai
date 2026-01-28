@@ -7,6 +7,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
@@ -30,7 +31,7 @@ export default function MenuAiPage() {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <div className="block dark:hidden">
               <Image
                 src="/my-fridgeai-logo.png"
@@ -49,29 +50,29 @@ export default function MenuAiPage() {
                 className="w-32 h-12 md:w-40 md:h-14"
               />
             </div>
-          </a>
+          </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-400">
-            <a
+            <Link
               href="/features/fridge-management"
               className="hover:text-indigo-600 transition-colors"
             >
               在庫管理
-            </a>
-            <a href="/features/menu-ai" className="text-indigo-600">
+            </Link>
+            <Link href="/features/menu-ai" className="text-indigo-600">
               AI献立
-            </a>
-            <a
+            </Link>
+            <Link
               href="/features/expiration-alert"
               className="hover:text-indigo-600 transition-colors"
             >
               賞味期限通知
-            </a>
-            <a
+            </Link>
+            <Link
               href="/login"
               className="px-5 py-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all shadow-md"
             >
               ログイン
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
@@ -163,12 +164,12 @@ export default function MenuAiPage() {
           </section>
 
           <footer className="pt-12 text-center">
-            <a
+            <Link
               href="/login"
               className="px-12 py-5 bg-indigo-600 text-white font-extrabold rounded-full hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 dark:shadow-none hover:-translate-y-1"
             >
               AI献立を今すぐ体験
-            </a>
+            </Link>
           </footer>
         </div>
       </main>

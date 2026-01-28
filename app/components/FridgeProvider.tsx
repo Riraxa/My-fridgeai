@@ -31,7 +31,7 @@ export type FridgeContextType = {
   toast: string | null;
   setToast: (m: string | null) => void;
   shopping: any[];
-  setShopping: (s: any[]) => void;
+  setShopping: React.Dispatch<React.SetStateAction<any[]>>;
   barcodeOpen: boolean;
   setBarcodeOpen: (v: boolean) => void;
   deletingIds: Set<string>;

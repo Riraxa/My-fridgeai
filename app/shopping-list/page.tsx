@@ -41,29 +41,31 @@ export default function ShoppingListPage() {
 
   const toggleDone = useCallback(
     (id: string) => {
-      const next = [...(shopping || [])];
-      const idx = next.findIndex((item) => item.id === id);
-      if (idx === -1) return;
+      setShopping((prev) => {
+        const next = [...(prev || [])];
+        const idx = next.findIndex((item) => item.id === id);
+        if (idx === -1) return prev;
 
-      next[idx] = { ...next[idx], done: !next[idx].done };
-      setShopping(next);
+        next[idx] = { ...next[idx], done: !next[idx].done };
 
-      const nowDone = !!next[idx].done;
-      if (nowDone) {
-        const it = next[idx];
-        openAddModal?.({
-          mode: "prefill-from-shopping",
-          item: {
-            id: it.id,
-            name: it.name,
-            quantity: it.quantity,
-            unit: it.unit,
-            note: it.note,
-          },
-        });
-      }
+        const nowDone = !!next[idx].done;
+        if (nowDone) {
+          const it = next[idx];
+          openAddModal?.({
+            mode: "prefill-from-shopping",
+            item: {
+              id: it.id,
+              name: it.name,
+              quantity: it.quantity,
+              unit: it.unit,
+              note: it.note,
+            },
+          });
+        }
+        return next;
+      });
     },
-    [shopping, setShopping, openAddModal],
+    [setShopping, openAddModal],
   );
 
   const handleSave = (item: ShoppingItem) => {
@@ -84,7 +86,7 @@ export default function ShoppingListPage() {
   const remove = useCallback(
     (id: string) => {
       if (!confirm("このアイテムを削除しますか？")) return;
-      setShopping((shopping || []).filter((item) => item.id !== id));
+      setShopping((prev) => (prev || []).filter((item) => item.id !== id));
       setToast("削除しました");
     },
     [setShopping, setToast],

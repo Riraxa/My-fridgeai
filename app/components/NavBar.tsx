@@ -26,28 +26,31 @@ export default function NavBar() {
     setIsWindows(isWindowsDevice);
   }, []);
 
-  const navItems = [
-    {
-      to: "/home",
-      icon: <Home size={20} />,
-      label: "ホーム",
-    },
-    {
-      to: "/menu/generate",
-      icon: <ChefHat size={20} />,
-      label: "献立",
-    },
-    {
-      to: "/shopping-list",
-      icon: <ShoppingCart size={20} />,
-      label: "買い物",
-    },
-    {
-      to: "/settings",
-      icon: <Settings size={20} />,
-      label: "設定",
-    },
-  ];
+  const navItems = useMemo(
+    () => [
+      {
+        to: "/home",
+        icon: <Home size={20} />,
+        label: "ホーム",
+      },
+      {
+        to: "/menu/generate",
+        icon: <ChefHat size={20} />,
+        label: "献立",
+      },
+      {
+        to: "/shopping-list",
+        icon: <ShoppingCart size={20} />,
+        label: "買い物",
+      },
+      {
+        to: "/settings",
+        icon: <Settings size={20} />,
+        label: "設定",
+      },
+    ],
+    [],
+  );
 
   // パスが変更されたときにアクティブインデックスを更新
   useEffect(() => {
