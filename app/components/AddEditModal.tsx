@@ -55,10 +55,7 @@ export default function AddEditModal({
     setUnit(item?.unit ?? "個");
     const date = item?.expirationDate ? new Date(item.expirationDate) : null;
     setExpiry(date);
-    // Only set noExpiry if there's no AI estimation in progress
-    if (!estimatedExpiry) {
-      setNoExpiry(!date);
-    }
+    setNoExpiry(!date);
     setCategory(item?.category ?? "その他");
     setEstimatedExpiry(null);
     setEstimatedCategory(null);

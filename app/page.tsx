@@ -2,6 +2,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
@@ -40,7 +41,7 @@ export default function Page() {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <div className="block dark:hidden">
               <Image
                 src="/my-fridgeai-logo.png"
@@ -59,39 +60,39 @@ export default function Page() {
                 className="w-32 h-12 md:w-40 md:h-14"
               />
             </div>
-          </a>
+          </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-400">
-            <a
+            <Link
               href="/features/fridge-management"
               className="hover:text-indigo-600 transition-colors"
             >
               在庫管理
-            </a>
-            <a
+            </Link>
+            <Link
               href="/features/menu-ai"
               className="hover:text-indigo-600 transition-colors"
             >
               AI献立
-            </a>
-            <a
+            </Link>
+            <Link
               href="/features/expiration-alert"
               className="hover:text-indigo-600 transition-colors"
             >
               賞味期限通知
-            </a>
-            <a
+            </Link>
+            <Link
               href="/login"
               className="px-5 py-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all shadow-md hover:shadow-indigo-200"
             >
               ログイン
-            </a>
+            </Link>
           </nav>
-          <a
+          <Link
             href="/login"
             className="md:hidden px-4 py-2 bg-indigo-600 text-white rounded-full text-sm font-bold"
           >
             ログイン
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -116,12 +117,12 @@ export default function Page() {
             </div>
 
             <div className="flex flex-wrap justify-center md:justify-start gap-4">
-              <a
+              <Link
                 href="/login"
                 className="px-10 py-5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg transition-all shadow-xl shadow-indigo-200 dark:shadow-none hover:-translate-y-0.5"
               >
                 今すぐ無料で始める
-              </a>
+              </Link>
               <a
                 href="#features"
                 className="px-10 py-5 rounded-full border-2 border-slate-200 dark:border-slate-800 hover:border-indigo-600 dark:hover:border-indigo-500 text-slate-700 dark:text-slate-200 font-bold text-lg transition-all"
@@ -180,12 +181,12 @@ export default function Page() {
             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
               賞味期限や在庫状況をAIが瞬時に分析。冷蔵庫にあるものだけで、ムダなく最高の一皿を提案します。
             </p>
-            <a
+            <Link
               href="/features/menu-ai"
               className="mt-8 inline-flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold hover:gap-3 transition-all"
             >
               詳しく見る <span className="text-xl">→</span>
-            </a>
+            </Link>
           </article>
 
           <article className="group p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 hover:-translate-y-2">
@@ -211,12 +212,12 @@ export default function Page() {
             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
               バーコードスキャンや手入力で素早く登録。ミリ単位の正確な管理から直感的な管理まで対応。
             </p>
-            <a
+            <Link
               href="/features/fridge-management"
               className="mt-8 inline-flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold hover:gap-3 transition-all"
             >
               詳しく見る <span className="text-xl">→</span>
-            </a>
+            </Link>
           </article>
 
           <article className="group p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 hover:-translate-y-2">
@@ -242,12 +243,12 @@ export default function Page() {
             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
               期限が迫った食材を毎日通知。食材を腐らせてしまう後悔からあなたを解放し、計画的な消費をサポートします。
             </p>
-            <a
+            <Link
               href="/features/expiration-alert"
               className="mt-8 inline-flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold hover:gap-3 transition-all"
             >
               詳しく見る <span className="text-xl">→</span>
-            </a>
+            </Link>
           </article>
         </section>
       </main>
@@ -284,28 +285,28 @@ export default function Page() {
             <h4 className="font-bold dark:text-white">メイン機能</h4>
             <ul className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
               <li>
-                <a
+                <Link
                   href="/features/fridge-management"
                   className="hover:text-indigo-600 transition-colors"
                 >
                   在庫管理
-                </a>
+                </Link>
               </li>
               <li>
-                <a
+                <Link
                   href="/features/menu-ai"
                   className="hover:text-indigo-600 transition-colors"
                 >
                   AI献立生成
-                </a>
+                </Link>
               </li>
               <li>
-                <a
+                <Link
                   href="/features/expiration-alert"
                   className="hover:text-indigo-600 transition-colors"
                 >
                   賞味期限アラート
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -313,20 +314,20 @@ export default function Page() {
             <h4 className="font-bold dark:text-white">サポート</h4>
             <ul className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
               <li>
-                <a
+                <Link
                   href="/terms"
                   className="hover:text-indigo-600 transition-colors"
                 >
                   利用規約
-                </a>
+                </Link>
               </li>
               <li>
-                <a
+                <Link
                   href="/privacy"
                   className="hover:text-indigo-600 transition-colors"
                 >
                   プライバシーポリシー
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
