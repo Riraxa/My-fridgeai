@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { Ingredient, UserPreferences } from "@prisma/client";
 import { differenceInDays } from "date-fns";
+import { checkAllergens } from "./allergen-checker";
+import { prisma } from "@/lib/prisma";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -42,9 +44,80 @@ export interface MenuGenerationResult {
  */
 export async function generateMenus(
   ingredients: Ingredient[],
-  preferences: UserPreferences | null,
-  expiringSoon: Ingredient[],
+  userId: string,
 ): Promise<MenuGenerationResult> {
+  // Fetch detailed preferences and safety info
+  const [preferences, allergies, restrictions] = await Promise.all([
+    prisma.userPreferences.findUnique({ where: { userId } }),
+    prisma.userAllergy.findMany({ where: { userId } }),
+    prisma.userRestriction.findMany({ where: { userId } }),
+  ]);
+
+  const taste = (preferences?.tasteJson as any) || {};
+  const lifestyle = taste.lifestyle?.defaultMode || {};
+  const expiringSoon = ingredients.filter((i) => {
+    if (!i.expirationDate) return false;
+    const days = differenceInDays(i.expirationDate, new Date());
+    return days >= -2 && days <= (preferences?.expirationCriticalDays ?? 2);
+  });
+
+  // 1. Safety Layer (System Message - Immutable)
+  const allergenList = allergies
+    .map((a: any) => a.label || a.allergen)
+    .join(", ");
+  const restrictionNote = restrictions
+    .map((r: any) => `${r.type}${r.note ? `: ${r.note}` : ""}`)
+    .join("; ");
+
+  let safetyInstructions = `You are a professional cooking assistant.
+# CRITICAL SAFETY RULES
+1. NEVER suggest recipes containing these allergens: ${allergenList || "None"}.
+2. Adhere to these dietary restrictions: ${restrictionNote || "None"}.
+3. If ANY suggested recipe contains an allergen, response MUST include "error": "ALLERGEN_DETECTED".`;
+
+  // 2. Pro Feature Layer (System Message - High Priority)
+  if (preferences?.aiMessageEnabled && taste.freeText) {
+    safetyInstructions += `\n\n# USER SPECIAL INSTRUCTIONS (PRO)
+These instructions have high priority:
+${taste.freeText}`;
+  }
+
+  // 3. Preferences Layer (User Message - Preferred tendencies)
+  const tastePrefsEntries = taste.tasteScores
+    ? Object.entries(taste.tasteScores)
+    : [];
+  const tastePrefs =
+    tastePrefsEntries.length > 0
+      ? tastePrefsEntries
+          .map(([k, v]) => `${k}: ${(v as number) > 0 ? "+" + v : v}`)
+          .join(", ")
+      : "None";
+
+  const equipment = (
+    taste.equipment ||
+    preferences?.kitchenEquipment ||
+    []
+  ).join(", ");
+  const methods = (
+    taste.preferredMethods ||
+    preferences?.comfortableMethods ||
+    []
+  ).join(", ");
+  const genrePrefsEntries = taste.recentGenrePenalty
+    ? Object.entries(taste.recentGenrePenalty)
+    : [];
+  const genrePrefs =
+    genrePrefsEntries.length > 0
+      ? genrePrefsEntries.map(([k, v]) => `${k}: ${v}`).join(", ")
+      : "None";
+
+  const userContext = `User Profile:
+- Favorite/Avoid Tastes: ${tastePrefs}
+- Equipment: ${equipment}
+- Preferred Methods: ${methods}
+- Lifestyle Priority: ${lifestyle.timePriority || "normal"}
+- Genre Preferences: ${genrePrefs}`;
+
   // Extract preferences with proper type handling
   // Note: key casting to any to bypass stale Prisma types in editor
   const criticalThreshold = (preferences as any)?.expirationCriticalDays ?? 2;
@@ -113,7 +186,7 @@ export async function generateMenus(
   const avoidMethods = Array.isArray(preferences?.avoidMethods)
     ? (preferences.avoidMethods as string[]).join(", ")
     : "なし";
-  const equipment = Array.isArray(preferences?.kitchenEquipment)
+  const equipmentOld = Array.isArray(preferences?.kitchenEquipment)
     ? (preferences.kitchenEquipment as string[]).join(", ")
     : "標準的なキッチン（ガスコンロ、電子レンジ、フライパン、鍋）";
 
@@ -135,7 +208,7 @@ ${warningList}
 - 料理スキル: ${cookingSkill}
 - 得意な調理法: ${comfortableMethods}
 - 避けたい調理法: ${avoidMethods}
-- 利用可能な設備: ${equipment}
+- 利用可能な設備: ${equipmentOld}
 
 # 重要な制約
 1. **手持ちの食材を最大限活用すること**
@@ -219,19 +292,18 @@ ${warningList}
   }
 }
 
-**重要**: 
+**重要**:
 - 必ず有効なJSONのみを出力してください。
 - 全ての dishes 項目に nutrition（calories, protein, fat, carbs）の数値を必ず含めてください。`;
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o", // Use gpt-4o for better safety adherence
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: safetyInstructions },
         {
           role: "user",
-          content:
-            "JSON形式で、上記の食材をもとにした3パターンの献立を提案してください。",
+          content: `${userContext}\n\nInventory:\n${ingredients.map((i) => i.name).join(", ")}\n\nPlease generate 3 menu patterns in JSON format as specified.`,
         },
       ],
       response_format: { type: "json_object" },
@@ -248,9 +320,33 @@ ${warningList}
     let result: MenuGenerationResult;
     try {
       result = JSON.parse(content) as MenuGenerationResult;
+      if ((result as any).error === "ALLERGEN_DETECTED") {
+        throw new Error(
+          "アレルギー物質が含まれる可能性があるため、生成を中断しました。設定を確認してください。",
+        );
+      }
     } catch (parseError) {
       console.error("[AI] JSON Parse Error. Content:", content);
       throw new Error("AIの応答を解析できませんでした");
+    }
+
+    // --- SECONDARY SAFETY CHECK (Post-generation) ---
+    const allIngredients: string[] = [];
+    [result.main, result.alternativeA, result.alternativeB].forEach((m) => {
+      m?.dishes?.forEach((d) => {
+        d.ingredients?.forEach((i) => allIngredients.push(i.name));
+      });
+    });
+
+    const allergenCheck = checkAllergens(
+      allIngredients,
+      allergies.map((a) => a.allergen),
+    );
+    if (allergenCheck) {
+      console.error("[SAFETY] Allergen detected in post-check:", allergenCheck);
+      throw new Error(
+        `提案にアレルギー物質（${allergenCheck.allergen}）が含まれています。より安全な条件で再生成してください。`,
+      );
     }
 
     // Validation

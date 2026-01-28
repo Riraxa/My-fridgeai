@@ -124,23 +124,10 @@ async function processMenuGeneration(
       data: { status: "processing" },
     });
 
-    // Detect Expiring Items
-    const now = new Date();
-    const expiringSoon = ingredients.filter((i) => {
-      if (!i.expirationDate) return false;
-      const diff = i.expirationDate.getTime() - now.getTime();
-      const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-      return days <= 3;
-    });
-
-    console.log(
-      `[MenuGen] Generating menus via AI for ${ingredients.length} ingredients...`,
-    );
-
     // Generate Menus via AI
     let menus;
     try {
-      menus = await generateMenus(ingredients, preferences, expiringSoon);
+      menus = await generateMenus(ingredients, userId);
     } catch (aiError: any) {
       console.error(`[MenuGen] AI Generation failed:`, aiError);
       throw aiError;
