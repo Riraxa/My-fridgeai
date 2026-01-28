@@ -7,7 +7,11 @@ import { generateSecureRandomString } from "@/lib/security";
 const INVITE_BASE_URL = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/household/join`;
 
 export async function GET(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === "production",
+  });
   if (!token?.sub) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
@@ -45,7 +49,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === "production",
+  });
   if (!token?.sub) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }

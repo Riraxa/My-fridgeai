@@ -183,10 +183,14 @@ export async function POST(req: Request) {
       },
     });
 
-    // challenge は必ず破棄（再利用防止）
+    // challenge は必ず破棄（再利用防止）し、パスキー登録完了フラグを立てる
     await prisma.user.update({
       where: { id: user.id },
-      data: { verifyToken: null, verifyTokenCreatedAt: null },
+      data: {
+        verifyToken: null,
+        verifyTokenCreatedAt: null,
+        passkeySetupCompleted: true,
+      },
     });
 
     return NextResponse.json({ ok: true });

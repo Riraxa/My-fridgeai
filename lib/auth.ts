@@ -225,10 +225,11 @@ export const authOptions: NextAuthOptions = {
               email: true,
               cancelAtPeriodEnd: true,
               stripeCurrentPeriodEnd: true,
+              passkeySetupCompleted: true,
             },
           });
 
-          // 2. IDで見つからず、メールアドレスがある場合はメールで検索（Googleログイン等の初回/再開時の不整合対策）
+          // 2. IDで見つからず、メールアドレスがある場合はメールで検索
           if (!dbUser && email) {
             dbUser = await prisma.user.findUnique({
               where: { email: String(email) },
@@ -238,6 +239,7 @@ export const authOptions: NextAuthOptions = {
                 email: true,
                 cancelAtPeriodEnd: true,
                 stripeCurrentPeriodEnd: true,
+                passkeySetupCompleted: true,
               },
             });
           }
@@ -255,20 +257,23 @@ export const authOptions: NextAuthOptions = {
           }
 
           if (dbUser) {
-            (token as any).userId = dbUser.id; // DBの正当なCUIDをセット
-            (token as any).sub = dbUser.id; // JWTのsubフィールドにも設定
+            (token as any).userId = dbUser.id;
+            (token as any).sub = dbUser.id;
             (token as any).email = dbUser.email ?? email;
             (token as any).plan = dbUser.plan ?? "FREE";
             (token as any).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
             (token as any).stripeCurrentPeriodEnd =
               dbUser.stripeCurrentPeriodEnd;
-            (token as any).accounts = accounts; // アカウント情報をセット
+            (token as any).passkeySetupCompleted =
+              dbUser.passkeySetupCompleted ?? false;
+            (token as any).accounts = accounts;
           } else {
             // 最悪のフォールバック
             (token as any).userId = userId;
-            (token as any).sub = userId; // JWTのsubフィールドにも設定
+            (token as any).sub = userId;
             (token as any).email = email;
             (token as any).plan = (token as any).plan ?? "FREE";
+            (token as any).passkeySetupCompleted = false;
             (token as any).accounts = [];
           }
         }
@@ -289,6 +294,9 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).stripeCurrentPeriodEnd = (
           token as any
         ).stripeCurrentPeriodEnd;
+        (session.user as any).passkeySetupCompleted = (
+          token as any
+        ).passkeySetupCompleted;
 
         // Proステータスを動的に判定
         const plan = (token as any).plan || "FREE";
