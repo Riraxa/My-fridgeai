@@ -1,11 +1,4 @@
-/**
- * Top page for My-FridgeAI
- * - SEO / OGP optimized
- * - public, no auth
- * - H1 must include: 冷蔵庫, 余り物, 献立
- * - CTA: /demo or /menu/generate
- */
-
+//app/page.tsx
 import React from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -48,16 +41,24 @@ export default function Page() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <a href="/" className="flex items-center gap-2">
-            <Image
-              src="/my-fridgeai-logo.png"
-              alt="My-FridgeAI Logo"
-              width={40}
-              height={40}
-              className="w-8 h-8 md:w-10 md:h-10"
-            />
-            <span className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 font-serif">
-              My-FridgeAI
-            </span>
+            <div className="block dark:hidden">
+              <Image
+                src="/my-fridgeai-logo.png"
+                alt="My-FridgeAI Logo"
+                width={120}
+                height={40}
+                className="w-32 h-12 md:w-40 md:h-14"
+              />
+            </div>
+            <div className="hidden dark:block">
+              <Image
+                src="/my-fridgeai-logo-white.png"
+                alt="My-FridgeAI Logo"
+                width={120}
+                height={40}
+                className="w-32 h-12 md:w-40 md:h-14"
+              />
+            </div>
           </a>
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-400">
             <a
@@ -130,7 +131,7 @@ export default function Page() {
             </div>
           </section>
 
-          <section className="relative aspect-square scale-110 md:scale-125 pointer-events-none">
+          <section className="relative aspect-square scale-90 md:scale-100 pointer-events-none">
             <div className="block dark:hidden">
               <Image
                 src="/fridge-illustration.png"
@@ -255,15 +256,24 @@ export default function Page() {
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="col-span-1 md:col-span-2 space-y-4">
             <div className="flex items-center gap-2">
-              <Image
-                src="/my-fridgeai-logo.png"
-                alt="My-FridgeAI Logo"
-                width={32}
-                height={32}
-              />
-              <span className="text-xl font-bold dark:text-white">
-                My-FridgeAI
-              </span>
+              <div className="block dark:hidden">
+                <Image
+                  src="/my-fridgeai-logo.png"
+                  alt="My-FridgeAI Logo"
+                  width={120}
+                  height={40}
+                  className="w-40 h-12"
+                />
+              </div>
+              <div className="hidden dark:block">
+                <Image
+                  src="/my-fridgeai-logo-white.png"
+                  alt="My-FridgeAI Logo"
+                  width={120}
+                  height={40}
+                  className="w-40 h-12"
+                />
+              </div>
             </div>
             <p className="text-slate-500 dark:text-slate-400 max-w-sm">
               冷蔵庫の食材を管理し、AIが最適な献立を提案。

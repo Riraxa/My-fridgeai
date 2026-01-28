@@ -50,3 +50,12 @@ export interface MenuGeneration {
   generatedAt: string | Date;
   selectedMenu?: string;
 }
+
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  done: boolean;
+  quantity?: string | number;
+  unit?: string;
+  note?: string;
+}

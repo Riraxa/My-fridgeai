@@ -53,17 +53,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Detect Expiring Items
-    const now = new Date();
-    const expiringSoon = ingredients.filter((i) => {
-      if (!i.expirationDate) return false;
-      const diff = i.expirationDate.getTime() - now.getTime();
-      const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-      return days <= 3;
-    });
-
     // 4. Generate Menus via AI
-    const menus = await generateMenus(ingredients, preferences, expiringSoon);
+    const menus = await generateMenus(ingredients, userId);
     if (!menus || !menus.main) {
       throw new Error("AIが有効な献立を生成できませんでした");
     }

@@ -8,24 +8,24 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  name            String?
-  email           String?   @unique
-  emailVerified   DateTime?
-  image           String?
-  password        String?
-  createdAt       DateTime  @default(now())
-  status          String?   @default("active")
-  verifyToken     String?
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String?   @unique
+  emailVerified        DateTime?
+  image                String?
+  password             String?
+  createdAt            DateTime  @default(now())
+  status               String?   @default("active")
+  verifyToken          String?
   verifyTokenCreatedAt DateTime?
-  verifyCode      String?
-  verifyExpires   DateTime?
-  allowedIps      String[]
-  aiMenuCount     Int       @default(0) @map("ai_menu_count")
-  aiMenuLastReset DateTime? @map("ai_menu_last_reset")
-  aiDailyCount      Int       @default(0)
-  dailyBarcodeCount Int       @default(0)
-  dailyResetAt      DateTime?
+  verifyCode           String?
+  verifyExpires        DateTime?
+  allowedIps           String[]
+  aiMenuCount          Int       @default(0) @map("ai_menu_count")
+  aiMenuLastReset      DateTime? @map("ai_menu_last_reset")
+  aiDailyCount         Int       @default(0)
+  dailyBarcodeCount    Int       @default(0)
+  dailyResetAt         DateTime?
 
   shoppingListItems ShoppingListItem[]
 
@@ -42,7 +42,7 @@ model User {
   subscriptions          Subscription[]
 
   // Household 関連
-  householdsOwned    Household[] @relation("Owner")
+  householdsOwned     Household[]       @relation("Owner")
   householdMembership HouseholdMember[]
 
   // relations
@@ -58,13 +58,15 @@ model User {
   TrustedDevice     TrustedDevice[]
   UsageHistory      UsageHistory[]
   BillingEvents     BillingEvent[]
-  
+
   // New Relations for Menu Generation
-  menuGenerations   MenuGeneration[]
-  weeklyMenuGenerations WeeklyMenuGeneration[] // Add this
-  cookingHistory    CookingHistory[]
-  inventoryAlerts   InventoryAlert[]
-  preferences       UserPreferences?
+  menuGenerations       MenuGeneration[]
+  weeklyMenuGenerations WeeklyMenuGeneration[]
+  cookingHistory        CookingHistory[]
+  inventoryAlerts       InventoryAlert[]
+  preferences           UserPreferences?
+  allergies             UserAllergy[]
+  restrictions          UserRestriction[]
 }
 
 enum PlanType {
@@ -73,24 +75,24 @@ enum PlanType {
 }
 
 model Household {
-  id        String   @id @default(cuid())
+  id        String            @id @default(cuid())
   ownerId   String
-  owner     User     @relation("Owner", fields: [ownerId], references: [id])
+  owner     User              @relation("Owner", fields: [ownerId], references: [id])
   members   HouseholdMember[]
   invites   HouseholdInvite[]
-  createdAt DateTime @default(now())
+  createdAt DateTime          @default(now())
 }
 
 model HouseholdInvite {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   householdId String
   email       String?
-  token       String    @unique
+  token       String   @unique
   expiresAt   DateTime
-  revoked     Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  revoked     Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
-  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 }
 
 model HouseholdMember {
@@ -99,8 +101,8 @@ model HouseholdMember {
   userId      String
   role        HouseholdRole @default(MEMBER)
 
-  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([householdId, userId])
 }
@@ -237,31 +239,31 @@ model Favorite {
 }
 
 model Ingredient {
-  id        String    @id @default(cuid())
-  userId    String
-  name      String
-  quantity  Float     @default(0) // Keep for backward compatibility, but prefer 'amount'
-  
+  id       String @id @default(cuid())
+  userId   String
+  name     String
+  quantity Float  @default(0) // Keep for backward compatibility, but prefer 'amount'
+
   // New standardized fields
-  amount        Float?              // 数値（500）
-  amountLevel   String?             // ざっくり（たっぷ, 普通, 少ない, ほぼない）
-  unit          String?             // 単位（ml, g, 個）
-  
+  amount      Float? // 数値（500）
+  amountLevel String? // ざっくり（たっぷ, 普通, 少ない, ほぼない）
+  unit        String? // 単位（ml, g, 個）
+
   // Expiration fields
-  expirationDate      DateTime?   @map("expiry") // Map to existing 'expiry' column if possible or start new. Existing schema has expiry DateTime?
-  expirationEstimated Boolean     @default(false)
+  expirationDate      DateTime? @map("expiry") // Map to existing 'expiry' column if possible or start new. Existing schema has expiry DateTime?
+  expirationEstimated Boolean   @default(false)
 
-  category  String?
-  
+  category String?
+
   // Purchase info
-  purchasedAt   DateTime?
-  barcode       String?
+  purchasedAt DateTime?
+  barcode     String?
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  alerts    InventoryAlert[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  alerts InventoryAlert[]
 
   @@index([userId, expirationDate])
 }
@@ -326,106 +328,138 @@ model ShoppingListItem {
 model UserPreferences {
   id     String @id @default(cuid())
   userId String @unique
-  
-  cookingSkill      String   @default("intermediate") // beginner | intermediate | advanced
-  comfortableMethods Json?   // ["炒め物", "煮物", "焼き物"]
-  avoidMethods      Json?    // ["揚げ物"]
-  kitchenEquipment  Json?    // ["電子レンジ", "オーブン"]
-  
+
+  cookingSkill       String @default("intermediate") // beginner | intermediate | advanced
+  comfortableMethods Json? // ["炒め物", "煮物", "焼き物"]
+  avoidMethods       Json? // ["揚げ物"]
+  kitchenEquipment   Json? // ["電子レンジ", "オーブン"]
+
   // Alert Settings
   enableExpirationAlert Boolean @default(true)
   alertDaysBefore       Int     @default(3)
   alertTime             String  @default("07:00") // Notification time
-  
+
   // Advanced Expiration Controls (Pro)
-  expirationCriticalDays  Int     @default(2)   // "Critical" threshold
-  expirationWarningDays   Int     @default(5)   // "Warning" threshold
-  expirationPriorityWeight Float  @default(0.7) // Priority weight (0.0-1.0)
-  
+  expirationCriticalDays   Int   @default(2) // "Critical" threshold
+  expirationWarningDays    Int   @default(5) // "Warning" threshold
+  expirationPriorityWeight Float @default(0.7) // Priority weight (0.0-1.0)
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Extended Preferences
+  tasteJson           Json    @default("{}") // 味、設備、ライフスタイル等
+  aiMessageEnabled    Boolean @default(false) // Pro向け: AIへの指示有効化
+  proFeaturesUnlocked Boolean @default(false) // Pro向けフラグ
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserAllergy {
+  id        String   @id @default(cuid())
+  userId    String
+  allergen  String // e.g. "egg", "milk", "wheat"
+  label     String? // 表示名（日本語）
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model UserRestriction {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String // "vegetarian","vegan","halal","medical","other"
+  note      String? // 自由記述（例：糖質制限中）
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model WeeklyMenuGeneration {
-  id        String   @id @default(cuid())
-  userId    String
-  startDate DateTime
-  endDate   DateTime
-  dailyMenus Json    // Array of 7 DailyMenuPlan
+  id                       String   @id @default(cuid())
+  userId                   String
+  startDate                DateTime
+  endDate                  DateTime
+  dailyMenus               Json // Array of 7 DailyMenuPlan
   consolidatedShoppingList Json // Array of strings or objects
-  createdAt DateTime @default(now())
-  
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  createdAt                DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model MenuGeneration {
-  id              String   @id @default(cuid())
-  userId          String
-  status          String   @default("completed") // completed | failed
-  
+  id     String @id @default(cuid())
+  userId String
+  status String @default("completed") // completed | failed
+
   // Generated Menus (3 patterns)
-  mainMenu        Json     // Main proposal
-  alternativeA    Json     // Alternative A
-  alternativeB    Json     // Alternative B
-  
+  mainMenu     Json // Main proposal
+  alternativeA Json // Alternative A
+  alternativeB Json // Alternative B
+
   // User Selection
-  selectedMenu    String?  // "main" | "altA" | "altB"
-  
+  selectedMenu String? // "main" | "altA" | "altB"
+
   // Context
-  usedIngredients Json     // [{ id, name, amount, unit }]
-  shoppingList    Json     // [{ name, amount, unit, reason }]
-  
+  usedIngredients Json // [{ id, name, amount, unit }]
+  shoppingList    Json // [{ name, amount, unit, reason }]
+
   // Metadata
-  generatedAt     DateTime @default(now())
-  difficulty      Int?     // 1-5
-  
+  generatedAt DateTime @default(now())
+  difficulty  Int? // 1-5
+
   // Pro Feature
-  nutritionInfo   Json?    // { calories, protein, carbs, fat }
-  
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cookingHistory  CookingHistory[]
-  
+  nutritionInfo Json? // { calories, protein, carbs, fat }
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cookingHistory CookingHistory[]
+
   @@index([userId, generatedAt])
 }
 
 model CookingHistory {
-  id                String   @id @default(cuid())
-  userId            String
-  menuGenerationId  String?
-  
-  status            String   @default("completed") // completed | cancelled
-  cookedAt          DateTime @default(now())
-  
+  id               String  @id @default(cuid())
+  userId           String
+  menuGenerationId String?
+
+  status   String   @default("completed") // completed | cancelled
+  cookedAt DateTime @default(now())
+
   // Actual cooked dishes
-  cookedDishes      Json     // ["Main", "Side"]
-  
+  cookedDishes Json // ["Main", "Side"]
+
   // Snapshot of ingredients used
-  usedIngredients   Json
-  
+  usedIngredients Json
+
   // Cancellation window
-  cancellableUntil  DateTime
-  
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  menuGeneration    MenuGeneration? @relation(fields: [menuGenerationId], references: [id])
-  
+  cancellableUntil DateTime
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menuGeneration MenuGeneration? @relation(fields: [menuGenerationId], references: [id])
+
   @@index([userId, cookedAt])
 }
 
 model InventoryAlert {
-  id            String   @id @default(cuid())
-  userId        String
-  ingredientId  String
-  
-  alertType     String   // "expiration" | "low-stock"
-  alertDays     Int      @default(3)
-  isActive      Boolean  @default(true)
-  
+  id           String @id @default(cuid())
+  userId       String
+  ingredientId String
+
+  alertType String // "expiration" | "low-stock"
+  alertDays Int     @default(3)
+  isActive  Boolean @default(true)
+
   lastAlertedAt DateTime?
-  createdAt     DateTime @default(now())
-  
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  
+  createdAt     DateTime  @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
   @@unique([userId, ingredientId, alertType])
 }
