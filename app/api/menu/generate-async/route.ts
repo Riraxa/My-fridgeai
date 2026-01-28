@@ -114,6 +114,10 @@ async function processMenuGeneration(
   preferences: any,
 ) {
   try {
+    console.log(
+      `[MenuGen] Starting process for generation ${generationId}, user ${userId}`,
+    );
+
     // Update status to processing
     await prisma.menuGeneration.update({
       where: { id: generationId },
@@ -129,11 +133,25 @@ async function processMenuGeneration(
       return days <= 3;
     });
 
+    console.log(
+      `[MenuGen] Generating menus via AI for ${ingredients.length} ingredients...`,
+    );
+
     // Generate Menus via AI
-    const menus = await generateMenus(ingredients, preferences, expiringSoon);
+    let menus;
+    try {
+      menus = await generateMenus(ingredients, preferences, expiringSoon);
+    } catch (aiError: any) {
+      console.error(`[MenuGen] AI Generation failed:`, aiError);
+      throw aiError;
+    }
+
     if (!menus || !menus.main) {
+      console.error(`[MenuGen] AI returned invalid menu structure:`, menus);
       throw new Error("AIが有効な献立を生成できませんでした");
     }
+
+    console.log(`[MenuGen] AI success. Checking availability...`);
 
     // Check Availability for ALL Menus
     const mainDetails = checkIngredientAvailability(
@@ -174,8 +192,10 @@ async function processMenuGeneration(
         altB: evaluateNutrition(menus.alternativeB?.dishes || []),
       } as any;
     } catch (e) {
-      console.warn("Nutrition calculation failed:", e);
+      console.warn("[MenuGen] Nutrition calculation failed:", e);
     }
+
+    console.log(`[MenuGen] Completing generation ${generationId}...`);
 
     // Update with completed data
     await prisma.menuGeneration.update({
@@ -198,11 +218,19 @@ async function processMenuGeneration(
         } as any,
       },
     });
+    console.log(`[MenuGen] Successfully completed generation ${generationId}`);
   } catch (error: any) {
-    console.error("Background processing error:", error);
-    await prisma.menuGeneration.update({
-      where: { id: generationId },
-      data: { status: "failed" },
-    });
+    console.error("[MenuGen] Background processing error:", error);
+    try {
+      await prisma.menuGeneration.update({
+        where: { id: generationId },
+        data: { status: "failed" },
+      });
+    } catch (dbError) {
+      console.error(
+        "[MenuGen] Critical: Failed to update status to failed:",
+        dbError,
+      );
+    }
   }
 }

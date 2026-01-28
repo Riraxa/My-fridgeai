@@ -91,19 +91,6 @@ export const authOptions: NextAuthOptions = {
     updateAge: 24 * 60 * 60, // 1日ごとに更新
   },
 
-  cookies: {
-    sessionToken: {
-      name: "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: false,
-        maxAge: 30 * 24 * 60 * 60,
-      },
-    },
-  },
-
   pages: {
     signIn: "/login",
     verifyRequest: "/verify-request",

@@ -230,36 +230,63 @@ ${warningList}
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: "上記の食材で献立を3パターン提案してください。",
+          content:
+            "JSON形式で、上記の食材をもとにした3パターンの献立を提案してください。",
         },
       ],
       response_format: { type: "json_object" },
       temperature: 0.7,
-      max_tokens: 4000,
+      max_tokens: 3000,
     });
 
     const content = completion.choices[0].message.content;
-    if (!content) throw new Error("No content generated");
+    if (!content) {
+      console.error("[AI] No content returned from OpenAI");
+      throw new Error("AIからの応答が空でした");
+    }
 
-    const result = JSON.parse(content) as MenuGenerationResult;
+    let result: MenuGenerationResult;
+    try {
+      result = JSON.parse(content) as MenuGenerationResult;
+    } catch (parseError) {
+      console.error("[AI] JSON Parse Error. Content:", content);
+      throw new Error("AIの応答を解析できませんでした");
+    }
 
     // Validation
     const isValid = (menu: any) =>
-      menu && menu.title && Array.isArray(menu.dishes);
-    if (
-      !isValid(result.main) ||
-      !isValid(result.alternativeA) ||
-      !isValid(result.alternativeB)
-    ) {
-      throw new Error("AI returned incomplete menu data");
+      menu &&
+      typeof menu === "object" &&
+      menu.title &&
+      Array.isArray(menu.dishes);
+
+    if (!isValid(result.main)) {
+      console.error("[AI] Invalid main menu:", result.main);
+      throw new Error("AIが有効なメイン献立を生成できませんでした");
+    }
+
+    // Fallback for alternatives if missing
+    if (!isValid(result.alternativeA)) {
+      console.warn("[AI] Alternative A invalid, using main as fallback");
+      result.alternativeA = JSON.parse(JSON.stringify(result.main));
+    }
+    if (!isValid(result.alternativeB)) {
+      console.warn("[AI] Alternative B invalid, using main as fallback");
+      result.alternativeB = JSON.parse(JSON.stringify(result.main));
     }
 
     // Normalize
     const normalize = (menu: GeneratedMenu) => {
+      if (!menu.dishes) menu.dishes = [];
       menu.dishes.forEach((dish) => {
         if (!dish.nutrition) {
           dish.nutrition = { calories: 0, protein: 0, fat: 0, carbs: 0 };
         }
+        // Ensure numbers
+        if (typeof dish.cookingTime === "string")
+          dish.cookingTime = parseInt(dish.cookingTime) || 20;
+        if (typeof dish.difficulty === "string")
+          dish.difficulty = parseInt(dish.difficulty) || 3;
       });
     };
     normalize(result.main);
@@ -267,9 +294,9 @@ ${warningList}
     normalize(result.alternativeB);
 
     return result;
-  } catch (error) {
-    console.error("AI Generation Error:", error);
-    throw new Error("献立の生成に失敗しました。もう一度お試しください。");
+  } catch (error: any) {
+    console.error("AI Generation Process Error:", error);
+    throw new Error(error.message || "献立の生成中にエラーが発生しました。");
   }
 }
 

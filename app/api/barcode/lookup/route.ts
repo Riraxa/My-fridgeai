@@ -7,7 +7,11 @@ import { checkUserLimit } from "@/lib/aiLimit";
 export async function POST(req: NextRequest) {
   try {
     // 認証チェック
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const token = await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET,
+      secureCookie: process.env.NODE_ENV === "production",
+    });
     if (!token) {
       return NextResponse.json(
         { error: "ログインが必要です" },
