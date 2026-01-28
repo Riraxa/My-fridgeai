@@ -21,11 +21,15 @@ export async function middleware(req: NextRequest) {
 
   // 公開ページ
   const publicPaths = [
+    "/",
+    "/features",
     "/login",
     "/register",
     "/terms",
     "/privacy",
     "/reset-password",
+    "/robots.txt",
+    "/sitemap.xml",
   ];
   if (publicPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();

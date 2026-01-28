@@ -4,6 +4,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/app/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/app/components/ui/dialog";
 import PasskeyButton from "./PasskeyButton";
 
 interface PasskeyInfo {
@@ -205,7 +212,7 @@ export default function PasskeyManager() {
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-medium">パスキー設定</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
           Googleアカウントでログインしているため、パスキー設定は不要です。Google側のセキュリティ設定をご利用ください。
         </p>
       </div>
@@ -216,7 +223,7 @@ export default function PasskeyManager() {
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-medium">パスキー設定</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
           読み込み中...
         </p>
       </div>
@@ -226,14 +233,20 @@ export default function PasskeyManager() {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium">パスキー設定</h3>
-      <p className="text-sm mb-4 text-gray-600 dark:text-gray-400">
+      <p
+        className="text-sm mb-4"
+        style={{ color: "var(--color-text-secondary)" }}
+      >
         パスワードの代わりに、指紋認証や顔認証で安全にログインできます。
       </p>
 
       {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
 
       {passkeys.length === 0 ? (
-        <p className="text-sm mb-4 text-gray-600 dark:text-gray-400">
+        <p
+          className="text-sm mb-4"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
           このアカウントでは、まだパスキーが登録されていません。
         </p>
       ) : (
@@ -241,12 +254,16 @@ export default function PasskeyManager() {
           {passkeys.map((passkey) => (
             <div
               key={passkey.id}
-              className="p-3 rounded-lg border border-gray-200 dark:border-gray-600"
+              className="p-3 rounded-lg border"
+              style={{
+                borderColor: "var(--surface-border)",
+                backgroundColor: "var(--surface-bg)",
+              }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <div
-                    className="font-medium truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                    className="font-medium truncate cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => {
                       setRenameModal(passkey);
                       setRenameValue(passkey.name || "");
@@ -255,7 +272,10 @@ export default function PasskeyManager() {
                   >
                     {generateDisplayName(passkey)}
                   </div>
-                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                  <div
+                    className="flex items-center justify-between text-sm"
+                    style={{ color: "var(--color-text-muted)" }}
+                  >
                     <span>
                       登録日：
                       {new Date(passkey.createdAt).toLocaleDateString("ja-JP")}
@@ -282,17 +302,25 @@ export default function PasskeyManager() {
       </div>
 
       {/* Delete confirmation modal */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="modal-card relative w-full max-w-sm p-6">
-            <h4 className="text-lg font-bold mb-2">パスキーを削除しますか？</h4>
-            <p className="text-sm mb-4">
+      <Dialog
+        open={!!deleteConfirm}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+      >
+        <DialogContent className="modal-card max-w-sm mx-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">
+              パスキーを削除しますか？
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <p className="text-sm">
               この操作は取り消せません。
               <br />
               このデバイスからのパスキーログインはできなくなります。
             </p>
-            <div className="flex justify-end gap-2">
+          </div>
+          <DialogFooter>
+            <div className="flex justify-end gap-2 w-full">
               <Button
                 variant="outline"
                 onClick={() => setDeleteConfirm(null)}
@@ -302,15 +330,16 @@ export default function PasskeyManager() {
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => handleDelete(deleteConfirm)}
+                onClick={() => handleDelete(deleteConfirm!)}
                 disabled={actionLoading}
+                className="border-2 border-red-500 bg-red-500 hover:bg-red-600 text-white"
               >
                 {actionLoading ? "削除中..." : "削除する"}
               </Button>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Rename modal */}
       {renameModal && (
@@ -323,7 +352,7 @@ export default function PasskeyManager() {
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               placeholder="例：自分のノートPC"
-              className="w-full p-2 border rounded mb-4 bg-transparent text-gray-900 border-gray-300 dark:text-gray-200 dark:border-gray-600 placeholder:text-gray-500 dark:placeholder:text-gray-400"
+              className="w-full p-2 border rounded mb-4 input-field"
               maxLength={100}
             />
             <div className="flex justify-end gap-2">
@@ -337,7 +366,11 @@ export default function PasskeyManager() {
               >
                 キャンセル
               </Button>
-              <Button onClick={handleRename} disabled={actionLoading}>
+              <Button
+                onClick={handleRename}
+                disabled={actionLoading}
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+              >
                 {actionLoading ? "保存中..." : "保存"}
               </Button>
             </div>
@@ -353,7 +386,10 @@ export default function PasskeyManager() {
             <h4 className="text-lg font-bold mb-2">
               パスキーの登録が完了しました！
             </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+            <p
+              className="text-sm mb-4"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
               このパスキーに名前を付けてください（任意）
             </p>
             <input
@@ -361,7 +397,7 @@ export default function PasskeyManager() {
               value={newPasskeyName}
               onChange={(e) => setNewPasskeyName(e.target.value)}
               placeholder="例：自分のノートPC、iPhone"
-              className="w-full p-2 border rounded mb-4 bg-transparent text-gray-900 border-gray-300 dark:text-gray-200 dark:border-gray-600 placeholder:text-gray-500 dark:placeholder:text-gray-400"
+              className="w-full p-2 border rounded mb-4 input-field"
               maxLength={100}
             />
             <div className="flex justify-end gap-2">
@@ -379,6 +415,7 @@ export default function PasskeyManager() {
               <Button
                 onClick={handleAfterRegistrationRename}
                 disabled={actionLoading || !newPasskeyName.trim()}
+                className="bg-blue-500 hover:bg-blue-600 text-white"
               >
                 {actionLoading ? "保存中..." : "保存"}
               </Button>
