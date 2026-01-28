@@ -126,8 +126,8 @@ export function validateJWTToken(token: any): {
     }
   }
 
-  // ユーザーIDの形式検証（cuid形式）
-  if (!/^[a-z0-9]{25}$/.test(userId)) {
+  // ユーザーIDの形式検証（cuid/uuid/etc）
+  if (!/^[a-zA-Z0-9_\-]{20,128}$/.test(userId)) {
     return { valid: false, error: "Invalid user ID format" };
   }
 
