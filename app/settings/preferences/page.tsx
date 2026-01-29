@@ -539,7 +539,7 @@ export default function EnhancedPreferencesPage() {
                 </section>
 
                 <section
-                  className="p-6 rounded-3xl shadow-sm overflow-hidden relative"
+                  className={`p-6 rounded-3xl shadow-sm overflow-hidden relative ${!isPro ? "min-h-[400px]" : ""}`}
                   style={{
                     background: "var(--surface-bg)",
                     border: "1px solid var(--surface-border)",
@@ -559,7 +559,10 @@ export default function EnhancedPreferencesPage() {
                       <p className="text-sm text-slate-500 mb-6">
                         ベジタリアン、低塩分、減塩などの食事制限を細かく設定して、より健康的な献立を作成できます。
                       </p>
-                      <button className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:scale-105 active:scale-95 transition">
+                      <button
+                        onClick={() => router.push("/settings/account")}
+                        className="bg-amber-500 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-amber-100 hover:scale-105 active:scale-95 transition"
+                      >
                         Proにアップグレード
                       </button>
                     </div>
@@ -703,7 +706,8 @@ export default function EnhancedPreferencesPage() {
                             },
                           })
                         }
-                        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                        style={{ accentColor: "var(--accent)" }}
                       />
                     </div>
                   );
@@ -891,7 +895,10 @@ export default function EnhancedPreferencesPage() {
                     <p className="text-sm text-slate-500 mb-6">
                       「子供が食べやすい味」や「包丁を使わない手順」など、AIに個別のわがままを伝えることができます。
                     </p>
-                    <button className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:scale-105 active:scale-95 transition">
+                    <button
+                      onClick={() => router.push("/settings/account")}
+                      className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:scale-105 active:scale-95 transition"
+                    >
                       Proにアップグレード
                     </button>
                   </div>
