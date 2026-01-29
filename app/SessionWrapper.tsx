@@ -9,7 +9,11 @@ export default function SessionWrapper({
   children: React.ReactNode;
 }) {
   return (
-    <SessionProvider basePath="/api/auth" refetchInterval={0}>
+    <SessionProvider
+      basePath="/api/auth"
+      refetchInterval={0} // 自動リフレッシュを無効化
+      refetchOnWindowFocus={false} // ウィンドウフォーカス時のリフレッシュを無効化
+    >
       {children}
     </SessionProvider>
   );

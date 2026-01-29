@@ -121,6 +121,7 @@ export default function Tabs() {
                   {tab.icon}
                 </div>
                 <span
+                  className="hidden sm:inline"
                   style={{
                     fontWeight: isActive ? 600 : 500,
                     transition: "font-weight 0.12s ease-out",
