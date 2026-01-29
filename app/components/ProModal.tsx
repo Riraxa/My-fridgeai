@@ -114,7 +114,7 @@ export default function ProModal({ open, onClose }: ProModalProps) {
           </div>
 
           <p>
-            My-FridgeAIは、
+            My-fridgeaiは、
             <br />
             「冷蔵庫の中身をムダにしたくない」
             <br />
@@ -133,7 +133,7 @@ export default function ProModal({ open, onClose }: ProModalProps) {
             className="text-right text-sm italic"
             style={{ color: "var(--color-text-muted)" }}
           >
-            — My-FridgeAI 開発者（起業家高校生）
+            — My-fridgeai 開発者（起業家高校生）
           </p>
         </div>
 

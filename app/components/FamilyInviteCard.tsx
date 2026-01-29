@@ -39,7 +39,7 @@ export default function FamilyInviteCard({
       try {
         await navigator.share({
           title: "家族招待リンク",
-          text: "My-FridgeAIの家族グループに招待します。",
+          text: "My-fridgeaiの家族グループに招待します。",
           url: inviteUrl,
         });
       } catch {

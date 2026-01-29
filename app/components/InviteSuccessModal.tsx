@@ -40,7 +40,7 @@ export default function InviteSuccessModal({
       try {
         await navigator.share({
           title: "家族招待リンク",
-          text: "My-FridgeAIの家族グループに招待します。このリンクから参加してください。",
+          text: "My-fridgeaiの家族グループに招待します。このリンクから参加してください。",
           url: inviteUrl,
         });
       } catch (e) {

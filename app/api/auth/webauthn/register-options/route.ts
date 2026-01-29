@@ -125,7 +125,7 @@ export async function POST(req: Request) {
     };
 
     const opts = await generateRegistrationOptions({
-      rpName: "My-FridgeAI",
+      rpName: "My-fridgeai",
       rpID,
       userID: userIDBuf,
       userName: user.email ?? emailLower,

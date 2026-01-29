@@ -187,7 +187,7 @@ function RegisterPageContent() {
                   ? "/my-fridgeai-logo-white.png"
                   : "/my-fridgeai-logo.png"
               }
-              alt="My-FridgeAI"
+              alt="My-fridgeai"
               width={180}
               height={52}
               priority
@@ -213,7 +213,7 @@ function RegisterPageContent() {
           )}
 
           <h2 className="mt-2 text-center text-lg font-semibold text-primary">
-            Welcome to My-FridgeAI
+            Welcome to My-fridgeai
           </h2>
           <p className="text-center text-secondary mt-0">
             日常の食材管理を、もっとスマートに。
@@ -520,7 +520,7 @@ function RegisterPageContent() {
               ログイン
             </a>
           </p>
-          <div className="text-xs text-muted mb-6">© My-FridgeAI</div>
+          <div className="text-xs text-muted mb-6">© My-fridgeai</div>
         </div>
       </div>
     </motion.div>

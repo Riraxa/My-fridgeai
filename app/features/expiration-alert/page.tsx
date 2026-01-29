@@ -13,11 +13,11 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "賞味期限アラート機能 | My-FridgeAI",
+  title: "賞味期限アラート機能 | My-fridgeai",
   description:
     "賞味期限3日以内の食材を検出してメール／アプリ内通知。Vercel Cronで毎日チェックします。",
   openGraph: {
-    title: "賞味期限アラート機能 | My-FridgeAI",
+    title: "賞味期限アラート機能 | My-fridgeai",
     description:
       "メールとアプリ内で通知。Proは優先通知、Freeでもアラートを受け取れます。",
     url: `${SITE_URL}/features/expiration-alert`,
@@ -35,7 +35,7 @@ export default function ExpirationAlertPage() {
             <div className="block dark:hidden">
               <Image
                 src="/my-fridgeai-logo.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-32 h-12 md:w-40 md:h-14"
@@ -44,7 +44,7 @@ export default function ExpirationAlertPage() {
             <div className="hidden dark:block">
               <Image
                 src="/my-fridgeai-logo-white.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-32 h-12 md:w-40 md:h-14"
@@ -228,7 +228,7 @@ export default function ExpirationAlertPage() {
             <div className="block dark:hidden">
               <Image
                 src="/my-fridgeai-logo.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-40 h-12"
@@ -237,7 +237,7 @@ export default function ExpirationAlertPage() {
             <div className="hidden dark:block">
               <Image
                 src="/my-fridgeai-logo-white.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-40 h-12"
@@ -245,7 +245,7 @@ export default function ExpirationAlertPage() {
             </div>
           </div>
           <p className="text-sm text-slate-500">
-            © {new Date().getFullYear()} My-FridgeAI. All rights reserved.
+            © {new Date().getFullYear()} My-fridgeai. All rights reserved.
           </p>
         </div>
       </footer>

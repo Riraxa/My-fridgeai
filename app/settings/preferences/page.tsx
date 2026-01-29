@@ -115,6 +115,14 @@ export default function EnhancedPreferencesPage() {
         const tasteData = await tasteRes.json();
         const userData = await userRes.json();
 
+        // 初期データ取得時のログ
+        console.log("Initial data:", {
+          prefsData,
+          safetyData,
+          tasteData,
+          userData,
+        });
+
         if (prefsData.preferences) setPreferences(prefsData.preferences);
         setSafety(safetyData);
         setTaste((prev) => ({ ...prev, ...tasteData }));
@@ -155,6 +163,21 @@ export default function EnhancedPreferencesPage() {
     }
   };
 
+  const addRestriction = async (restrictionType: string, note: string) => {
+    const res = await fetch("/api/preferences/safety", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "restriction", restrictionType, note }),
+    });
+    if (res.ok) {
+      const added = await res.json();
+      setSafety((prev) => ({
+        ...prev,
+        restrictions: [...prev.restrictions, added],
+      }));
+    }
+  };
+
   const removeSafetyItem = async (id: string) => {
     const res = await fetch(`/api/preferences/safety/${id}`, {
       method: "DELETE",
@@ -170,8 +193,8 @@ export default function EnhancedPreferencesPage() {
   const handleFinalSave = async () => {
     setSaving(true);
     try {
-      // 一括ビルド
-      await Promise.all([
+      // 一括保存
+      const saveResults = await Promise.all([
         fetch("/api/settings/preferences", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -188,9 +211,36 @@ export default function EnhancedPreferencesPage() {
           body: JSON.stringify({ recentGenrePenalty: genrePenalty }),
         }),
       ]);
+
+      // 保存結果をログ出力
+      console.log(
+        "Save results:",
+        saveResults.map((r) => r.status),
+      );
+
+      // 保存成功後にデータを再取得して画面を更新
+      const [prefsRes, safetyRes, tasteRes] = await Promise.all([
+        fetch("/api/settings/preferences"),
+        fetch("/api/preferences/safety"),
+        fetch("/api/preferences/taste"),
+      ]);
+
+      const prefsData = await prefsRes.json();
+      const safetyData = await safetyRes.json();
+      const tasteData = await tasteRes.json();
+
+      // 取得データをログ出力
+      console.log("Fetched data:", { prefsData, safetyData, tasteData });
+
+      if (prefsData.preferences) setPreferences(prefsData.preferences);
+      setSafety(safetyData);
+      setTaste((prev) => ({ ...prev, ...tasteData }));
+      setGenrePenalty(tasteData.recentGenrePenalty || {});
+
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
+      console.error("Save error:", e);
       alert("保存に失敗しました");
     } finally {
       setSaving(false);
@@ -205,16 +255,25 @@ export default function EnhancedPreferencesPage() {
     );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <div
+      className="min-h-screen pb-8"
+      style={{ background: "var(--background)" }}
+    >
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-4 flex items-center justify-between">
-        <button
-          onClick={() => router.back()}
-          className="p-2 hover:bg-slate-100 rounded-full transition"
+      <header
+        className="sticky top-0 z-50 px-4 py-4 flex items-center justify-between"
+        style={{
+          background: "var(--surface-bg)",
+          borderBottom: "1px solid var(--surface-border)",
+        }}
+      >
+        <div></div>
+        <h1
+          className="text-lg font-bold"
+          style={{ color: "var(--color-text-primary)" }}
         >
-          <ChevronLeft size={24} className="text-slate-600" />
-        </button>
-        <h1 className="text-lg font-bold text-slate-800">料理の好み</h1>
+          料理の好み
+        </h1>
         <button
           onClick={handleFinalSave}
           disabled={saving}
@@ -235,7 +294,13 @@ export default function EnhancedPreferencesPage() {
       </header>
 
       {/* Tabs */}
-      <nav className="bg-white border-b border-slate-200 overflow-x-auto no-scrollbar sticky top-[73px] z-40">
+      <nav
+        className="overflow-x-auto no-scrollbar sticky top-[73px] z-40"
+        style={{
+          background: "var(--surface-bg)",
+          borderBottom: "1px solid var(--surface-border)",
+        }}
+      >
         <div className="flex px-4 items-center min-w-max">
           {(
             ["basic", "safety", "taste", "lifestyle", "genre", "pro"] as Tab[]
@@ -244,10 +309,12 @@ export default function EnhancedPreferencesPage() {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`relative px-4 py-4 text-sm font-medium transition ${
-                activeTab === tab
-                  ? "text-indigo-600"
-                  : "text-slate-500 hover:text-slate-700"
+                activeTab === tab ? "text-indigo-600" : "hover:text-indigo-600"
               }`}
+              style={{
+                color:
+                  activeTab === tab ? "#4f46e5" : "var(--color-text-secondary)",
+              }}
             >
               {tab === "basic" && "基本"}
               {tab === "safety" && "安全"}
@@ -277,8 +344,17 @@ export default function EnhancedPreferencesPage() {
           >
             {activeTab === "basic" && (
               <div className="space-y-8">
-                <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                  <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <section
+                  className="p-6 rounded-3xl shadow-sm"
+                  style={{
+                    background: "var(--surface-bg)",
+                    border: "1px solid var(--surface-border)",
+                  }}
+                >
+                  <h2
+                    className="text-base font-bold mb-4 flex items-center gap-2"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
                     <BarChart3 size={20} className="text-indigo-500" />{" "}
                     料理スキル
                   </h2>
@@ -305,8 +381,17 @@ export default function EnhancedPreferencesPage() {
                   </div>
                 </section>
 
-                <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-110">
-                  <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <section
+                  className="p-6 rounded-3xl shadow-sm"
+                  style={{
+                    background: "var(--surface-bg)",
+                    border: "1px solid var(--surface-border)",
+                  }}
+                >
+                  <h2
+                    className="text-base font-bold mb-4 flex items-center gap-2"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
                     <Heart size={20} className="text-pink-500" /> 得意な調理法
                   </h2>
                   <div className="flex flex-wrap gap-2">
@@ -335,8 +420,17 @@ export default function EnhancedPreferencesPage() {
                   </div>
                 </section>
 
-                <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                  <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <section
+                  className="p-6 rounded-3xl shadow-sm"
+                  style={{
+                    background: "var(--surface-bg)",
+                    border: "1px solid var(--surface-border)",
+                  }}
+                >
+                  <h2
+                    className="text-base font-bold mb-4 flex items-center gap-2"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
                     <ShieldCheck size={20} className="text-indigo-500" />{" "}
                     利用可能な設備
                   </h2>
@@ -370,11 +464,28 @@ export default function EnhancedPreferencesPage() {
 
             {activeTab === "safety" && (
               <div className="space-y-6">
-                <section className="bg-white p-6 rounded-3xl shadow-sm border border-red-50">
-                  <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <section
+                  className="p-6 rounded-3xl shadow-sm"
+                  style={{
+                    background: "var(--surface-bg)",
+                    border: "1px solid var(--surface-border)",
+                  }}
+                >
+                  <h2
+                    className="text-base font-bold mb-4 flex items-center gap-2"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
                     <AlertTriangle size={20} className="text-red-500" />{" "}
                     アレルギー
                   </h2>
+                  <div className="mb-4">
+                    <p className="text-xs text-slate-500 mb-3 px-1">
+                      ※食事に関するアレルギー食材を入力してください（例：卵、小麦、乳製品、えび、かに）
+                    </p>
+                    <p className="text-xs text-slate-400 mb-3 px-1">
+                      食事に関係ないアレルギーは入力しないでください。
+                    </p>
+                  </div>
                   <div className="mb-6 flex flex-wrap gap-2">
                     {safety.allergies.map((a) => (
                       <div
@@ -394,8 +505,13 @@ export default function EnhancedPreferencesPage() {
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="例: たまご、えび、牡蠣"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 outline-none transition"
+                      placeholder="食事アレルギーのある食材名を入力（例：たまご、えび、牡蠣）"
+                      className="w-full rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 outline-none transition"
+                      style={{
+                        background: "var(--surface-bg)",
+                        border: "1px solid var(--surface-border)",
+                        color: "var(--color-text-primary)",
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           addAllergy(e.currentTarget.value);
@@ -403,7 +519,17 @@ export default function EnhancedPreferencesPage() {
                         }
                       }}
                     />
-                    <button className="absolute right-3 top-2.5 bg-red-500 text-white p-1 rounded-lg">
+                    <button
+                      onClick={(e) => {
+                        const input =
+                          e.currentTarget.parentElement?.querySelector("input");
+                        if (input && input.value.trim()) {
+                          addAllergy(input.value.trim());
+                          input.value = "";
+                        }
+                      }}
+                      className="absolute right-3 top-2.5 bg-red-500 text-white p-1 rounded-lg"
+                    >
                       <Plus size={18} />
                     </button>
                   </div>
@@ -412,8 +538,36 @@ export default function EnhancedPreferencesPage() {
                   </p>
                 </section>
 
-                <section className="bg-white p-6 rounded-3xl shadow-sm border border-amber-50">
-                  <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <section
+                  className="p-6 rounded-3xl shadow-sm overflow-hidden relative"
+                  style={{
+                    background: "var(--surface-bg)",
+                    border: "1px solid var(--surface-border)",
+                  }}
+                >
+                  {!isPro && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-8 text-center">
+                      <div className="bg-amber-500 text-white p-4 rounded-3xl mb-4 shadow-xl shadow-amber-100">
+                        <ShieldCheck size={32} />
+                      </div>
+                      <h3
+                        className="text-lg font-extrabold mb-2"
+                        style={{ color: "var(--color-text-primary)" }}
+                      >
+                        食事制限の設定
+                      </h3>
+                      <p className="text-sm text-slate-500 mb-6">
+                        ベジタリアン、低塩分、減塩などの食事制限を細かく設定して、より健康的な献立を作成できます。
+                      </p>
+                      <button className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:scale-105 active:scale-95 transition">
+                        Proにアップグレード
+                      </button>
+                    </div>
+                  )}
+                  <h2
+                    className="text-base font-bold mb-4 flex items-center gap-2"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
                     <ShieldCheck size={20} className="text-amber-500" />{" "}
                     食事制限
                   </h2>
@@ -437,14 +591,71 @@ export default function EnhancedPreferencesPage() {
                         </button>
                       </div>
                     ))}
+                    <div className="mt-4">
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          placeholder="制限タイプ（例：ベジタリアン、低塩分）"
+                          className="flex-1 rounded-2xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+                          style={{
+                            background: "var(--surface-bg)",
+                            border: "1px solid var(--surface-border)",
+                            color: "var(--color-text-primary)",
+                          }}
+                          id="restriction-type"
+                        />
+                        <input
+                          type="text"
+                          placeholder="詳細メモ（最大100文字）"
+                          className="flex-2 rounded-2xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+                          style={{
+                            background: "var(--surface-bg)",
+                            border: "1px solid var(--surface-border)",
+                            color: "var(--color-text-primary)",
+                          }}
+                          id="restriction-note"
+                          maxLength={100}
+                        />
+                        <button
+                          onClick={() => {
+                            const typeInput = document.getElementById(
+                              "restriction-type",
+                            ) as HTMLInputElement;
+                            const noteInput = document.getElementById(
+                              "restriction-note",
+                            ) as HTMLInputElement;
+                            if (typeInput && typeInput.value.trim()) {
+                              addRestriction(
+                                typeInput.value.trim(),
+                                noteInput?.value.trim() || "",
+                              );
+                              typeInput.value = "";
+                              if (noteInput) noteInput.value = "";
+                            }
+                          }}
+                          className="bg-amber-500 text-white p-2 rounded-lg hover:bg-amber-600 transition"
+                        >
+                          <Plus size={18} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </section>
               </div>
             )}
 
             {activeTab === "taste" && (
-              <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-8">
-                <h2 className="text-base font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <section
+                className="p-6 rounded-3xl shadow-sm space-y-8"
+                style={{
+                  background: "var(--surface-bg)",
+                  border: "1px solid var(--surface-border)",
+                }}
+              >
+                <h2
+                  className="text-base font-bold mb-2 flex items-center gap-2"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
                   <Heart size={20} className="text-pink-500" /> 味の好み
                 </h2>
                 {tasteKeys.map((item) => {
@@ -452,7 +663,10 @@ export default function EnhancedPreferencesPage() {
                   return (
                     <div key={item.key} className="space-y-4">
                       <div className="flex justify-between items-end">
-                        <label className="text-sm font-bold text-slate-600">
+                        <label
+                          className="text-sm font-bold"
+                          style={{ color: "var(--color-text-secondary)" }}
+                        >
                           {item.label}
                         </label>
                         <span
@@ -502,15 +716,25 @@ export default function EnhancedPreferencesPage() {
                 {["weekdayMode", "weekendMode"].map((mode) => (
                   <section
                     key={mode}
-                    className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100"
+                    className="p-6 rounded-3xl shadow-sm"
+                    style={{
+                      background: "var(--surface-bg)",
+                      border: "1px solid var(--surface-border)",
+                    }}
                   >
-                    <h2 className="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <h2
+                      className="text-base font-bold mb-6 flex items-center gap-2"
+                      style={{ color: "var(--color-text-primary)" }}
+                    >
                       <Clock size={20} className="text-indigo-500" />{" "}
                       {mode === "weekdayMode" ? "平日モード" : "休日モード"}
                     </h2>
                     <div className="space-y-6">
                       <div className="flex justify-between items-center">
-                        <label className="text-sm font-medium text-slate-600">
+                        <label
+                          className="text-sm font-medium"
+                          style={{ color: "var(--color-text-secondary)" }}
+                        >
                           時間優先度
                         </label>
                         <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
@@ -545,7 +769,10 @@ export default function EnhancedPreferencesPage() {
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
-                        <label className="text-sm font-medium text-slate-600">
+                        <label
+                          className="text-sm font-medium"
+                          style={{ color: "var(--color-text-secondary)" }}
+                        >
                           洗い物を最小限に
                         </label>
                         <button
@@ -576,12 +803,24 @@ export default function EnhancedPreferencesPage() {
             )}
 
             {activeTab === "genre" && (
-              <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                <h2 className="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
+              <section
+                className="p-6 rounded-3xl shadow-sm"
+                style={{
+                  background: "var(--surface-bg)",
+                  border: "1px solid var(--surface-border)",
+                }}
+              >
+                <h2
+                  className="text-base font-bold mb-6 flex items-center gap-2"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
                   <BarChart3 size={20} className="text-indigo-500" />{" "}
                   ジャンルの優先度
                 </h2>
-                <p className="text-xs text-slate-400 mb-8 px-1">
+                <p
+                  className="text-xs mb-8 px-1"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
                   スライダーを右に振るとそのジャンルが優先され、左に振ると提案されにくくなります。
                 </p>
                 <div className="space-y-6">
@@ -590,7 +829,15 @@ export default function EnhancedPreferencesPage() {
                     return (
                       <div key={g} className="flex items-center gap-4">
                         <span
-                          className={`w-16 text-sm font-medium ${val > 0 ? "text-indigo-600" : val < 0 ? "text-slate-400" : "text-slate-700"}`}
+                          className="w-16 text-sm font-medium"
+                          style={{
+                            color:
+                              val > 0
+                                ? "var(--accent)"
+                                : val < 0
+                                  ? "var(--color-text-muted)"
+                                  : "var(--color-text-secondary)",
+                          }}
                         >
                           {g}
                         </span>
@@ -606,9 +853,13 @@ export default function EnhancedPreferencesPage() {
                               [g]: parseFloat(e.target.value),
                             })
                           }
-                          className="flex-1 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                          className="flex-1 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                          style={{ accentColor: "var(--accent)" }}
                         />
-                        <span className="w-8 text-[10px] tabular-nums font-mono text-slate-400 text-right">
+                        <span
+                          className="w-8 text-[10px] tabular-nums font-mono text-right"
+                          style={{ color: "var(--color-text-muted)" }}
+                        >
                           {val > 0 ? `+${val.toFixed(1)}` : val.toFixed(1)}
                         </span>
                       </div>
@@ -619,13 +870,22 @@ export default function EnhancedPreferencesPage() {
             )}
 
             {activeTab === "pro" && (
-              <section className="bg-white p-6 rounded-3xl shadow-sm border border-indigo-100 overflow-hidden relative">
+              <section
+                className="p-6 rounded-3xl shadow-sm overflow-hidden relative"
+                style={{
+                  background: "var(--surface-bg)",
+                  border: "1px solid var(--surface-border)",
+                }}
+              >
                 {!isPro && (
                   <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-8 text-center">
                     <div className="bg-indigo-600 text-white p-4 rounded-3xl mb-4 shadow-xl shadow-indigo-100">
                       <MessageSquare size={32} />
                     </div>
-                    <h3 className="text-lg font-extrabold text-slate-800 mb-2">
+                    <h3
+                      className="text-lg font-extrabold mb-2"
+                      style={{ color: "var(--color-text-primary)" }}
+                    >
                       AI個別指示
                     </h3>
                     <p className="text-sm text-slate-500 mb-6">
@@ -636,9 +896,12 @@ export default function EnhancedPreferencesPage() {
                     </button>
                   </div>
                 )}
-                <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <h2
+                  className="text-base font-bold mb-4 flex items-center gap-2"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
                   <MessageSquare size={20} className="text-indigo-500" />{" "}
-                  AIへの伝言（Free Text）
+                  AIへの伝言
                 </h2>
                 <textarea
                   value={taste.freeText}
@@ -649,7 +912,12 @@ export default function EnhancedPreferencesPage() {
                     })
                   }
                   placeholder="例：平日は帰宅が遅いので包丁を使わないレシピを優先してください。子供がいるので辛いものは避けてください。"
-                  className="w-full h-48 bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition resize-none"
+                  className="w-full h-48 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition resize-none"
+                  style={{
+                    background: "var(--surface-bg)",
+                    border: "1px solid var(--surface-border)",
+                    color: "var(--color-text-primary)",
+                  }}
                 />
                 <div className="flex justify-between mt-2 px-1">
                   <span className="text-[10px] text-slate-400">
@@ -666,26 +934,6 @@ export default function EnhancedPreferencesPage() {
           </motion.div>
         </AnimatePresence>
       </main>
-
-      {/* Footer hint */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-100 p-4 flex justify-between items-center z-50">
-        <div className="flex items-center gap-3">
-          <div className="bg-green-100 text-green-600 p-2 rounded-xl">
-            <ShieldCheck size={20} />
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-400 leading-tight">安全第一</p>
-            <p className="text-xs font-bold text-slate-700">
-              アレルギーはSystemで排除
-            </p>
-          </div>
-        </div>
-        {!saved && !saving && (
-          <p className="text-[10px] text-amber-500 font-medium">
-            変更は手動で保存してください
-          </p>
-        )}
-      </footer>
     </div>
   );
 }

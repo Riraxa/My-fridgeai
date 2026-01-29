@@ -13,11 +13,11 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "AIで献立を自動生成 | My-FridgeAI",
+  title: "AIで献立を自動生成 | My-fridgeai",
   description:
     "手持ちの食材と賞味期限を考慮して、メイン／代替案A（ジャンル違い）／代替案B（時短15分）を一度に3案生成します。",
   openGraph: {
-    title: "AIで献立を自動生成 | My-FridgeAI",
+    title: "AIで献立を自動生成 | My-fridgeai",
     description:
       "在庫とユーザーの調理スキル・設備を考慮した実用的な献立を3案生成。",
     url: `${SITE_URL}/features/menu-ai`,
@@ -35,7 +35,7 @@ export default function MenuAiPage() {
             <div className="block dark:hidden">
               <Image
                 src="/my-fridgeai-logo.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-32 h-12 md:w-40 md:h-14"
@@ -44,7 +44,7 @@ export default function MenuAiPage() {
             <div className="hidden dark:block">
               <Image
                 src="/my-fridgeai-logo-white.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-32 h-12 md:w-40 md:h-14"
@@ -181,7 +181,7 @@ export default function MenuAiPage() {
             <div className="block dark:hidden">
               <Image
                 src="/my-fridgeai-logo.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-40 h-12"
@@ -190,7 +190,7 @@ export default function MenuAiPage() {
             <div className="hidden dark:block">
               <Image
                 src="/my-fridgeai-logo-white.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-40 h-12"
@@ -198,7 +198,7 @@ export default function MenuAiPage() {
             </div>
           </div>
           <p className="text-sm text-slate-500">
-            © {new Date().getFullYear()} My-FridgeAI. All rights reserved.
+            © {new Date().getFullYear()} My-fridgeai. All rights reserved.
           </p>
         </div>
       </footer>
