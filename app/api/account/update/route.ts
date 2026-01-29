@@ -17,11 +17,12 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
     }
 
-    const { name, email } = await req.json();
+    const { name, email, image } = await req.json();
+    console.log("Updating user profile:", { name, email, hasImage: !!image });
 
     const user = await prisma.user.update({
       where: { id: token.sub },
-      data: { name, email },
+      data: { name, email, image },
     });
 
     return NextResponse.json({ user });

@@ -8,4 +8,4 @@ if (!process.env.RESEND_API_KEY) {
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const EMAIL_FROM =
-  process.env.EMAIL_FROM ?? "My-FridgeAI <noreply@my-fridgeai.com>";
+  process.env.EMAIL_FROM ?? "My-fridgeai <noreply@my-fridgeai.com>";

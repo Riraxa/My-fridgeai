@@ -13,11 +13,11 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "冷蔵庫の在庫管理機能 | My-FridgeAI",
+  title: "冷蔵庫の在庫管理機能 | My-fridgeai",
   description:
     "数値管理／ざっくり管理（たっぷり/普通/少ない）に対応。バーコード読み取りで素早く登録、賞味期限を自動管理します。",
   openGraph: {
-    title: "冷蔵庫の在庫管理機能 | My-FridgeAI",
+    title: "冷蔵庫の在庫管理機能 | My-fridgeai",
     description:
       "数値管理／ざっくり管理に対応。バーコードで簡単登録、賞味期限アラートで食材ロスを削減。",
     url: `${SITE_URL}/features/fridge-management`,
@@ -35,7 +35,7 @@ export default function FridgeManagementPage() {
             <div className="block dark:hidden">
               <Image
                 src="/my-fridgeai-logo.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-32 h-12 md:w-40 md:h-14"
@@ -44,7 +44,7 @@ export default function FridgeManagementPage() {
             <div className="hidden dark:block">
               <Image
                 src="/my-fridgeai-logo-white.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-32 h-12 md:w-40 md:h-14"
@@ -195,7 +195,7 @@ export default function FridgeManagementPage() {
             <div className="block dark:hidden">
               <Image
                 src="/my-fridgeai-logo.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-40 h-12"
@@ -204,7 +204,7 @@ export default function FridgeManagementPage() {
             <div className="hidden dark:block">
               <Image
                 src="/my-fridgeai-logo-white.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-40 h-12"
@@ -212,7 +212,7 @@ export default function FridgeManagementPage() {
             </div>
           </div>
           <p className="text-sm text-slate-500">
-            © {new Date().getFullYear()} My-FridgeAI. All rights reserved.
+            © {new Date().getFullYear()} My-fridgeai. All rights reserved.
           </p>
         </div>
       </footer>

@@ -30,7 +30,7 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
     const url = `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`;
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "My-FridgeAI/1.0",
+        "User-Agent": "My-fridgeai/1.0",
       },
     });
 

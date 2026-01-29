@@ -8,21 +8,21 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "My-FridgeAI｜冷蔵庫の余り物で献立を自動提案するAIアプリ",
+  title: "My-fridgeai｜冷蔵庫の余り物で献立を自動提案するAIアプリ",
   description:
     "冷蔵庫の食材を管理し、賞味期限が近い食材を優先してAIが今日作れる献立を提案。食材ロスを減らし、毎日の料理を楽にします。",
   openGraph: {
-    title: "My-FridgeAI｜冷蔵庫の余り物で献立を自動提案するAIアプリ",
+    title: "My-fridgeai｜冷蔵庫の余り物で献立を自動提案するAIアプリ",
     description:
       "賞味期限が近い食材を優先してAIが今日作れる献立を提案。食材ロスを減らし、毎日の料理を楽にします。",
     url: SITE_URL,
-    siteName: "My-FridgeAI",
+    siteName: "My-fridgeai",
     images: [
       {
         url: `${SITE_URL}/og-images/og-top.png`,
         width: 1200,
         height: 630,
-        alt: "My-FridgeAI - 冷蔵庫の余り物で献立を自動提案",
+        alt: "My-fridgeai - 冷蔵庫の余り物で献立を自動提案",
       },
     ],
     locale: "ja_JP",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "My-FridgeAI｜冷蔵庫の余り物で献立を自動提案するAIアプリ",
+    title: "My-fridgeai｜冷蔵庫の余り物で献立を自動提案するAIアプリ",
     description: "賞味期限が近い食材を優先してAIが今日作れる献立を提案。",
   },
 };
@@ -45,7 +45,7 @@ export default function Page() {
             <div className="block dark:hidden">
               <Image
                 src="/my-fridgeai-logo.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-32 h-12 md:w-40 md:h-14"
@@ -54,7 +54,7 @@ export default function Page() {
             <div className="hidden dark:block">
               <Image
                 src="/my-fridgeai-logo-white.png"
-                alt="My-FridgeAI Logo"
+                alt="My-fridgeai Logo"
                 width={120}
                 height={40}
                 className="w-32 h-12 md:w-40 md:h-14"
@@ -260,7 +260,7 @@ export default function Page() {
               <div className="block dark:hidden">
                 <Image
                   src="/my-fridgeai-logo.png"
-                  alt="My-FridgeAI Logo"
+                  alt="My-fridgeai Logo"
                   width={120}
                   height={40}
                   className="w-40 h-12"
@@ -269,7 +269,7 @@ export default function Page() {
               <div className="hidden dark:block">
                 <Image
                   src="/my-fridgeai-logo-white.png"
-                  alt="My-FridgeAI Logo"
+                  alt="My-fridgeai Logo"
                   width={120}
                   height={40}
                   className="w-40 h-12"
@@ -333,7 +333,7 @@ export default function Page() {
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-6 mt-20 pt-8 border-t border-slate-200 dark:border-slate-800 text-center text-sm text-slate-400">
-          © {new Date().getFullYear()} My-FridgeAI. All rights reserved.
+          © {new Date().getFullYear()} My-fridgeai. All rights reserved.
         </div>
       </footer>
     </div>

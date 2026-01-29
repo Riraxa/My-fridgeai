@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     const { error } = await resend.emails.send({
       from: EMAIL_FROM,
       to: [email],
-      subject: `${process.env.NEXT_PUBLIC_APP_NAME ?? "My-FridgeAI"} — パスワード再設定`,
+      subject: `${process.env.NEXT_PUBLIC_APP_NAME ?? "My-fridgeai"} — パスワード再設定`,
       text: `パスワード再設定リクエストを受け付けました。\n\n以下のリンクから新しいパスワードを設定してください（有効期限: 1時間）：\n\n${resetUrl}\n\nもし身に覚えがない場合は本メールを破棄してください。`,
       html: `<p>パスワード再設定リクエストを受け付けました。</p>
              <p>以下のリンクから新しいパスワードを設定してください（有効期限: 1時間）：</p>

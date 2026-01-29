@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { tasteUpdateSchema } from "@/lib/validators/preferences";
 
 export async function GET() {
   try {
@@ -18,25 +17,16 @@ export async function GET() {
 
     if (!prefs) {
       return NextResponse.json({
-        tasteScores: {},
-        lifestyle: {
-          weekdayMode: {
-            timePriority: "normal",
-            dishwashingAvoid: false,
-            singlePan: false,
-          },
-          weekendMode: {
-            timePriority: "normal",
-            dishwashingAvoid: false,
-            singlePan: false,
-          },
-        },
+        recentGenrePenalty: {},
       });
     }
 
-    return NextResponse.json(prefs.tasteJson || {});
+    const tasteJson = prefs.tasteJson as any;
+    return NextResponse.json({
+      recentGenrePenalty: tasteJson?.recentGenrePenalty || {},
+    });
   } catch (error) {
-    console.error("Taste GET Error:", error);
+    console.error("Genre GET Error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
 }
@@ -50,13 +40,7 @@ export async function PUT(req: Request) {
     const userId = session.user.id;
     const body = await req.json();
 
-    const parsed = tasteUpdateSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "バリデーションエラー", details: parsed.error.format() },
-        { status: 400 },
-      );
-    }
+    const { recentGenrePenalty } = body;
 
     const currentPrefs = await prisma.userPreferences.findUnique({
       where: { userId },
@@ -65,11 +49,7 @@ export async function PUT(req: Request) {
     const currentTaste = (currentPrefs?.tasteJson as any) || {};
     const updatedTaste = {
       ...currentTaste,
-      ...parsed.data,
-      lifestyle: {
-        ...(currentTaste.lifestyle || {}),
-        ...(parsed.data.lifestyle || {}),
-      },
+      recentGenrePenalty,
     };
 
     const updated = await prisma.userPreferences.upsert({
@@ -78,9 +58,11 @@ export async function PUT(req: Request) {
       create: { userId, tasteJson: updatedTaste },
     });
 
-    return NextResponse.json(updated.tasteJson);
+    return NextResponse.json({
+      recentGenrePenalty: (updated.tasteJson as any)?.recentGenrePenalty || {},
+    });
   } catch (error) {
-    console.error("Taste PUT Error:", error);
+    console.error("Genre PUT Error:", error);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
 }

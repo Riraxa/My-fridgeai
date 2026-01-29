@@ -348,7 +348,7 @@ export default function PasskeySetupPage() {
           </div>
         </div>
 
-        <div className="text-center text-xs text-muted mt-8">© My-FridgeAI</div>
+        <div className="text-center text-xs text-muted mt-8">© My-fridgeai</div>
       </div>
     </motion.div>
   );

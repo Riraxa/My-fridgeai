@@ -351,7 +351,7 @@ export default function LoginClient() {
                   ? "/my-fridgeai-logo-white.png"
                   : "/my-fridgeai-logo.png"
               }
-              alt="My-FridgeAI"
+              alt="My-fridgeai"
               width={180}
               height={52}
               priority
@@ -378,7 +378,7 @@ export default function LoginClient() {
           )}
 
           <h2 className="mt-2 text-center text-lg font-semibold text-primary">
-            Welcome to My-FridgeAI
+            Welcome to My-fridgeai
           </h2>
           <p className="text-center text-sm text-secondary">
             冷蔵庫の管理を、もっとシンプルに。
@@ -666,7 +666,7 @@ export default function LoginClient() {
         </div>
 
         <div className="w-full text-center text-xs text-muted mt-4">
-          © My-FridgeAI
+          © My-fridgeai
         </div>
       </div>
     </motion.div>

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import LoginClient from "./LoginClient";
 
 export const metadata = {
-  title: "ログイン - My-FridgeAI",
+  title: "ログイン - My-fridgeai",
 };
 
 export default function LoginPage() {

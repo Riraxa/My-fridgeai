@@ -31,9 +31,9 @@ function maskEmail(email: string) {
 }
 
 function buildVerificationEmail(to: string, verificationUrl: string) {
-  const subject = "My-FridgeAI — メールアドレスを確認してください";
+  const subject = "My-fridgeai — メールアドレスを確認してください";
   const plain = [
-    `My-FridgeAI にご登録いただきありがとうございます。`,
+    `My-fridgeai にご登録いただきありがとうございます。`,
     ``,
     `以下のリンクをクリックしてメールアドレスの確認を完了してください:`,
     verificationUrl,
@@ -42,7 +42,7 @@ function buildVerificationEmail(to: string, verificationUrl: string) {
     ``,
     `この操作を行っていない場合は、このメールを無視してください。`,
     ``,
-    `— My-FridgeAI チーム`,
+    `— My-fridgeai`,
   ].join("\n");
 
   const html = `
@@ -51,12 +51,12 @@ function buildVerificationEmail(to: string, verificationUrl: string) {
       <header style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
         <div style="width:48px;height:48px;border-radius:8px;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;">MF</div>
         <div>
-          <h1 style="margin:0;font-size:18px;">My-FridgeAI</h1>
+          <h1 style="margin:0;font-size:18px;">My-fridgeai</h1>
           <div style="color:#666;font-size:13px;">登録メールアドレスの確認</div>
         </div>
       </header>
 
-      <p>My-FridgeAI にご登録いただきありがとうございます。下のボタンをクリックしてメールアドレスの確認を完了してください。</p>
+      <p>My-fridgeai にご登録いただきありがとうございます。下のボタンをクリックしてメールアドレスの確認を完了してください。</p>
 
       <p style="text-align:center;margin:28px 0;">
         <a href="${verificationUrl}" style="background:#111;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;display:inline-block;">

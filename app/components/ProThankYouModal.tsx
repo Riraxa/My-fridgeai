@@ -37,7 +37,7 @@ export default function ProThankYouModal({
             <div className="text-5xl">🎉</div>
             <p className="font-bold text-lg">Pro登録が完了しました。</p>
             <p>
-              あなたの選択で、My-FridgeAIは一歩前に進みました。
+              あなたの選択で、My-fridgeaiは一歩前に進みました。
               <br />
               Pro登録によるご支援は、AIの精度向上や
               <br />
