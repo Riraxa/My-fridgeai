@@ -23,6 +23,9 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/features/menu-ai`,
     images: [`${SITE_URL}/og-images/og-top.png`],
   },
+  alternates: {
+    canonical: SITE_URL,
+  },
 };
 
 export default function MenuAiPage() {
