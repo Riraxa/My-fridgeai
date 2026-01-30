@@ -1,3 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /fridge-illustration.png
+Disallow: /fridge-illustration-dark.png
 Sitemap: https://www.my-fridgeai.com/sitemap.xml
