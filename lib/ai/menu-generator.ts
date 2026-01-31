@@ -344,12 +344,58 @@ ${warningList}
       );
     }
 
+    // Convert legacy format to new structure if needed
+    const convertLegacyFormat = (legacy: any): GeneratedMenu => {
+      // If already in correct format, return as-is
+      if (legacy.title && Array.isArray(legacy.dishes)) {
+        return legacy as GeneratedMenu;
+      }
+
+      // Convert from {主菜: {...}, 副菜: {...}, 汁物: {...}} format
+      const dishes: any[] = [];
+      const types = ["主菜", "副菜", "汁物"];
+
+      types.forEach((type) => {
+        if (legacy[type]) {
+          const dish = legacy[type];
+          dishes.push({
+            type,
+            name: dish.name || "",
+            cookingTime: dish.cookingTime || 20,
+            difficulty: dish.difficulty || 2,
+            ingredients: dish.ingredients || [],
+            steps: dish.method ? [dish.method] : dish.steps || [],
+            tips: dish.tips || "",
+            nutrition: dish.nutrition || {
+              calories: 0,
+              protein: 0,
+              fat: 0,
+              carbs: 0,
+            },
+          });
+        }
+      });
+
+      return {
+        title: legacy.title || "献立提案",
+        reason: legacy.reason || "手持ち食材を使った献立です",
+        tags: legacy.tags || ["和食"],
+        dishes,
+      };
+    };
+
+    // Convert all menus to proper format
+    result.main = convertLegacyFormat(result.main);
+    result.alternativeA = convertLegacyFormat(result.alternativeA);
+    result.alternativeB = convertLegacyFormat(result.alternativeB);
+
     // Validation
     const isValid = (menu: any) =>
       menu &&
       typeof menu === "object" &&
       menu.title &&
-      Array.isArray(menu.dishes);
+      Array.isArray(menu.dishes) &&
+      menu.dishes.length > 0;
 
     if (!isValid(result.main)) {
       console.error("[AI] Invalid main menu:", result.main);

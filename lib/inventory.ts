@@ -73,6 +73,12 @@ export function checkIngredientAvailability(
   const missing: IngredientMatch[] = [];
 
   for (const required of requiredIngredients) {
+    // Skip if required ingredient is invalid
+    if (!required || !required.name || typeof required.name !== "string") {
+      console.warn("[Inventory] Skipping invalid ingredient:", required);
+      continue;
+    }
+
     // Find matching ingredient in inventory
     // Stricter matching: Exact match or Prefix match (long enough) to avoid false positives like "鶏肉" matching "鶏ガラスープ" incorrectly if not careful
     // User requested: s === r || s.startsWith(r) || r.startsWith(s)
