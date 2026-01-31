@@ -69,7 +69,6 @@ export async function POST(req: Request) {
       const resp = await callOpenAIOnce(
         {
           input: prompt,
-          preferHighQuality: preferHighQuality,
           max_output_tokens: 1000,
           temperature: 0.12,
         },
