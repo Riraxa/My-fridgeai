@@ -142,22 +142,32 @@ export default function MenuGeneratePage() {
       }
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // ESCキーでモーダルが閉じるのを防止
-      if (e.key === "Escape" && selectedMenuType) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [loading, currentGenerationId]);
+
+  // ESCキーでモーダルが閉じるのを防止
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESCキーでモーダルが閉じるのを防止
+      if (e.key === "Escape") {
+        const currentSelectedMenuType = selectedMenuType;
+        if (currentSelectedMenuType) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   // Fetch user plan and inventory summary
   useEffect(() => {
