@@ -167,7 +167,7 @@ export default function MenuGeneratePage() {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [selectedMenuType]);
 
   // Fetch user plan and inventory summary
   useEffect(() => {
