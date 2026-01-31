@@ -85,7 +85,7 @@ export default function ProModal({ open, onClose }: ProModalProps) {
               <li>
                 AI献立生成が{" "}
                 <span className="font-bold" style={{ color: "var(--accent)" }}>
-                  1日10回
+                  1日5回
                 </span>{" "}
                 まで使える
               </li>

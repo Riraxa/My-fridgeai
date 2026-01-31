@@ -292,16 +292,21 @@ ${warningList}
 
 **重要**:
 - 必ず有効なJSONのみを出力してください。
-- 全ての dishes 項目に nutrition（calories, protein, fat, carbs）の数値を必ず含めてください。`;
+- 全ての dishes 項目に nutrition（calories, protein, fat, carbs）の数値を必ず含めてください。
+- 必ず "main", "alternativeA", "alternativeB" の3つのキーを持つオブジェクトを返してください。`;
 
   try {
+    console.log("[AI] Starting OpenAI API call with model: gpt-4o");
+    console.log("[AI] System prompt length:", safetyInstructions.length);
+    console.log("[AI] User context length:", userContext.length);
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4o", // Use gpt-4o for better safety adherence
       messages: [
         { role: "system", content: safetyInstructions },
         {
           role: "user",
-          content: `${userContext}\n\nInventory:\n${ingredients.map((i) => i.name).join(", ")}\n\nPlease generate 3 menu patterns in JSON format as specified.`,
+          content: `${userContext}\n\n在庫食材: ${ingredients.map((i) => i.name).join(", ")}\n\n上記のシステムプロンプトで指定されたJSON形式で、必ず "main", "alternativeA", "alternativeB" の3つの献立パターンを生成してください。各献立は3品構成（主菜・副菜・汁物）で、全ての料理に栄養情報を含めてください。`,
         },
       ],
       response_format: { type: "json_object" },
@@ -309,15 +314,25 @@ ${warningList}
       max_tokens: 3000,
     });
 
+    console.log("[AI] OpenAI API call successful");
+    console.log(
+      "[AI] Response received, choice count:",
+      completion.choices.length,
+    );
+
     const content = completion.choices[0].message.content;
     if (!content) {
       console.error("[AI] No content returned from OpenAI");
       throw new Error("AIからの応答が空でした");
     }
 
+    console.log("[AI] OpenAI Response Content:", content);
+    console.log("[AI] OpenAI Usage:", completion.usage);
+
     let result: MenuGenerationResult;
     try {
       result = JSON.parse(content) as MenuGenerationResult;
+      console.log("[AI] Parsed Result:", JSON.stringify(result, null, 2));
       if ((result as any).error === "ALLERGEN_DETECTED") {
         throw new Error(
           "アレルギー物質が含まれる可能性があるため、生成を中断しました。設定を確認してください。",
@@ -325,6 +340,7 @@ ${warningList}
       }
     } catch (parseError) {
       console.error("[AI] JSON Parse Error. Content:", content);
+      console.error("[AI] Parse Error Details:", parseError);
       throw new Error("AIの応答を解析できませんでした");
     }
 
