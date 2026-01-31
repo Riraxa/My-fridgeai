@@ -9,6 +9,53 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// JSON修復関数
+function attemptJSONRepair(content: string): string {
+  let repaired = content.trim();
+
+  // 1. 最後の}が欠けている場合の修復
+  const openBraces = (repaired.match(/\{/g) || []).length;
+  const closeBraces = (repaired.match(/\}/g) || []).length;
+  const missingBraces = openBraces - closeBraces;
+
+  if (missingBraces > 0) {
+    repaired += "}".repeat(missingBraces);
+  }
+
+  // 2. 最後の"]"が欠けている場合の修復
+  const openBrackets = (repaired.match(/\[/g) || []).length;
+  const closeBrackets = (repaired.match(/\]/g) || []).length;
+  const missingBrackets = openBrackets - closeBrackets;
+
+  if (missingBrackets > 0) {
+    repaired += "]".repeat(missingBrackets);
+  }
+
+  // 3. 文字列の終わりが切れている場合の修復
+  const lines = repaired.split("\n");
+  const lastLine = lines[lines.length - 1];
+
+  // 最後の行が不完全な場合
+  if (
+    lastLine &&
+    !lastLine.trim().endsWith("}") &&
+    !lastLine.trim().endsWith("]")
+  ) {
+    // 最後の " が欠けている場合
+    const quotes = (lastLine.match(/"/g) || []).length;
+    if (quotes % 2 === 1) {
+      repaired += '"';
+    }
+
+    // 値が途中で切れている場合
+    if (lastLine.includes('"name":') && !lastLine.includes(",")) {
+      repaired += '",';
+    }
+  }
+
+  return repaired;
+}
+
 export interface GeneratedMenu {
   title: string;
   reason: string;
@@ -303,7 +350,7 @@ ${warningList}
       ],
       response_format: { type: "json_object" },
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 4000,
     });
 
     const content = completion.choices[0].message.content;
@@ -314,6 +361,7 @@ ${warningList}
 
     let result: MenuGenerationResult;
     try {
+      // まず通常のパースを試行
       result = JSON.parse(content) as MenuGenerationResult;
       if ((result as any).error === "ALLERGEN_DETECTED") {
         throw new Error(
@@ -322,7 +370,20 @@ ${warningList}
       }
     } catch (parseError) {
       console.error("[AI] JSON Parse Error. Content:", content);
-      throw new Error("AIの応答を解析できませんでした");
+      console.error("[AI] Content length:", content.length);
+      console.error("[AI] Last 200 chars:", content.slice(-200));
+      console.error("[AI] Parse error:", parseError);
+
+      // JSON修復を試行
+      try {
+        const repairedContent = attemptJSONRepair(content);
+        console.log("[AI] Attempting to repair JSON...");
+        result = JSON.parse(repairedContent) as MenuGenerationResult;
+        console.log("[AI] JSON repair successful");
+      } catch (repairError) {
+        console.error("[AI] JSON repair failed:", repairError);
+        throw new Error("AIの応答を解析できませんでした");
+      }
     }
 
     // --- SECONDARY SAFETY CHECK (Post-generation) ---
