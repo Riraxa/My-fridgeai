@@ -18,7 +18,6 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { name, email, image } = await req.json();
-    console.log("Updating user profile:", { name, email, hasImage: !!image });
 
     const user = await prisma.user.update({
       where: { id: token.sub },

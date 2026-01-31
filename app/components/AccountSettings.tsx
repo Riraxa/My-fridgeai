@@ -62,7 +62,7 @@ function SettingsSkeleton() {
 }
 
 export default function AccountSettings() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const { theme, setTheme } = useTheme();
   const [showProModal, setShowProModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -162,10 +162,16 @@ export default function AccountSettings() {
 
       // セッションを更新 (NextAuth v5なら update() が使えるが、v4ならリロードまたは再認証が必要)
       // ここでは、SessionWrapper等で管理されているセッションをリロードするために
-      // window.location.reload() を使うか、独自にフェッチする。
-      // next-auth/react の useSession().update() は JWT strategy だと token 更新が必要。
-      // 今回は簡易的に reload もしくは状態更新で対応。
-      window.location.reload();
+      // useSession().update() を使ってセッションを更新
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          ...data,
+        },
+      });
+
+      toast.success("プロフィールを更新しました");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "エラーが発生しました。",

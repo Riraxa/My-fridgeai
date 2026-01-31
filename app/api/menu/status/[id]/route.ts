@@ -57,6 +57,21 @@ export async function GET(
                 alternativeA: generation.alternativeA,
                 alternativeB: generation.alternativeB,
               },
+              // Reconstruct availability for frontend
+              availability: {
+                main: reconstructAvailability(
+                  (generation.usedIngredients as any)?.main,
+                  (generation.shoppingList as any)?.main,
+                ),
+                altA: reconstructAvailability(
+                  (generation.usedIngredients as any)?.altA,
+                  (generation.shoppingList as any)?.altA,
+                ),
+                altB: reconstructAvailability(
+                  (generation.usedIngredients as any)?.altB,
+                  (generation.shoppingList as any)?.altB,
+                ),
+              },
               usedIngredients: generation.usedIngredients,
               shoppingList: generation.shoppingList,
               nutrition: generation.nutritionInfo,
@@ -70,4 +85,21 @@ export async function GET(
       { status: 500 },
     );
   }
+}
+
+// Helper to reconstruct availability object
+function reconstructAvailability(used: any[], shopping: any[]) {
+  const available = Array.isArray(used) ? used : [];
+  const shoppingList = Array.isArray(shopping) ? shopping : [];
+
+  const insufficient = shoppingList.filter(
+    (i: any) => i.status === "insufficient",
+  );
+  const missing = shoppingList.filter((i: any) => i.status === "missing");
+
+  return {
+    available,
+    insufficient,
+    missing,
+  };
 }

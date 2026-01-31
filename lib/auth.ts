@@ -223,6 +223,8 @@ export const authOptions: NextAuthOptions = {
               id: true,
               plan: true,
               email: true,
+              name: true,
+              image: true,
               cancelAtPeriodEnd: true,
               stripeCurrentPeriodEnd: true,
               passkeySetupCompleted: true,
@@ -237,6 +239,8 @@ export const authOptions: NextAuthOptions = {
                 id: true,
                 plan: true,
                 email: true,
+                name: true,
+                image: true,
                 cancelAtPeriodEnd: true,
                 stripeCurrentPeriodEnd: true,
                 passkeySetupCompleted: true,
@@ -260,6 +264,8 @@ export const authOptions: NextAuthOptions = {
             (token as any).userId = dbUser.id;
             (token as any).sub = dbUser.id;
             (token as any).email = dbUser.email ?? email;
+            (token as any).name = dbUser.name;
+            (token as any).picture = dbUser.image;
             (token as any).plan = dbUser.plan ?? "FREE";
             (token as any).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
             (token as any).stripeCurrentPeriodEnd =
