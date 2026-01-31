@@ -3,17 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-
-// Helper function (copied from inventory.ts since it's not exported)
-function decreaseAmountLevel(current: string): string {
-  const levels = ["たっぷり", "普通", "少ない", "ほぼない", "なし"];
-  const currentIndex = levels.indexOf(current);
-
-  if (currentIndex === -1) return "普通";
-
-  const nextIndex = Math.min(currentIndex + 1, levels.length - 1);
-  return levels[nextIndex];
-}
+import { decreaseAmountLevel, normalizeAmount } from "@/lib/inventory";
 
 export async function POST(req: Request) {
   try {
@@ -52,18 +42,58 @@ export async function POST(req: Request) {
 
         if (stock) {
           if (stock.amount !== null) {
-            // Remove amount
-            await tx.ingredient.update({
-              where: { id: stock.id },
-              data: { amount: { decrement: used.amount } },
-            });
+            // Remove amount with proper unit conversion
+            const stockNormalized = normalizeAmount(
+              stock.amount,
+              stock.unit || "",
+            );
+            const usedNormalized = normalizeAmount(
+              used.amount,
+              used.unit || "",
+            );
+
+            if (stockNormalized >= usedNormalized) {
+              const newTotalNormalized = stockNormalized - usedNormalized;
+
+              // Convert back to original unit
+              let newAmount = 0;
+              if (stockNormalized > 0) {
+                newAmount =
+                  stock.amount * (newTotalNormalized / stockNormalized);
+              } else {
+                newAmount = 0; // Edge case: stock was 0
+              }
+
+              // Ensure we don't go negative due to floating point precision
+              newAmount = Math.max(0, newAmount);
+
+              if (newAmount <= 0.001) {
+                // Use small threshold for floating point comparison
+                // Delete if amount becomes zero or negative
+                await tx.ingredient.delete({ where: { id: stock.id } });
+              } else {
+                await tx.ingredient.update({
+                  where: { id: stock.id },
+                  data: { amount: newAmount },
+                });
+              }
+            } else {
+              // Insufficient stock - this shouldn't happen in normal uncancel flow
+              console.warn(
+                `[Uncancel] Insufficient stock for ${stock.name}: have ${stock.amount}${stock.unit || ""}, trying to remove ${used.amount}${used.unit || ""}`,
+              );
+            }
           } else if (stock.amountLevel) {
             // Decrease level
             const newLevel = decreaseAmountLevel(stock.amountLevel);
-            await tx.ingredient.update({
-              where: { id: stock.id },
-              data: { amountLevel: newLevel },
-            });
+            if (newLevel === "なし") {
+              await tx.ingredient.delete({ where: { id: stock.id } });
+            } else {
+              await tx.ingredient.update({
+                where: { id: stock.id },
+                data: { amountLevel: newLevel },
+              });
+            }
           }
         }
       }

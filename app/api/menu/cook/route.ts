@@ -68,6 +68,19 @@ export async function POST(req: Request) {
 
     // 3. Calculate Inventory Updates
     const inventory = await prisma.ingredient.findMany({ where: { userId } });
+
+    // 3.1. Track which ingredients existed in original inventory for proper restoration
+    const originalInventoryNames = new Set(
+      inventory.map((item) => item.name.toLowerCase().trim()),
+    );
+
+    const usedIngredientsWithOrigin = usedIngredientsList.map((ingredient) => ({
+      ...ingredient,
+      existedInOriginalInventory: originalInventoryNames.has(
+        ingredient.name.toLowerCase().trim(),
+      ),
+    }));
+
     const { update, delete: del } = calculateInventoryUpdates(
       usedIngredientsList,
       inventory,
@@ -89,7 +102,7 @@ export async function POST(req: Request) {
           userId,
           menuGenerationId,
           cookedDishes: _cookedDishesList,
-          usedIngredients: usedIngredientsList,
+          usedIngredients: usedIngredientsWithOrigin,
           cancellableUntil: addHours(new Date(), 24),
         },
       });

@@ -23,6 +23,8 @@ import PageTransition, {
   ContentTransition,
 } from "@/app/components/PageTransition";
 import { motion, AnimatePresence } from "framer-motion";
+import { useFridge } from "@/app/components/FridgeProvider";
+import { toast } from "sonner";
 
 // Helper to calculate total cooking time from dishes
 const calculateCookingTime = (dishes: any[]) => {
@@ -63,8 +65,10 @@ interface RecipeDetail {
 }
 
 export default function MenuGeneratePage() {
-  const router = useRouter();
   const { data: session } = useSession();
+  const router = useRouter();
+  const { setShopping, setToast } = useFridge();
+
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +91,49 @@ export default function MenuGeneratePage() {
   const [recipeDetails, setRecipeDetails] = useState<RecipeDetail[]>([]);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [currentDishIndex, setCurrentDishIndex] = useState(0);
+
+  // 買い物リストに材料を追加する関数
+  const handleAddToShoppingList = async (ingredients: string[]) => {
+    try {
+      // 各材料を買い物リストに追加
+      const newShoppingItems = ingredients.map((ingredient, index) => ({
+        id: `shopping-${Date.now()}-${index}`,
+        name: ingredient,
+        done: false,
+        quantity: "",
+        unit: "",
+        note: "",
+      }));
+
+      // 既存の買い物リストに追加
+      setShopping((prev) => {
+        const existing = prev || [];
+        // 重複を避けるために既存のアイテムをチェック
+        const filtered = ingredients.filter(
+          (ingredient) =>
+            !existing.some((item: any) => item.name === ingredient),
+        );
+
+        const newItems = filtered.map((ingredient, index) => ({
+          id: `shopping-${Date.now()}-${index}`,
+          name: ingredient,
+          done: false,
+          quantity: "",
+          unit: "",
+          note: "",
+        }));
+
+        return [...existing, ...newItems];
+      });
+
+      toast.success(
+        `${ingredients.length}件の食材を買い物リストに追加しました`,
+      );
+    } catch (error) {
+      console.error("買い物リストへの追加に失敗しました:", error);
+      toast.error("買い物リストへの追加に失敗しました");
+    }
+  };
 
   // 状態の保存・復元
   useEffect(() => {
@@ -637,6 +684,7 @@ export default function MenuGeneratePage() {
                   onSelect={() => handleSelectMenu("main")}
                   isBest={true}
                   isPro={isPro}
+                  onAddToShoppingList={handleAddToShoppingList}
                 />
 
                 <MenuCard
@@ -665,6 +713,7 @@ export default function MenuGeneratePage() {
                   nutrition={generated.nutrition?.altA}
                   onSelect={() => handleSelectMenu("altA")}
                   isPro={isPro}
+                  onAddToShoppingList={handleAddToShoppingList}
                 />
 
                 <MenuCard
@@ -693,6 +742,7 @@ export default function MenuGeneratePage() {
                   nutrition={generated.nutrition?.altB}
                   onSelect={() => handleSelectMenu("altB")}
                   isPro={isPro}
+                  onAddToShoppingList={handleAddToShoppingList}
                 />
               </div>
             </div>

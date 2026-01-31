@@ -114,23 +114,28 @@ export function checkIngredientAvailability(
         });
       } else {
         // Calculate shortage in required unit
-        // We know requiredNormalized > stockNormalized
-        // Shortage ratio = (req - stock) / req
-        // Shortage amount = shortage ratio * required.amount
+        // Convert the shortage back to required unit for display
+        const shortageNormalized = requiredNormalized - stockNormalized;
 
-        // Or simpler: Convert back is hard without inverse map.
-        // Let's just return the raw difference if units are same, otherwise just show original requirements vs stock
+        // Convert back to required unit if possible
+        let shortageAmount = required.amount; // Default to required amount
+        let shortageUnit = required.unit;
 
-        // If units are compatible (same base), we can calculate shortage
-        // For display purpose, mostly we want to know "how much more"
-        // Let's rely on frontend to handle complex unit display if needed,
-        // here we store raw data.
+        // If units are the same, calculate actual shortage
+        if (stock.unit?.toLowerCase() === required.unit.toLowerCase()) {
+          shortageAmount = required.amount - stock.amount;
+        } else {
+          // For different units, we'll show the required amount as shortage
+          // This is a simplification - the frontend can handle complex unit display
+          shortageAmount = required.amount;
+          shortageUnit = required.unit;
+        }
 
         insufficient.push({
           name: required.name,
           required: { amount: required.amount, unit: required.unit },
           inStock: { amount: stock.amount, unit: stock.unit || "" },
-          shortage: { amount: required.amount, unit: required.unit }, // Just pass required for now as "shortage" logic is complex with units
+          shortage: { amount: shortageAmount, unit: shortageUnit },
           status: "insufficient",
         });
       }
@@ -237,7 +242,7 @@ export function calculateInventoryUpdates(
 /**
  * Helper to decrease amount level
  */
-function decreaseAmountLevel(current: string): string {
+export function decreaseAmountLevel(current: string): string {
   // Levels map
   const levels = ["たっぷり", "普通", "少ない", "ほぼない", "なし"];
   const currentIndex = levels.indexOf(current);

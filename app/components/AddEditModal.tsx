@@ -24,7 +24,7 @@ export default function AddEditModal({
     "precise", // 常に詳細モードから開始
   );
   const [amount, setAmount] = useState<number | "">(
-    item?.amount ?? item?.quantity ?? "",
+    item?.amount ?? item?.quantity ?? "", // amountを優先、quantityはfallback
     // 新規時は空で初期化
   );
   const [amountLevel, setAmountLevel] = useState(item?.amountLevel ?? "普通");
@@ -50,7 +50,7 @@ export default function AddEditModal({
   useEffect(() => {
     setName(item?.name ?? "");
     setAmountMode(item?.amountLevel ? "rough" : "precise");
-    setAmount(item?.amount ?? item?.quantity ?? (item ? "" : ""));
+    setAmount(item?.amount ?? item?.quantity ?? (item ? "" : "")); // amountを優先
     setAmountLevel(item?.amountLevel ?? "普通");
     setUnit(item?.unit ?? "個");
     const date = item?.expirationDate ? new Date(item.expirationDate) : null;
@@ -305,7 +305,7 @@ export default function AddEditModal({
                     ? Number(amount || 0)
                     : amountMode === "rough"
                       ? 0
-                      : (item?.quantity ?? 0), // Legacy support
+                      : (item?.quantity ?? 0), // Legacy: amountをコピーして後方互換性を維持
               };
               if (item?.id) payload.id = item.id;
               await onSave(payload);

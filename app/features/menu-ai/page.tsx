@@ -1,3 +1,4 @@
+//app/features/menu-ai/page.tsx
 /**
  * Page: /features/menu-ai
  * - public

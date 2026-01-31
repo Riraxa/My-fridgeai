@@ -8,6 +8,8 @@ import {
   XCircle,
   BarChart2,
   Lightbulb,
+  ShoppingCart,
+  Plus,
 } from "lucide-react";
 
 interface IngredientStatus {
@@ -48,6 +50,7 @@ interface MenuCardProps {
   onSelect: () => void;
   isBest?: boolean;
   isPro?: boolean;
+  onAddToShoppingList?: (ingredients: string[]) => void;
 }
 
 export default function MenuCard({
@@ -58,10 +61,46 @@ export default function MenuCard({
   onSelect,
   isBest,
   isPro,
+  onAddToShoppingList,
 }: MenuCardProps) {
   const missingCount =
     availability.missing.length + availability.insufficient.length;
   const totalCount = availability.available.length + missingCount;
+
+  // 材料の詳細表示を整形するヘルパー関数
+  const formatIngredientDetail = (ingredient: IngredientStatus) => {
+    const requiredAmount = `${ingredient.required.amount}${ingredient.required.unit}`;
+
+    switch (ingredient.status) {
+      case "available":
+        const stockAmount = ingredient.inStock
+          ? `${ingredient.inStock.amount}${ingredient.inStock.unit}`
+          : "在庫あり";
+        return `${ingredient.name}: ${stockAmount}/必要${requiredAmount} ✅`;
+
+      case "insufficient":
+        const currentAmount = ingredient.inStock
+          ? `${ingredient.inStock.amount}${ingredient.inStock.unit}`
+          : "0";
+        const shortageAmount = ingredient.shortage
+          ? `${ingredient.shortage.amount}${ingredient.shortage.unit}`
+          : `${ingredient.required.amount}${ingredient.required.unit}`;
+        return `${ingredient.name}: ${currentAmount}/必要${requiredAmount} ⚠️ (不足${shortageAmount})`;
+
+      case "missing":
+        return `${ingredient.name}: 0/必要${requiredAmount} ❌`;
+
+      default:
+        return `${ingredient.name}: ${requiredAmount}`;
+    }
+  };
+
+  // 買い物リストに追加する材料リストを取得
+  const getMissingIngredients = () => {
+    return [...availability.missing, ...availability.insufficient].map(
+      (i) => i.name,
+    );
+  };
 
   return (
     <div
@@ -118,7 +157,7 @@ export default function MenuCard({
         ))}
       </div>
 
-      <div className="bg-[var(--surface-bg)] rounded p-3 mb-4 text-xs space-y-2 border border-[var(--surface-border)]">
+      <div className="bg-[var(--surface-bg)] rounded p-3 mb-4 text-xs space-y-3 border border-[var(--surface-border)]">
         <div className="flex justify-between font-medium">
           <span className="text-[var(--color-text-primary)]">在庫状況</span>
           <span
@@ -128,26 +167,75 @@ export default function MenuCard({
                 : "text-amber-600 dark:text-amber-400"
             }
           >
-            {availability.available.length}/{totalCount}品 OK
+            {availability.available.length}/{totalCount}品揃っています
           </span>
         </div>
 
-        {availability.insufficient.length > 0 && (
-          <div className="text-amber-600 dark:text-amber-400 flex items-start gap-1">
-            <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-            <span>
-              <span className="font-bold">不足:</span>{" "}
-              {availability.insufficient.map((i) => i.name).join(", ")}
-            </span>
-          </div>
-        )}
-        {availability.missing.length > 0 && (
-          <div className="text-red-500 dark:text-red-400 flex items-start gap-1">
-            <XCircle size={12} className="flex-shrink-0 mt-0.5" />
-            <span>
-              <span className="font-bold">なし:</span>{" "}
-              {availability.missing.map((i) => i.name).join(", ")}
-            </span>
+        {/* 詳細材料リスト */}
+        <div className="space-y-2">
+          {/* 在庫ありの材料 */}
+          {availability.available.length > 0 && (
+            <div className="space-y-1">
+              {availability.available.map((ingredient, idx) => (
+                <div
+                  key={idx}
+                  className="text-green-600 dark:text-green-400 text-xs"
+                >
+                  {formatIngredientDetail(ingredient)}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 不足の材料 */}
+          {availability.insufficient.length > 0 && (
+            <div className="space-y-1">
+              {availability.insufficient.map((ingredient, idx) => (
+                <div
+                  key={idx}
+                  className="text-amber-600 dark:text-amber-400 text-xs flex items-start gap-1"
+                >
+                  <span className="flex-shrink-0 mt-0.5">⚠️</span>
+                  <span>{formatIngredientDetail(ingredient)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* なしの材料 */}
+          {availability.missing.length > 0 && (
+            <div className="space-y-1">
+              {availability.missing.map((ingredient, idx) => (
+                <div
+                  key={idx}
+                  className="text-red-500 dark:text-red-400 text-xs flex items-start gap-1"
+                >
+                  <span className="flex-shrink-0 mt-0.5">❌</span>
+                  <span>{formatIngredientDetail(ingredient)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 買い物リスト連携 */}
+        {missingCount > 0 && onAddToShoppingList && (
+          <div className="border-t border-[var(--surface-border)] pt-2 mt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--color-text-secondary)] text-xs">
+                不足分を買い物リストに追加
+              </span>
+              <button
+                onClick={() => onAddToShoppingList(getMissingIngredients())}
+                className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors"
+              >
+                <ShoppingCart size={12} />
+                一括追加
+              </button>
+            </div>
+            <div className="mt-1 text-xs text-[var(--color-text-muted)]">
+              {getMissingIngredients().join(", ")}
+            </div>
           </div>
         )}
       </div>

@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId,
         name,
-        quantity: amount || 0, // Legacy
+        quantity: amount || 0, // Legacy: amountをコピーして後方互換性を維持
         amount,
         amountLevel,
         unit: unit || "個",

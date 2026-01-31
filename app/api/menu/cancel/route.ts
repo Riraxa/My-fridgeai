@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { increaseAmountLevel } from "@/lib/inventory";
+import { increaseAmountLevel, normalizeAmount } from "@/lib/inventory";
 
 export async function POST(req: Request) {
   try {
@@ -41,6 +41,18 @@ export async function POST(req: Request) {
 
     await prisma.$transaction(async (tx) => {
       for (const used of usedIngredients) {
+        // Skip restoration for ingredients that didn't exist in original inventory
+        // For backward compatibility, treat undefined as true (old data assumed to exist)
+        const existedInOriginalInventory =
+          used.existedInOriginalInventory !== false;
+
+        if (!existedInOriginalInventory) {
+          console.log(
+            `[Cancel] Skipping restoration for non-existing ingredient: ${used.name}`,
+          );
+          continue;
+        }
+
         // Find matching ingredient to restore to.
         // If deleted, we might need to recreate?
         // Logic: If user has ingredient with same name, add back.
@@ -57,10 +69,31 @@ export async function POST(req: Request) {
 
         if (stock) {
           if (stock.amount !== null) {
-            // Add back amount
+            // Add back amount with proper unit conversion
+            const stockNormalized = normalizeAmount(
+              stock.amount,
+              stock.unit || "",
+            );
+            const usedNormalized = normalizeAmount(
+              used.amount,
+              used.unit || "",
+            );
+            const newTotalNormalized = stockNormalized + usedNormalized;
+
+            // Convert back to original unit
+            let newAmount = 0;
+            if (stockNormalized > 0) {
+              newAmount = stock.amount * (newTotalNormalized / stockNormalized);
+            } else {
+              newAmount = used.amount; // Edge case: stock was 0, use used amount
+            }
+
+            // Ensure we don't go negative due to floating point precision
+            newAmount = Math.max(0, newAmount);
+
             await tx.ingredient.update({
               where: { id: stock.id },
-              data: { amount: { increment: used.amount } },
+              data: { amount: newAmount },
             });
           } else if (stock.amountLevel) {
             // Increase level
@@ -71,10 +104,8 @@ export async function POST(req: Request) {
             });
           }
         } else {
-          // Ingredient was deleted or didn't exist?
-          // If it was deleted (consumed entirely), we should ideally restore it.
-          // Recreating as "Ordinary" or specific amount
-          if (used.amount) {
+          // Ingredient was deleted (consumed entirely) - restore it only if it existed originally
+          if (existedInOriginalInventory && used.amount) {
             await tx.ingredient.create({
               data: {
                 userId,
