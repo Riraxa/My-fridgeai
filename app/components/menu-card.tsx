@@ -47,6 +47,7 @@ interface MenuCardProps {
   nutrition?: any;
   onSelect: () => void;
   isBest?: boolean;
+  isPro?: boolean;
 }
 
 export default function MenuCard({
@@ -56,6 +57,7 @@ export default function MenuCard({
   nutrition,
   onSelect,
   isBest,
+  isPro,
 }: MenuCardProps) {
   const missingCount =
     availability.missing.length + availability.insufficient.length;
@@ -136,7 +138,7 @@ export default function MenuCard({
         )}
       </div>
 
-      {nutrition && (
+      {nutrition && isPro && (
         <div className="bg-blue-50 border border-blue-100 rounded p-3 mb-4 text-xs">
           <div className="font-bold text-blue-800 mb-2 flex items-center gap-1">
             <BarChart2 size={14} />

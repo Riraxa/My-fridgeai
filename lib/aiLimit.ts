@@ -2,6 +2,7 @@
 import { prisma } from "./prisma";
 
 export const AI_LIMIT_FREE = 1;
+export const AI_LIMIT_PRO = 5;
 export const BARCODE_LIMIT_FREE = 5;
 export const INGREDIENT_LIMIT_FREE = 100;
 
@@ -27,18 +28,56 @@ export async function checkUserLimit(
 
   if (!user) return { ok: false, remaining: 0 };
 
-  // Proプランは常に制限なし（食材登録数、バーコード、AI）
-  // 設計書: Proは AI無制限、食材無制限。
-  if (user.plan === "PRO") {
-    return { ok: true, remaining: 999 };
-  }
-
-  // --- オンデマンドリセット (FREEプラン用) ---
+  // --- オンデマンドリセット用の日時設定 ---
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // ローカル日付の開始（簡易版）
 
   let currentAiCount = user.aiDailyCount;
   let currentBarcodeCount = user.dailyBarcodeCount;
+
+  // Proプランは献立生成に制限あり（1日5回）
+  // 設計書: Proは AI 1日5回、食材無制限。
+  if (user.plan === "PRO") {
+    // Proユーザーも日次リセットが必要
+    if (!user.dailyResetAt || user.dailyResetAt < todayStart) {
+      currentAiCount = 0;
+      currentBarcodeCount = 0;
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          aiDailyCount: 0,
+          dailyBarcodeCount: 0,
+          dailyResetAt: now,
+        },
+      });
+    }
+
+    if (type === "AI_MENU") {
+      if (currentAiCount >= AI_LIMIT_PRO) {
+        return { ok: false, remaining: 0, resetAt: todayStart };
+      }
+      // カウントをインクリメント
+      await prisma.user.update({
+        where: { id: userId },
+        data: { aiDailyCount: { increment: 1 } },
+      });
+      return { ok: true, remaining: AI_LIMIT_PRO - (currentAiCount + 1) };
+    }
+
+    // Proユーザーのバーコードスキャンは無制限
+    if (type === "BARCODE_SCAN") {
+      return { ok: true, remaining: 999 };
+    }
+
+    // Proユーザーの食材登録は無制限
+    if (type === "INGREDIENT_COUNT") {
+      return { ok: true, remaining: 999 };
+    }
+
+    return { ok: true, remaining: 999 };
+  }
+
+  // --- オンデマンドリセット (FREEプラン用) ---
 
   if (!user.dailyResetAt || user.dailyResetAt < todayStart) {
     // リセットが必要

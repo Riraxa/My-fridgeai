@@ -1,24 +1,22 @@
 // lib/openai.ts
 // Minimal, single-call wrapper with cache and small utilities.
-// - Default model selection: gpt-4o-mini (low cost). If preferHighQuality true => gpt-4o.
+// - Default model selection: gpt-4o-mini only.
 // - No automatic retries here to minimize token usage.
 // - extractTextFromResponse + extractJsonFromText utilities included.
 
 type CallOpts = {
   model?: string; // optional override
-  preferHighQuality?: boolean; // if true use gpt-4o, else gpt-4o-mini
   input: string;
   max_output_tokens?: number;
   temperature?: number;
 };
-
 const CACHE_TTL_MS = 1000 * 60 * 3; // cache 3 minutes
 const responseCache = new Map<string, { ts: number; value: any }>();
 
 function cacheKeyFor(opts: CallOpts) {
   // We deliberately avoid including timestamps etc.
   return JSON.stringify({
-    model: opts.model ?? (opts.preferHighQuality ? "gpt-4o" : "gpt-4o-mini"),
+    model: opts.model ?? "gpt-4o-mini",
     input: opts.input,
     max_output_tokens: opts.max_output_tokens ?? null,
     temperature: opts.temperature ?? null,
@@ -42,8 +40,7 @@ export async function callOpenAIOnce(
     return cached.value;
   }
 
-  const model =
-    opts.model ?? (opts.preferHighQuality ? "gpt-4o" : "gpt-4o-mini");
+  const model = opts.model ?? "gpt-4o-mini";
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);

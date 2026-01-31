@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const limits = user.plan === "PRO" ? 10 : 2;
+    const limits = user.plan === "PRO" ? 5 : 1;
 
     return NextResponse.json({
       user,

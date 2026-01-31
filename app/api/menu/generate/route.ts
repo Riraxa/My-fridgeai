@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { generateMenus } from "@/lib/ai/menu-generator";
 import { checkIngredientAvailability } from "@/lib/inventory";
+import { checkUserLimit } from "@/lib/aiLimit";
 
 export async function POST(req: Request) {
   try {
@@ -15,36 +16,32 @@ export async function POST(req: Request) {
     const userId = session.user.id;
 
     // 1. Check User Plan & Rate Limits
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { plan: true },
-    });
+    const limitCheck = await checkUserLimit(userId, "AI_MENU");
+    if (!limitCheck.ok) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { plan: true },
+      });
+      const isPro = user?.plan === "PRO";
+      const limitText = isPro ? "1日5回" : "1日1回";
 
-    const isPro = user?.plan === "PRO";
-    const limit = isPro ? 10 : 2;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const count = await prisma.menuGeneration.count({
-      where: {
-        userId: userId,
-        generatedAt: { gte: today },
-      },
-    });
-
-    if (count >= limit) {
       return NextResponse.json(
-        { error: "1日の生成回数制限に達しました" },
+        {
+          error: `1日の献立生成回数制限（${limitText}）に達しました`,
+          resetAt: limitCheck.resetAt,
+        },
         { status: 429 },
       );
     }
 
-    // 2. Fetch Inventory & Preferences
-    const [ingredients, preferences] = await Promise.all([
+    // 2. Fetch User Plan, Inventory & Preferences
+    const [ingredients, preferences, user] = await Promise.all([
       prisma.ingredient.findMany({ where: { userId: userId } }),
       prisma.userPreferences.findUnique({ where: { userId: userId } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
     ]);
+
+    const isPro = user?.plan === "PRO";
 
     if (!ingredients || ingredients.length === 0) {
       return NextResponse.json(
@@ -83,22 +80,24 @@ export async function POST(req: Request) {
         )
       : mainDetails;
 
-    // Calculate Nutrition
+    // Calculate Nutrition (Pro users only)
     let nutritionInfo = {
       main: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
       altA: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
       altB: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
     };
 
-    try {
-      const { evaluateNutrition } = await import("@/lib/nutrition");
-      nutritionInfo = {
-        main: evaluateNutrition(menus.main.dishes || []),
-        altA: evaluateNutrition(menus.alternativeA?.dishes || []),
-        altB: evaluateNutrition(menus.alternativeB?.dishes || []),
-      } as any;
-    } catch (e) {
-      console.warn("Nutrition calculation failed:", e);
+    if (isPro) {
+      try {
+        const { evaluateNutrition } = await import("@/lib/nutrition");
+        nutritionInfo = {
+          main: evaluateNutrition(menus.main.dishes || []),
+          altA: evaluateNutrition(menus.alternativeA?.dishes || []),
+          altB: evaluateNutrition(menus.alternativeB?.dishes || []),
+        } as any;
+      } catch (e) {
+        console.warn("Nutrition calculation failed:", e);
+      }
     }
 
     // 6. Save to DB and Return

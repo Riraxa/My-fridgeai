@@ -452,7 +452,7 @@ export default function MenuGeneratePage() {
 
           {!generated && (
             <div className="modal-card rounded-lg shadow-sm p-8 text-center relative overflow-hidden">
-              {usage && (
+              {usage && !isPro && (
                 <div
                   className="absolute top-4 right-4 text-[10px] font-bold px-2 py-1 rounded"
                   style={{
@@ -460,7 +460,18 @@ export default function MenuGeneratePage() {
                     color: "var(--color-text-muted)",
                   }}
                 >
-                  本日の残り: {usage.remaining}/{usage.limit}
+                  1日1回
+                </div>
+              )}
+              {usage && isPro && (
+                <div
+                  className="absolute top-4 right-4 text-[10px] font-bold px-2 py-1 rounded"
+                  style={{
+                    background: "var(--surface-bg)",
+                    color: "var(--color-text-muted)",
+                  }}
+                >
+                  1日5回
                 </div>
               )}
               <div className="mb-6">
@@ -595,6 +606,7 @@ export default function MenuGeneratePage() {
                   nutrition={generated.nutrition?.main}
                   onSelect={() => handleSelectMenu("main")}
                   isBest={true}
+                  isPro={isPro}
                 />
 
                 <MenuCard
@@ -622,6 +634,7 @@ export default function MenuGeneratePage() {
                   }
                   nutrition={generated.nutrition?.altA}
                   onSelect={() => handleSelectMenu("altA")}
+                  isPro={isPro}
                 />
 
                 <MenuCard
@@ -649,6 +662,7 @@ export default function MenuGeneratePage() {
                   }
                   nutrition={generated.nutrition?.altB}
                   onSelect={() => handleSelectMenu("altB")}
+                  isPro={isPro}
                 />
               </div>
             </div>
