@@ -22,10 +22,15 @@ export const metadata: Metadata = {
   title: "My-fridgeai",
   description: "AIで食材管理・献立作成ができるアプリ",
   icons: {
-    icon: "/icon.png",
+    icon: [
+      { url: "/icon.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon.png", sizes: "16x16", type: "image/png" },
+      { url: "/icon.png", sizes: "192x192", type: "image/png" },
+    ],
     shortcut: "/icon.png",
     apple: "/icon.png",
   },
+  manifest: "/manifest.json",
   verification: {
     google: "MC63axKn7PuRNgUa2LEQ-Ua70QSvtiCVRW9RgloHW0g",
   },

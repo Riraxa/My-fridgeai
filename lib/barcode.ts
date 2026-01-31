@@ -1,15 +1,4 @@
 //lib/barcode.ts
-import OpenAI from "openai";
-
-let _openai: OpenAI | null = null;
-function getOpenAI() {
-  if (!_openai) {
-    _openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-  }
-  return _openai;
-}
 
 export type BarcodeProduct = {
   found: boolean;
@@ -18,7 +7,7 @@ export type BarcodeProduct = {
   brand: string | null;
   image: string | null;
   expirationDays: number | null; // 推定日数
-  source: "openfoodfacts" | "ai" | "none";
+  source: "openfoodfacts" | "none";
 };
 
 /**
@@ -36,14 +25,30 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
 
     if (!res.ok) {
       console.warn(`Open Food Facts API error: ${res.status}`);
-      return await fallbackToAI(barcode);
+      return {
+        found: false,
+        name: null,
+        category: null,
+        brand: null,
+        image: null,
+        expirationDays: null,
+        source: "none",
+      };
     }
 
     const data = await res.json();
 
     // status: 0 = 商品が見つからない
     if (data.status === 0) {
-      return await fallbackToAI(barcode);
+      return {
+        found: false,
+        name: null,
+        category: null,
+        brand: null,
+        image: null,
+        expirationDays: null,
+        source: "none",
+      };
     }
 
     const product = data.product;
@@ -76,7 +81,15 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
     };
   } catch (error) {
     console.error("Open Food Facts lookup error:", error);
-    return await fallbackToAI(barcode);
+    return {
+      found: false,
+      name: null,
+      category: null,
+      brand: null,
+      image: null,
+      expirationDays: null,
+      source: "none",
+    };
   }
 }
 
@@ -152,64 +165,4 @@ function estimateExpirationDays(
   }
 
   return 14; // デフォルト2週間
-}
-
-/**
- * AIフォールバック: バーコード番号から商品を推定
- */
-async function fallbackToAI(barcode: string): Promise<BarcodeProduct> {
-  try {
-    const prompt = `
-以下のバーコード番号から、可能性が高い商品を推定してください。
-
-バーコード: ${barcode}
-
-以下のJSON形式で回答してください：
-{
-  "name": "商品名（日本語）",
-  "category": "カテゴリ（乳製品/肉類/魚介類/野菜/果物/穀物/加工食品/冷凍食品/調味料/飲料/デザート/その他）",
-  "expirationDays": 推定賞味期限日数（数値）
-}
-
-不明な場合は、日本でよく流通する一般的な食品として推定してください。
-    `.trim();
-
-    const completion = await getOpenAI().chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "あなたは日本の食品バーコードに詳しいアシスタントです。バーコード番号から商品情報を推定します。",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-    });
-
-    const content = completion.choices[0].message.content || "{}";
-    const result = JSON.parse(content);
-
-    return {
-      found: true,
-      name: result.name || "不明な商品",
-      category: result.category || "その他",
-      brand: null,
-      image: null,
-      expirationDays: result.expirationDays || 14,
-      source: "ai",
-    };
-  } catch (error) {
-    console.error("AI fallback error:", error);
-    return {
-      found: false,
-      name: null,
-      category: null,
-      brand: null,
-      image: null,
-      expirationDays: null,
-      source: "none",
-    };
-  }
 }
