@@ -1,3 +1,4 @@
+//lib/ai/menu-generator.ts
 import OpenAI from "openai";
 import { Ingredient, UserPreferences } from "@prisma/client";
 import { differenceInDays } from "date-fns";
@@ -55,11 +56,6 @@ export async function generateMenus(
 
   const taste = (preferences?.tasteJson as any) || {};
   const lifestyle = taste.lifestyle?.defaultMode || {};
-  const expiringSoon = ingredients.filter((i) => {
-    if (!i.expirationDate) return false;
-    const days = differenceInDays(i.expirationDate, new Date());
-    return days >= -2 && days <= (preferences?.expirationCriticalDays ?? 2);
-  });
 
   // 1. Safety Layer (System Message - Immutable)
   const allergenList = allergies.map((a) => a.label || a.allergen).join(", ");
@@ -296,10 +292,6 @@ ${warningList}
 - 必ず "main", "alternativeA", "alternativeB" の3つのキーを持つオブジェクトを返してください。`;
 
   try {
-    console.log("[AI] Starting OpenAI API call with model: gpt-4o");
-    console.log("[AI] System prompt length:", safetyInstructions.length);
-    console.log("[AI] User context length:", userContext.length);
-
     const completion = await openai.chat.completions.create({
       model: "gpt-4o", // Use gpt-4o for better safety adherence
       messages: [
@@ -314,25 +306,15 @@ ${warningList}
       max_tokens: 3000,
     });
 
-    console.log("[AI] OpenAI API call successful");
-    console.log(
-      "[AI] Response received, choice count:",
-      completion.choices.length,
-    );
-
     const content = completion.choices[0].message.content;
     if (!content) {
       console.error("[AI] No content returned from OpenAI");
       throw new Error("AIからの応答が空でした");
     }
 
-    console.log("[AI] OpenAI Response Content:", content);
-    console.log("[AI] OpenAI Usage:", completion.usage);
-
     let result: MenuGenerationResult;
     try {
       result = JSON.parse(content) as MenuGenerationResult;
-      console.log("[AI] Parsed Result:", JSON.stringify(result, null, 2));
       if ((result as any).error === "ALLERGEN_DETECTED") {
         throw new Error(
           "アレルギー物質が含まれる可能性があるため、生成を中断しました。設定を確認してください。",
@@ -340,7 +322,6 @@ ${warningList}
       }
     } catch (parseError) {
       console.error("[AI] JSON Parse Error. Content:", content);
-      console.error("[AI] Parse Error Details:", parseError);
       throw new Error("AIの応答を解析できませんでした");
     }
 
