@@ -142,9 +142,21 @@ export default function MenuGeneratePage() {
       }
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESCキーでモーダルが閉じるのを防止
+      if (e.key === "Escape" && selectedMenuType) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [loading, currentGenerationId]);
 
   // Fetch user plan and inventory summary
@@ -371,7 +383,13 @@ export default function MenuGeneratePage() {
       }
 
       alert("調理完了！在庫から食材が差し引かれました。");
-      router.push("/home");
+
+      // 全ての状態をリセットして初期画面に戻る
+      setGenerated(null);
+      setSelectedMenuType(null);
+      setSelectedMenuData(null);
+      setRecipeDetails([]);
+      setCurrentDishIndex(0);
     } catch (e: any) {
       alert(`エラーが発生しました: ${e.message}`);
     } finally {
@@ -393,10 +411,12 @@ export default function MenuGeneratePage() {
       <PageTransition className="max-w-4xl mx-auto px-4 py-8 pb-32">
         <HeaderTransition className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">AI献立提案</h1>
+            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+              AI献立提案
+            </h1>
             <button
               onClick={() => router.push("/history")}
-              className="text-xs flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full transition"
+              className="text-xs flex items-center gap-1 bg-[var(--surface-bg)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--color-text-secondary)] px-3 py-1.5 rounded-full transition"
             >
               <History size={14} />
               履歴
@@ -549,7 +569,7 @@ export default function MenuGeneratePage() {
               </button>
 
               {error && (
-                <div className="mt-4 text-red-600 bg-red-50 p-3 rounded flex items-center gap-2 justify-center">
+                <div className="mt-4 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-3 rounded flex items-center gap-2 justify-center border border-red-100 dark:border-red-900/30">
                   <AlertTriangle size={16} />
                   {error}
                   <button
@@ -566,13 +586,13 @@ export default function MenuGeneratePage() {
           {generated && (
             <div className="space-y-8">
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold flex items-center gap-2">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-[var(--color-text-primary)]">
                   <CheckCircle size={20} className="text-green-500" />
                   おすすめの献立
                 </h2>
                 <button
                   onClick={() => setGenerated(null)}
-                  className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                  className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center gap-1"
                 >
                   <ArrowLeft size={14} />
                   戻る
@@ -678,33 +698,30 @@ export default function MenuGeneratePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={(e) => e.stopPropagation()} // 背景クリックを無効化
           >
             <motion.div
-              className="fixed inset-x-0 bottom-0 max-h-[90vh] bg-white rounded-t-3xl shadow-2xl overflow-hidden flex flex-col"
+              className="fixed inset-x-0 bottom-0 max-h-[90vh] bg-[var(--card-bg)] border border-[var(--surface-border)] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
             >
               {/* Header */}
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10">
-                <h2 className="font-bold text-lg">
+              <div className="sticky top-0 bg-[var(--card-bg)] border-b border-[var(--surface-border)] px-4 py-3 flex items-center justify-center z-10">
+                <h2 className="font-bold text-lg text-[var(--color-text-primary)]">
                   {selectedMenuData?.title || "レシピ詳細"}
                 </h2>
-                <button
-                  onClick={closeRecipeModal}
-                  className="p-2 hover:bg-gray-100 rounded-full transition"
-                >
-                  <X size={20} />
-                </button>
               </div>
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-4 pb-32">
                 {loadingRecipe ? (
                   <div className="text-center py-20">
-                    <div className="animate-spin h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-gray-500">レシピを取得中...</p>
+                    <div className="animate-spin h-8 w-8 border-2 border-[var(--accent)] border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-[var(--color-text-secondary)]">
+                      レシピを取得中...
+                    </p>
                   </div>
                 ) : recipeDetails.length > 0 ? (
                   <>
@@ -717,8 +734,8 @@ export default function MenuGeneratePage() {
                             onClick={() => setCurrentDishIndex(idx)}
                             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
                               currentDishIndex === idx
-                                ? "bg-indigo-600 text-white"
-                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                ? "bg-[var(--accent)] text-white"
+                                : "bg-[var(--surface-bg)] text-[var(--color-text-secondary)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
                             }`}
                           >
                             {r.title}
@@ -731,15 +748,15 @@ export default function MenuGeneratePage() {
                       <div className="space-y-6">
                         {/* Title & Info */}
                         <div>
-                          <h3 className="text-xl font-bold text-gray-900 mb-2">
+                          <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-2">
                             {currentRecipe.title}
                           </h3>
                           {currentRecipe.description && (
-                            <p className="text-gray-600 text-sm">
+                            <p className="text-[var(--color-text-secondary)] text-sm">
                               {currentRecipe.description}
                             </p>
                           )}
-                          <div className="flex gap-4 mt-3 text-sm text-gray-500">
+                          <div className="flex gap-4 mt-3 text-sm text-[var(--color-text-secondary)]">
                             <span className="flex items-center gap-1">
                               <Clock size={14} />
                               {currentRecipe.time_minutes}分
@@ -750,23 +767,25 @@ export default function MenuGeneratePage() {
                         </div>
 
                         {/* Ingredients */}
-                        <div className="bg-gray-50 rounded-xl p-4">
-                          <h4 className="font-bold text-gray-800 mb-3">材料</h4>
+                        <div className="bg-[var(--surface-bg)] rounded-xl p-4 border border-[var(--surface-border)]">
+                          <h4 className="font-bold text-[var(--color-text-primary)] mb-3">
+                            材料
+                          </h4>
                           <ul className="space-y-2">
                             {currentRecipe.ingredients.map((ing, idx) => (
                               <li
                                 key={idx}
-                                className="flex justify-between text-sm border-b border-gray-100 pb-1"
+                                className="flex justify-between text-sm border-b border-[var(--surface-border)] pb-1"
                               >
-                                <span className="text-gray-700">
+                                <span className="text-[var(--color-text-primary)]">
                                   {ing.name}
                                   {ing.optional && (
-                                    <span className="text-xs text-gray-400 ml-1">
+                                    <span className="text-xs text-[var(--color-text-muted)] ml-1">
                                       (お好みで)
                                     </span>
                                   )}
                                 </span>
-                                <span className="text-gray-500">
+                                <span className="text-[var(--color-text-secondary)]">
                                   {ing.total_quantity}
                                   {ing.unit}
                                 </span>
@@ -777,16 +796,16 @@ export default function MenuGeneratePage() {
 
                         {/* Steps */}
                         <div>
-                          <h4 className="font-bold text-gray-800 mb-3">
+                          <h4 className="font-bold text-[var(--color-text-primary)] mb-3">
                             作り方
                           </h4>
                           <ol className="space-y-4">
                             {currentRecipe.steps.map((step, idx) => (
                               <li key={idx} className="flex gap-3">
-                                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-sm font-bold flex items-center justify-center">
+                                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-[var(--accent)] text-sm font-bold flex items-center justify-center">
                                   {idx + 1}
                                 </span>
-                                <p className="text-gray-700 text-sm leading-relaxed pt-0.5">
+                                <p className="text-[var(--color-text-primary)] text-sm leading-relaxed pt-0.5">
                                   {step}
                                 </p>
                               </li>
@@ -797,8 +816,8 @@ export default function MenuGeneratePage() {
                         {/* Tips */}
                         {currentRecipe.tips &&
                           currentRecipe.tips.length > 0 && (
-                            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                              <h4 className="font-bold text-amber-800 mb-2 flex items-center gap-1">
+                            <div className="bg-[color-mix(in_srgb,#f59e0b_10%,transparent)] border border-[color-mix(in_srgb,#f59e0b_20%,transparent)] rounded-xl p-4">
+                              <h4 className="font-bold text-amber-700 dark:text-amber-300 mb-2 flex items-center gap-1">
                                 <Lightbulb size={16} />
                                 コツ・ポイント
                               </h4>
@@ -806,7 +825,7 @@ export default function MenuGeneratePage() {
                                 {currentRecipe.tips.map((tip, idx) => (
                                   <li
                                     key={idx}
-                                    className="text-sm text-amber-700 flex items-start gap-2"
+                                    className="text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2"
                                   >
                                     <span className="text-amber-500">•</span>
                                     {tip}
@@ -818,8 +837,10 @@ export default function MenuGeneratePage() {
 
                         {/* Storage */}
                         {currentRecipe.storage && (
-                          <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
-                            <span className="font-medium">保存方法:</span>{" "}
+                          <div className="text-sm text-[var(--color-text-secondary)] bg-[var(--surface-bg)] rounded-lg p-3 border border-[var(--surface-border)]">
+                            <span className="font-medium text-[var(--color-text-primary)]">
+                              保存方法:
+                            </span>{" "}
                             {currentRecipe.storage}
                           </div>
                         )}
@@ -827,19 +848,19 @@ export default function MenuGeneratePage() {
                     )}
                   </>
                 ) : (
-                  <div className="text-center py-20 text-gray-500">
+                  <div className="text-center py-20 text-[var(--color-text-secondary)]">
                     レシピを取得できませんでした
                   </div>
                 )}
               </div>
 
-              <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4">
+              <div className="sticky bottom-0 bg-[var(--card-bg)] border-t border-[var(--surface-border)] p-4">
                 <button
                   onClick={handleConfirmCook}
                   disabled={loadingCook}
                   className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 ${
                     loadingCook
-                      ? "bg-gray-400 cursor-not-allowed text-white"
+                      ? "bg-[var(--surface-bg)] cursor-not-allowed text-[var(--color-text-muted)]"
                       : "bg-green-600 text-white hover:bg-green-700"
                   }`}
                 >
@@ -850,7 +871,7 @@ export default function MenuGeneratePage() {
                   )}
                   {loadingCook ? "処理中..." : "調理完了！完成"}
                 </button>
-                <p className="text-center text-xs text-gray-400 mt-2">
+                <p className="text-center text-xs text-[var(--color-text-muted)] mt-2">
                   使用した食材が在庫から差し引かれます
                 </p>
               </div>
@@ -859,7 +880,7 @@ export default function MenuGeneratePage() {
         )}
       </AnimatePresence>
 
-      <NavBar />
+      {!selectedMenuType && <NavBar />}
     </ErrorBoundary>
   );
 }

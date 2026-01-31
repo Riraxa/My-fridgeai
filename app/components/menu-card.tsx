@@ -65,19 +65,27 @@ export default function MenuCard({
 
   return (
     <div
-      className={`border rounded-lg p-6 shadow-sm ${isBest ? "border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/10" : "border-gray-200 bg-white"}`}
+      className={`border rounded-lg p-6 shadow-sm transition-all duration-300 ${
+        isBest
+          ? "border-[var(--accent)] ring-1 ring-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]"
+          : "border-[var(--surface-border)] bg-[var(--card-bg)]"
+      }`}
     >
       <div className="flex justify-between items-start mb-4">
         <div>
           {isBest && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mb-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-[var(--accent)] mb-2">
               おすすめ
             </span>
           )}
-          <h3 className="text-lg font-bold text-gray-900">{menu.name}</h3>
-          <p className="text-sm text-gray-500 mt-1">{menu.description}</p>
+          <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
+            {menu.name}
+          </h3>
+          <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+            {menu.description}
+          </p>
         </div>
-        <div className="text-right text-xs text-gray-500 space-y-1">
+        <div className="text-right text-xs text-[var(--color-text-secondary)] space-y-1">
           <div className="flex items-center justify-end gap-1">
             <Clock size={12} />
             <span>{menu.cookingTime}</span>
@@ -95,31 +103,37 @@ export default function MenuCard({
             <span
               className={`flex-shrink-0 w-10 px-1.5 py-0.5 rounded text-xs text-center mr-2 ${
                 dish.type === "主菜"
-                  ? "bg-orange-100 text-orange-800"
+                  ? "bg-[color-mix(in_srgb,#ff914d_20%,transparent)] text-[#ff914d]"
                   : dish.type === "汁物"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-green-100 text-green-800"
+                    ? "bg-[color-mix(in_srgb,#3b82f6_20%,transparent)] text-[#3b82f6]"
+                    : "bg-[color-mix(in_srgb,#10b981_20%,transparent)] text-[#10b981]"
               }`}
             >
               {dish.type}
             </span>
-            <span className="font-medium text-gray-700">{dish.name}</span>
+            <span className="font-medium text-[var(--color-text-primary)]">
+              {dish.name}
+            </span>
           </div>
         ))}
       </div>
 
-      <div className="bg-gray-50 rounded p-3 mb-4 text-xs space-y-2">
+      <div className="bg-[var(--surface-bg)] rounded p-3 mb-4 text-xs space-y-2 border border-[var(--surface-border)]">
         <div className="flex justify-between font-medium">
-          <span className="text-gray-700">在庫状況</span>
+          <span className="text-[var(--color-text-primary)]">在庫状況</span>
           <span
-            className={missingCount === 0 ? "text-green-600" : "text-amber-600"}
+            className={
+              missingCount === 0
+                ? "text-green-600 dark:text-green-400"
+                : "text-amber-600 dark:text-amber-400"
+            }
           >
             {availability.available.length}/{totalCount}品 OK
           </span>
         </div>
 
         {availability.insufficient.length > 0 && (
-          <div className="text-amber-600 flex items-start gap-1">
+          <div className="text-amber-600 dark:text-amber-400 flex items-start gap-1">
             <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
             <span>
               <span className="font-bold">不足:</span>{" "}
@@ -128,7 +142,7 @@ export default function MenuCard({
           </div>
         )}
         {availability.missing.length > 0 && (
-          <div className="text-red-500 flex items-start gap-1">
+          <div className="text-red-500 dark:text-red-400 flex items-start gap-1">
             <XCircle size={12} className="flex-shrink-0 mt-0.5" />
             <span>
               <span className="font-bold">なし:</span>{" "}
@@ -139,12 +153,12 @@ export default function MenuCard({
       </div>
 
       {nutrition && isPro && (
-        <div className="bg-blue-50 border border-blue-100 rounded p-3 mb-4 text-xs">
-          <div className="font-bold text-blue-800 mb-2 flex items-center gap-1">
+        <div className="bg-[color-mix(in_srgb,#3b82f6_10%,transparent)] border border-[color-mix(in_srgb,#3b82f6_20%,transparent)] rounded p-3 mb-4 text-xs">
+          <div className="font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-1">
             <BarChart2 size={14} />
             <span>栄養バランス</span>
           </div>
-          <div className="grid grid-cols-2 gap-y-1 gap-x-4 mb-2 text-blue-900">
+          <div className="grid grid-cols-2 gap-y-1 gap-x-4 mb-2 text-blue-900 dark:text-blue-200">
             <div className="flex justify-between">
               <span>カロリー:</span>{" "}
               <span className="font-medium">
@@ -171,7 +185,7 @@ export default function MenuCard({
             </div>
           </div>
           {nutrition.evaluation && (
-            <div className="text-blue-700 font-medium border-t border-blue-100 pt-1 mt-1 flex items-center gap-1">
+            <div className="text-blue-700 dark:text-blue-300 font-medium border-t border-[color-mix(in_srgb,#3b82f6_20%,transparent)] pt-1 mt-1 flex items-center gap-1">
               <Lightbulb size={12} />
               <span>{nutrition.evaluation}</span>
             </div>
@@ -181,10 +195,10 @@ export default function MenuCard({
 
       <button
         onClick={onSelect}
-        className={`w-full py-2 px-4 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+        className={`w-full py-2 px-4 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${
           isBest
-            ? "bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 shadow-md"
-            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-indigo-500"
+            ? "bg-[var(--accent)] text-white hover:bg-[color-mix(in_srgb,var(--accent)_90%,#000)] focus:ring-[var(--accent)] shadow-md"
+            : "bg-[var(--surface-bg)] text-[var(--color-text-primary)] border border-[var(--surface-border)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] focus:ring-[var(--accent)]"
         }`}
       >
         この献立にする

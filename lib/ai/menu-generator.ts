@@ -293,9 +293,9 @@ ${warningList}
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o", // Use gpt-4o for better safety adherence
+      model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: safetyInstructions },
+        { role: "system", content: safetyInstructions + "\n\n" + systemPrompt },
         {
           role: "user",
           content: `${userContext}\n\n在庫食材: ${ingredients.map((i) => i.name).join(", ")}\n\n上記のシステムプロンプトで指定されたJSON形式で、必ず "main", "alternativeA", "alternativeB" の3つの献立パターンを生成してください。各献立は3品構成（主菜・副菜・汁物）で、全ての料理に栄養情報を含めてください。`,
@@ -303,7 +303,7 @@ ${warningList}
       ],
       response_format: { type: "json_object" },
       temperature: 0.7,
-      max_tokens: 3000,
+      max_tokens: 1000,
     });
 
     const content = completion.choices[0].message.content;
