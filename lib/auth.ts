@@ -245,7 +245,7 @@ export const authOptions: NextAuthOptions = {
           if (dbUser) {
             const plan = dbUser.plan || "FREE";
             (session.user as any).plan = plan;
-            (session.user as any).isPro = plan === "PRO" || plan === "MEMBER";
+            (session.user as any).isPro = plan === "PRO";
             (session.user as any).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
             (session.user as any).stripeCurrentPeriodEnd =
               dbUser.stripeCurrentPeriodEnd;

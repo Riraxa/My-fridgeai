@@ -253,7 +253,7 @@ export default function AddEditModal({
               <div className="relative mt-2 z-50 flex justify-center">
                 <DatePicker
                   selected={expiry || new Date()}
-                  onChange={(date) => {
+                  onChange={(date: Date | null) => {
                     setExpiry(date);
                     setPickerOpen(false);
                     setEstimatedExpiry(null); // Clear manual edit
