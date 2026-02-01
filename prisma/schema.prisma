@@ -416,6 +416,10 @@ model MenuGeneration {
   // Pro Feature
   nutritionInfo Json? // { calories, protein, carbs, fat }
 
+  // New Fields for Generation Conditions
+  servings      Int      @default(1)
+  budget        Int?     // 1食あたりの予算（nullの場合は指定なし）
+
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   cookingHistory CookingHistory[]
 

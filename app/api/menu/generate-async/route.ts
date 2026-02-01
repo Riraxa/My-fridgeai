@@ -59,7 +59,47 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Create pending generation record
+    // 3. Parse & Validate Options
+    const body = await req.json().catch(() => ({}));
+    let { servings, budget } = body;
+
+    // Default servings to 1 if invalid
+    if (!servings || typeof servings !== "number" || servings < 1) {
+      servings = 1;
+    }
+
+    // Free Plan Limit: Max 3 servings, No Budget allowed
+    if (!isPro) {
+      if (servings > 3) {
+        return NextResponse.json(
+          {
+            error:
+              "Freeプランでは最大3人前までです。Proプランにアップグレードすると最大8人前まで指定できます。",
+          },
+          { status: 403 },
+        );
+      }
+      budget = null;
+    } else {
+      if (servings > 8) {
+        return NextResponse.json(
+          { error: "一度に生成できるのは最大8人前までです。" },
+          { status: 400 },
+        );
+      }
+      if (budget !== undefined && budget !== null) {
+        if (typeof budget !== "number" || budget < 1) {
+          return NextResponse.json(
+            { error: "予算は1以上の数値を指定してください。" },
+            { status: 400 },
+          );
+        }
+      } else {
+        budget = null;
+      }
+    }
+
+    // 4. Create pending generation record
     const generation = await prisma.menuGeneration.create({
       data: {
         userId: userId,
@@ -70,15 +110,19 @@ export async function POST(req: Request) {
         nutritionInfo: {} as any,
         usedIngredients: {} as any,
         shoppingList: {} as any,
+        // Added fields
+        servings: servings,
+        budget: budget ?? undefined,
       },
     });
 
-    // 4. Start background processing (don't await)
+    // 5. Start background processing (don't await)
     processMenuGeneration(
       generation.id,
       userId,
       ingredients,
       preferences || undefined,
+      { servings, budget }, // Pass options
     ).catch((error) => {
       console.error("Background processing failed:", error);
       // Update status to failed
@@ -112,6 +156,7 @@ async function processMenuGeneration(
   userId: string,
   ingredients: any[],
   preferences: any,
+  options?: { servings: number; budget: number | null },
 ) {
   try {
     console.log(
@@ -127,7 +172,7 @@ async function processMenuGeneration(
     // Generate Menus via AI
     let menus;
     try {
-      menus = await generateMenus(ingredients, userId);
+      menus = await generateMenus(ingredients, userId, options);
     } catch (aiError: any) {
       console.error(`[MenuGen] AI Generation failed:`, aiError);
       throw aiError;

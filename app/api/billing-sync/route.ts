@@ -82,9 +82,14 @@ export async function POST(req: NextRequest) {
     }
 
     const cancelAt = (subscription as any).cancel_at ?? null;
-    const currentPeriodEnd = new Date(
-      ((cancelAt ?? (subscription as any).current_period_end) as number) * 1000,
-    );
+    const rawPeriodEnd = cancelAt ?? (subscription as any).current_period_end;
+    let currentPeriodEnd: Date | null =
+      typeof rawPeriodEnd === "number" ? new Date(rawPeriodEnd * 1000) : null;
+
+    if (currentPeriodEnd && isNaN(currentPeriodEnd.getTime())) {
+      currentPeriodEnd = null;
+    }
+
     const cancelAtPeriodEnd =
       ((subscription as any).cancel_at_period_end ?? false) || !!cancelAt;
     const billingStatus = subscription.status;
@@ -111,7 +116,7 @@ export async function POST(req: NextRequest) {
         where: { stripeSubscriptionId: subscription.id },
         update: {
           status: subscription.status,
-          currentPeriodEnd: currentPeriodEnd,
+          currentPeriodEnd: currentPeriodEnd ?? new Date(), // Fallback if null, to avoid DB error if required
           cancelAtPeriodEnd: cancelAtPeriodEnd,
           stripeCustomerId: stripeCustomerId,
           stripePriceId: stripePriceId,
@@ -122,7 +127,7 @@ export async function POST(req: NextRequest) {
           stripeSubscriptionId: subscription.id,
           stripePriceId: stripePriceId,
           status: subscription.status,
-          currentPeriodEnd: currentPeriodEnd,
+          currentPeriodEnd: currentPeriodEnd ?? new Date(), // Fallback
           cancelAtPeriodEnd: cancelAtPeriodEnd,
         },
       });
@@ -140,7 +145,7 @@ export async function POST(req: NextRequest) {
       },
       computed: {
         cancelAtPeriodEnd,
-        stripeCurrentPeriodEnd: currentPeriodEnd.toISOString(),
+        stripeCurrentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
       },
     });
   } catch (err: any) {

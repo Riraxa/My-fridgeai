@@ -93,6 +93,7 @@ export interface MenuGenerationResult {
 export async function generateMenus(
   ingredients: Ingredient[],
   userId: string,
+  options?: { servings?: number; budget?: number | null },
 ): Promise<MenuGenerationResult> {
   // Fetch detailed preferences and safety info
   const [preferences, allergies, restrictions] = await Promise.all([
@@ -103,6 +104,8 @@ export async function generateMenus(
 
   const taste = (preferences?.tasteJson as any) || {};
   const lifestyle = taste.lifestyle?.defaultMode || {};
+  const servings = options?.servings || 1;
+  const budget = options?.budget;
 
   // 1. Safety Layer (System Message - Immutable)
   const allergenList = allergies.map((a) => a.label || a.allergen).join(", ");
@@ -114,7 +117,8 @@ export async function generateMenus(
 # CRITICAL SAFETY RULES
 1. NEVER suggest recipes containing these allergens: ${allergenList || "None"}.
 2. Adhere to these dietary restrictions: ${restrictionNote || "None"}.
-3. If ANY suggested recipe contains an allergen, response MUST include "error": "ALLERGEN_DETECTED".`;
+3. If ANY suggested recipe contains an allergen, response MUST include "error": "ALLERGEN_DETECTED".
+4. EXTERNAL FOOD EXCLUSION: Do not suggest takeout, delivery, or prepared store-bought meals. Only suggest home-cooked recipes.`;
 
   // 2. Pro Feature Layer (System Message - High Priority)
   if (preferences?.aiMessageEnabled && taste.freeText) {
@@ -122,6 +126,16 @@ export async function generateMenus(
 These instructions have high priority:
 ${taste.freeText}`;
   }
+
+  // Add Settings to System Prompt
+  const budgetPrompt = budget
+    ? `budget: approx ${budget} yen per serving (strict limit)`
+    : "budget: ignore cost";
+
+  safetyInstructions += `\n\n# GENERATION SETTINGS
+- Servings: ${servings} person(s)
+- Budget Goal: ${budgetPrompt}
+- **Strictly scale all ingredient amounts for ${servings} servings.**`;
 
   // 3. Preferences Layer (User Message - Preferred tendencies)
   const tastePrefsEntries = taste.tasteScores
@@ -157,7 +171,8 @@ ${taste.freeText}`;
 - Equipment: ${equipment}
 - Preferred Methods: ${methods}
 - Lifestyle Priority: ${lifestyle.timePriority || "normal"}
-- Genre Preferences: ${genrePrefs}`;
+- Genre Preferences: ${genrePrefs}
+- Target Servings: ${servings}`;
 
   // Extract preferences with proper type handling
   // Note: key casting to any to bypass stale Prisma types in editor

@@ -50,13 +50,62 @@ export async function POST(req: Request) {
       );
     }
 
+    // 3. Parse & Validate Options
+    const body = await req.json().catch(() => ({}));
+    let { servings, budget } = body;
+
+    // Default servings to 1 if invalid
+    if (!servings || typeof servings !== "number" || servings < 1) {
+      servings = 1;
+    }
+
+    // Free Plan Limit: Max 3 servings, No Budget allowed
+    if (!isPro) {
+      if (servings > 3) {
+        return NextResponse.json(
+          {
+            error:
+              "Freeプランでは最大3人前までです。Proプランにアップグレードすると最大8人前まで指定できます。",
+          },
+          { status: 403 },
+        );
+      }
+      // Force budget to null for Free users
+      budget = null;
+    } else {
+      // Pro Limit: Max 8 servings
+      if (servings > 8) {
+        return NextResponse.json(
+          { error: "一度に生成できるのは最大8人前までです。" },
+          { status: 400 },
+        );
+      }
+      // Validate budget if provided
+      if (budget !== undefined && budget !== null) {
+        if (typeof budget !== "number" || budget < 1) {
+          return NextResponse.json(
+            { error: "予算は1以上の数値を指定してください。" },
+            { status: 400 },
+          );
+        }
+      } else {
+        budget = null;
+      }
+    }
+
     // 4. Generate Menus via AI
-    const menus = await generateMenus(ingredients, userId);
+    const menus = await generateMenus(ingredients, userId, {
+      servings,
+      budget,
+    });
     if (!menus || !menus.main) {
       throw new Error("AIが有効な献立を生成できませんでした");
     }
 
     // 5. Check Availability for ALL Menus
+    // Pass servings to availability check if needed (currently checking generic existence,
+    // but future improvement could check scaled amounts. For now, we adjust generated amounts)
+
     const mainDetails = checkIngredientAvailability(
       (menus.main.dishes || []).flatMap((d: any) => d.ingredients || []),
       ingredients,
@@ -109,6 +158,10 @@ export async function POST(req: Request) {
           alternativeA: menus.alternativeA as any,
           alternativeB: menus.alternativeB as any,
           nutritionInfo: nutritionInfo as any,
+          // New Fields
+          servings: servings,
+          budget: budget ?? undefined, // prisma expects undefined for nullable optional if not set, or null
+
           usedIngredients: {
             main: mainDetails.available,
             altA: altADetails.available,

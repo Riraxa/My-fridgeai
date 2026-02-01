@@ -17,6 +17,8 @@ import {
   ArrowLeft,
   History,
   Calendar,
+  Users,
+  Coins,
 } from "lucide-react";
 import PageTransition, {
   HeaderTransition,
@@ -84,6 +86,11 @@ export default function MenuGeneratePage() {
 
   const [inventoryCount, setInventoryCount] = useState<number | null>(null);
   const [expiringCount, setExpiringCount] = useState<number | null>(null);
+
+  // Conditions
+  const [servings, setServings] = useState(2); // Default 2
+  const [enableBudget, setEnableBudget] = useState(false);
+  const [budget, setBudget] = useState<number | "">("");
 
   // Recipe Detail Modal State
   const [selectedMenuType, setSelectedMenuType] = useState<string | null>(null);
@@ -256,7 +263,14 @@ export default function MenuGeneratePage() {
 
     try {
       // Start async generation
-      const res = await fetch("/api/menu/generate-async", { method: "POST" });
+      const res = await fetch("/api/menu/generate-async", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          servings,
+          budget: enableBudget && budget ? Number(budget) : null,
+        }),
+      });
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -582,6 +596,116 @@ export default function MenuGeneratePage() {
                   </span>{" "}
                   品の賞味期限が迫っています。
                 </p>
+              </div>
+
+              {/* Conditions UI */}
+              <div className="max-w-md mx-auto mb-8 space-y-4 text-left">
+                {/* Servings */}
+                <div className="bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)]">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium flex items-center gap-2 text-[var(--color-text-primary)]">
+                      <Users size={16} className="text-[var(--accent)]" />
+                      人数
+                    </label>
+                    <span className="text-sm font-bold text-[var(--color-text-primary)]">
+                      {servings}人前
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="8"
+                    step="1"
+                    value={servings}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isPro && val > 3) {
+                        toast("Freeプランでは最大3人前までです", {
+                          description:
+                            "Proプランにすると8人前まで指定できます。",
+                          action: {
+                            label: "詳細",
+                            onClick: () => router.push("/settings/account"),
+                          },
+                        });
+                        return;
+                      }
+                      setServings(val);
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                  />
+                  <div className="flex justify-between text-xs text-[var(--color-text-muted)] mt-1">
+                    <span>1人</span>
+                    <span>{isPro ? "8人" : "3人(Free)"}</span>
+                  </div>
+                </div>
+
+                {/* Budget (Pro Only) */}
+                {isPro && (
+                  <div className="bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)]">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium flex items-center gap-2 text-[var(--color-text-primary)]">
+                        <Coins size={16} className="text-[var(--accent)]" />
+                        1食あたりの予算
+                        <span className="text-[10px] bg-[var(--accent)] text-white px-1.5 py-0.5 rounded-full">
+                          Pro
+                        </span>
+                      </label>
+                      <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input
+                          type="checkbox"
+                          name="toggle"
+                          id="budget-toggle"
+                          checked={enableBudget}
+                          onChange={(e) => {
+                            setEnableBudget(e.target.checked);
+                            if (e.target.checked && !budget) setBudget(500);
+                          }}
+                          className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer peer checked:right-0 right-5"
+                          style={{
+                            borderColor: enableBudget
+                              ? "var(--accent)"
+                              : "#ccc",
+                            right: enableBudget ? "0" : "auto",
+                            left: enableBudget ? "auto" : "0",
+                          }}
+                        />
+                        <label
+                          htmlFor="budget-toggle"
+                          className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${
+                            enableBudget ? "bg-[var(--accent)]" : "bg-gray-300"
+                          }`}
+                        ></label>
+                      </div>
+                    </div>
+
+                    {enableBudget && (
+                      <div className="mt-3 animate-in fade-in slide-in-from-top-2">
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={budget}
+                            onChange={(e) =>
+                              setBudget(
+                                e.target.value === ""
+                                  ? ""
+                                  : parseInt(e.target.value),
+                              )
+                            }
+                            placeholder="例: 500"
+                            className="w-full p-2 pl-3 pr-8 border border-[var(--surface-border)] rounded bg-[var(--card-bg)] focus:ring-2 focus:ring-[var(--accent)] focus:outline-none no-spinner"
+                          />
+                          <span className="absolute right-3 top-2.5 text-sm text-[var(--color-text-muted)]">
+                            円/人
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                          ※あくまで目安として考慮されます
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <button

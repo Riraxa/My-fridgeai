@@ -42,13 +42,16 @@ export const authOptions: NextAuthOptions = {
       },
 
       async authorize(credentials) {
+        console.log("[AUTH_DEBUG] authorize called");
         if (credentials?.token) {
+          console.log("[AUTH_DEBUG] verifying token login");
           const user = await prisma.user.findFirst({
             where: {
               verifyToken: credentials.token,
               status: "active",
             },
           });
+          console.log("[AUTH_DEBUG] token user found:", !!user);
           if (user) {
             await prisma.user.update({
               where: { id: user.id },
@@ -63,17 +66,33 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+          console.log("[AUTH_DEBUG] missing credentials");
+          return null;
+        }
 
         const email = credentials.email.toLowerCase().trim();
+        console.log("[AUTH_DEBUG] finding user by email:", email);
         const user = await prisma.user.findUnique({ where: { email } });
+        console.log("[AUTH_DEBUG] user found:", !!user);
 
         if (!user) return null;
-        if (user.status !== "active") return null;
-        if (!user.emailVerified) return null;
-        if (!user.password) return null;
+        if (user.status !== "active") {
+          console.log("[AUTH_DEBUG] user not active");
+          return null;
+        }
+        if (!user.emailVerified) {
+          console.log("[AUTH_DEBUG] user email not verified");
+          return null;
+        }
+        if (!user.password) {
+          console.log("[AUTH_DEBUG] user has no password");
+          return null;
+        }
 
+        console.log("[AUTH_DEBUG] comparing password");
         const ok = await compare(credentials.password, user.password);
+        console.log("[AUTH_DEBUG] password match:", ok);
         if (!ok) return null;
 
         return {
@@ -86,7 +105,7 @@ export const authOptions: NextAuthOptions = {
   ],
 
   session: {
-    strategy: "jwt",
+    strategy: "database",
     maxAge: 30 * 24 * 60 * 60, // 30日
     updateAge: 24 * 60 * 60, // 1日ごとに更新
   },
@@ -205,111 +224,42 @@ export const authOptions: NextAuthOptions = {
       return false;
     },
 
-    async jwt({ token, user }) {
-      try {
-        const incomingUserId =
-          (user as any)?.id ??
-          (token as any)?.userId ??
-          (token as any)?.sub ??
-          null;
-        const email = (user as any)?.email ?? (token as any)?.email ?? null;
+    async session({ session, user }) {
+      // Database Sessionの場合、user引数にDBのユーザー情報が入ってくる
+      if (session.user && user) {
+        session.user.id = user.id;
 
-        if (incomingUserId) {
-          const userId = String(incomingUserId);
-          // 1. IDで検索
-          let dbUser = await prisma.user.findUnique({
-            where: { id: userId },
+        // 追加のユーザー情報をDBから確実に取得
+        // (Adapterが返すuserオブジェクトにはカスタムフィールドが含まれない場合があるため)
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
             select: {
-              id: true,
               plan: true,
-              email: true,
-              name: true,
-              image: true,
               cancelAtPeriodEnd: true,
               stripeCurrentPeriodEnd: true,
               passkeySetupCompleted: true,
             },
           });
 
-          // 2. IDで見つからず、メールアドレスがある場合はメールで検索
-          if (!dbUser && email) {
-            dbUser = await prisma.user.findUnique({
-              where: { email: String(email) },
-              select: {
-                id: true,
-                plan: true,
-                email: true,
-                name: true,
-                image: true,
-                cancelAtPeriodEnd: true,
-                stripeCurrentPeriodEnd: true,
-                passkeySetupCompleted: true,
-              },
-            });
-          }
-
-          // 3. アカウント情報を取得
-          const accounts: { provider: string }[] = [];
           if (dbUser) {
-            const accountData = await prisma.account.findMany({
-              where: { userId: dbUser.id },
-              select: {
-                provider: true,
-              },
-            });
-            accounts.push(...accountData);
-          }
-
-          if (dbUser) {
-            (token as any).userId = dbUser.id;
-            (token as any).sub = dbUser.id;
-            (token as any).email = dbUser.email ?? email;
-            (token as any).name = dbUser.name;
-            (token as any).picture = dbUser.image;
-            (token as any).plan = dbUser.plan ?? "FREE";
-            (token as any).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
-            (token as any).stripeCurrentPeriodEnd =
+            const plan = dbUser.plan || "FREE";
+            (session.user as any).plan = plan;
+            (session.user as any).isPro = plan === "PRO" || plan === "MEMBER";
+            (session.user as any).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
+            (session.user as any).stripeCurrentPeriodEnd =
               dbUser.stripeCurrentPeriodEnd;
-            (token as any).passkeySetupCompleted =
+            (session.user as any).passkeySetupCompleted =
               dbUser.passkeySetupCompleted ?? false;
-            (token as any).accounts = accounts;
-          } else {
-            // 最悪のフォールバック
-            (token as any).userId = userId;
-            (token as any).sub = userId;
-            (token as any).email = email;
-            (token as any).plan = (token as any).plan ?? "FREE";
-            (token as any).passkeySetupCompleted = false;
-            (token as any).accounts = [];
           }
+        } catch (e) {
+          console.error(
+            "Failed to fetch extended user data in session callback",
+            e,
+          );
         }
-      } catch (e) {
-        console.error("jwt callback: DB fetch error:", e);
-      }
-      return token;
-    },
 
-    async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).id = (token as any).userId;
-        (session.user as any).email = (token as any).email;
-        (session.user as any).plan = (token as any).plan || "FREE";
-        (session.user as any).cancelAtPeriodEnd = (
-          token as any
-        ).cancelAtPeriodEnd;
-        (session.user as any).stripeCurrentPeriodEnd = (
-          token as any
-        ).stripeCurrentPeriodEnd;
-        (session.user as any).passkeySetupCompleted = (
-          token as any
-        ).passkeySetupCompleted;
-
-        // Proステータスを動的に判定
-        const plan = (token as any).plan || "FREE";
-        (session.user as any).isPro = plan === "PRO" || plan === "MEMBER";
-
-        // アカウントプロバイダー情報を追加
-        (session.user as any).accounts = (token as any).accounts || [];
+        (session.user as any).accounts = [];
       }
       return session;
     },

@@ -106,6 +106,17 @@ h3,
   transform: scale(1.01);
 }
 
+/* Number input spinner hide */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner[type="number"] {
+  -moz-appearance: textfield;
+}
+
 /* ===============================
    カード
    =============================== */

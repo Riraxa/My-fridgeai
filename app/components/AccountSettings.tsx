@@ -375,6 +375,8 @@ export default function AccountSettings() {
                 <ul className="text-sm space-y-1 text-muted-foreground">
                   <li>✨ 1日の献立生成数が5回にUP</li>
                   <li>📅 1週間分の献立を一括作成</li>
+                  <li>🍽️ 最大8人前まで生成可能</li>
+                  <li>💰 1食あたりの予算を指定可能</li>
                   <li>🥕 期限切れ食材を優先消費</li>
                 </ul>
               </div>
