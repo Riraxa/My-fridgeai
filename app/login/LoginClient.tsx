@@ -99,6 +99,8 @@ function getErrorMessage(errorCode: string | null): string | null {
       return "メールアドレスが未認証です。";
     case "signup_failed":
       return "登録に失敗しました。もう一度お試しください。";
+    case "PASSKEY_ONLY":
+      return "このアカウントはパスキーで保護されています。パスキーでログインしてください。";
     default:
       return "エラーが発生しました。もう一度お試しください。";
   }
@@ -295,7 +297,12 @@ export default function LoginClient() {
       });
 
       if (res?.ok) {
-        router.replace("/home");
+        // パスキー設定誘導フラグをチェック
+        if (res?.requirePasskeySetup) {
+          router.replace("/passkey-setup");
+        } else {
+          router.replace("/home");
+        }
       } else {
         setMsg("メールアドレスまたはパスワードが正しくありません。");
       }
@@ -400,7 +407,7 @@ export default function LoginClient() {
                 transition={springTransition}
                 style={{ color: "var(--color-passkey-text)" }}
               >
-                パスキーでログイン
+                🔐 パスキーでログイン（推奨・安全）
               </motion.button>
 
               <motion.button
@@ -411,7 +418,7 @@ export default function LoginClient() {
                 whileHover={buttonTap.whileHover}
                 transition={springTransition}
               >
-                パスワードでログイン
+                🔑 パスワードでログイン（補助）
               </motion.button>
 
               <div className="my-2 border-t border-gray-200 dark:border-gray-700 w-full"></div>

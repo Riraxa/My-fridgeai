@@ -42,21 +42,26 @@ export const authOptions: NextAuthOptions = {
       },
 
       async authorize(credentials) {
-        console.log("[AUTH_DEBUG] authorize called");
         if (credentials?.token) {
-          console.log("[AUTH_DEBUG] verifying token login");
           const user = await prisma.user.findFirst({
             where: {
               verifyToken: credentials.token,
               status: "active",
             },
           });
-          console.log("[AUTH_DEBUG] token user found:", !!user);
+
           if (user) {
+            // verifyTokenを確実にクリア
             await prisma.user.update({
               where: { id: user.id },
-              data: { verifyToken: null, verifyTokenCreatedAt: null },
+              data: {
+                verifyToken: null,
+                verifyTokenCreatedAt: null,
+                // authMethodが未設定の場合はpassword_onlyに設定
+                authMethod: user.authMethod || "password_only",
+              },
             });
+
             return {
               id: user.id,
               email: user.email ?? null,
@@ -67,47 +72,58 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!credentials?.email || !credentials?.password) {
-          console.log("[AUTH_DEBUG] missing credentials");
           return null;
         }
 
         const email = credentials.email.toLowerCase().trim();
-        console.log("[AUTH_DEBUG] finding user by email:", email);
         const user = await prisma.user.findUnique({ where: { email } });
-        console.log("[AUTH_DEBUG] user found:", !!user);
 
         if (!user) return null;
-        if (user.status !== "active") {
-          console.log("[AUTH_DEBUG] user not active");
-          return null;
-        }
-        if (!user.emailVerified) {
-          console.log("[AUTH_DEBUG] user email not verified");
-          return null;
-        }
-        if (!user.password) {
-          console.log("[AUTH_DEBUG] user has no password");
-          return null;
+        if (user.status !== "active") return null;
+        if (!user.emailVerified) return null;
+        if (!user.password) return null;
+
+        // auth_methodチェック：passkey_enabledユーザーはパスワードログインを禁止
+        if ((user as any).authMethod === "passkey_enabled") {
+          throw new Error("PASSKEY_ONLY");
         }
 
-        console.log("[AUTH_DEBUG] comparing password");
         const ok = await compare(credentials.password, user.password);
-        console.log("[AUTH_DEBUG] password match:", ok);
         if (!ok) return null;
 
-        return {
+        const result = {
           id: user.id,
           email: user.email ?? null,
           name: user.name ?? null,
         } as any;
+
+        // password_onlyユーザーにはパスキー設定誘導フラグを追加
+        if ((user as any).authMethod === "password_only") {
+          (result as any).requirePasskeySetup = true;
+        }
+
+        return result;
       },
     }),
   ],
 
   session: {
-    strategy: "database",
+    strategy: "jwt", // JWTストラテジーに変更して安定性を向上
     maxAge: 30 * 24 * 60 * 60, // 30日
     updateAge: 24 * 60 * 60, // 1日ごとに更新
+  },
+
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain: process.env.NODE_ENV === "production" ? undefined : undefined,
+      },
+    },
   },
 
   pages: {
@@ -224,16 +240,15 @@ export const authOptions: NextAuthOptions = {
       return false;
     },
 
-    async session({ session, user }) {
-      // Database Sessionの場合、user引数にDBのユーザー情報が入ってくる
-      if (session.user && user) {
-        session.user.id = user.id;
+    async session({ session, token }) {
+      // JWTストラテジーの場合、token引数にJWTトークン情報が入ってくる
+      if (session.user && token && token.sub) {
+        session.user.id = token.sub;
 
         // 追加のユーザー情報をDBから確実に取得
-        // (Adapterが返すuserオブジェクトにはカスタムフィールドが含まれない場合があるため)
         try {
           const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
+            where: { id: token.sub },
             select: {
               plan: true,
               cancelAtPeriodEnd: true,
@@ -262,6 +277,20 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).accounts = [];
       }
       return session;
+    },
+
+    async jwt({ token, user, account }) {
+      // JWTコールバックで追加情報をトークンに保存
+      if (user) {
+        token.id = user.id;
+      }
+
+      // パスキー設定が必要なユーザーのフラグを追加
+      if (user && (user as any).requirePasskeySetup) {
+        token.requirePasskeySetup = true;
+      }
+
+      return token;
     },
 
     async redirect({ url, baseUrl }) {

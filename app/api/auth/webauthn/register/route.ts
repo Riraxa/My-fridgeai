@@ -190,6 +190,7 @@ export async function POST(req: Request) {
         verifyToken: null,
         verifyTokenCreatedAt: null,
         passkeySetupCompleted: true,
+        authMethod: "passkey_enabled" as any,
       },
     });
 

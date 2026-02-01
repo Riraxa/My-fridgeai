@@ -84,6 +84,7 @@ export async function GET(req: Request) {
             password: pending.password ?? undefined,
             status: "active",
             emailVerified: new Date(),
+            authMethod: "password_only", // 新規ユーザーはpassword_onlyから開始
           },
         });
         await prisma.pendingUser.delete({ where: { id: pending.id } });

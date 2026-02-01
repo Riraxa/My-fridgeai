@@ -6,17 +6,6 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    // デバッグ情報
-    const authHeader = req.headers.get("authorization");
-    const cookies = req.cookies;
-
-    console.log("[complete-passkey-setup] Auth debug:", {
-      hasAuthHeader: !!authHeader,
-      cookieNames: cookies.getAll().map((c) => c.name),
-      userAgent: req.headers.get("user-agent")?.substring(0, 50),
-      timestamp: new Date().toISOString(),
-    });
-
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
@@ -24,23 +13,44 @@ export async function POST(req: NextRequest) {
     });
 
     if (!token?.sub) {
-      console.log("[complete-passkey-setup] Token validation failed:", {
-        hasToken: !!token,
-        tokenKeys: token ? Object.keys(token) : [],
-        secretExists: !!process.env.NEXTAUTH_SECRET,
-      });
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    // IP Check
+    // ユーザーの存在確認
     const user = await prisma.user.findUnique({
       where: { id: token.sub },
-      select: { allowedIps: true },
+      select: {
+        id: true,
+        allowedIps: true,
+        status: true,
+        emailVerified: true,
+      },
     });
 
-    if (user?.allowedIps && user.allowedIps.length > 0) {
+    if (!user) {
+      return NextResponse.json(
+        { error: "ユーザーが見つかりません" },
+        { status: 404 },
+      );
+    }
+
+    if (user.status !== "active") {
+      return NextResponse.json(
+        { error: "アカウントが有効ではありません" },
+        { status: 403 },
+      );
+    }
+
+    if (!user.emailVerified) {
+      return NextResponse.json(
+        { error: "メール認証が完了していません" },
+        { status: 403 },
+      );
+    }
+
+    // IP Check
+    if (user.allowedIps && user.allowedIps.length > 0) {
       const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
-      // Simple check, in production might need refined IP extraction
       if (!user.allowedIps.includes(ip)) {
         return NextResponse.json(
           { error: "許可されていないIPからの操作です" },
@@ -54,11 +64,8 @@ export async function POST(req: NextRequest) {
       data: { passkeySetupCompleted: true },
     });
 
-    console.info("passkey setup completed", { userId: token.sub });
-
     return NextResponse.json({ ok: true, message: "パスキー登録完了" });
   } catch (error) {
-    console.error("complete-passkey-setup error:", error);
     return NextResponse.json(
       { error: "サーバーエラーが発生しました" },
       { status: 500 },

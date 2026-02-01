@@ -102,15 +102,46 @@ export default function PasskeySetupPage() {
 
   // guard: must be authenticated (this page is only reachable after clicking magic link)
   useEffect(() => {
+    if (status === "loading") {
+      return;
+    }
+
     if (status === "unauthenticated") {
-      router.replace("/login");
+      // JWTストラテジーの場合、セッションが確立するまで少し待機
+      const retryCheck = async () => {
+        let retryCount = 0;
+        const maxRetries = 8;
+
+        while (retryCount < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+
+          try {
+            const sessionResponse = await fetch("/api/auth/session");
+            if (sessionResponse.ok) {
+              const sessionData = await sessionResponse.json();
+              if (sessionData?.user?.email) {
+                return; // セッションが見つかったのでリダイレクトしない
+              }
+            }
+          } catch (error) {
+            // ネットワークエラー等は無視してリトライ継続
+          }
+
+          retryCount++;
+        }
+
+        // 最大リトライ後もセッションがない場合はリダイレクト
+        router.replace("/login");
+      };
+
+      retryCheck();
+      return;
     }
   }, [status, session, router]);
 
   // セッション有効性チェック
   useEffect(() => {
     if (status === "authenticated" && session?.user?.email) {
-      // セッションが有効か確認するための簡易チェック
       const checkSession = async () => {
         try {
           const res = await fetch("/api/auth/complete-passkey-setup", {
@@ -119,18 +150,18 @@ export default function PasskeySetupPage() {
             body: JSON.stringify({}),
           });
 
-          // 401エラーの場合はセッションが切れていると判断
           if (res.status === 401) {
-            console.log("Session expired, redirecting to login");
             router.replace("/login");
+            return;
           }
+
+          // その他のエラーは無視して継続
         } catch (error) {
-          console.log("Session check failed:", error);
+          // ネットワークエラー等は無視
         }
       };
 
-      // 少し遅延してチェックすることで、ページ遷移直後の誤検出を防ぐ
-      const timer = setTimeout(checkSession, 1000);
+      const timer = setTimeout(checkSession, 500);
       return () => clearTimeout(timer);
     }
   }, [status, session, router]);
@@ -191,26 +222,25 @@ export default function PasskeySetupPage() {
     });
   }
 
-  const handleRegister = async () => {
+  async function handleRegister() {
     setMsg(null);
     setPasskeyRegistering(true);
     try {
       const opts = await getRegistrationOptions();
-      console.log("webauthn: server options:", opts);
 
       const publicKey = preformatCreateOptions(opts);
 
       const cred: any = (await navigator.credentials.create({
         publicKey,
       } as any)) as any;
+
       if (!cred) {
-        // ユーザーがキャンセルした場合、エラーを投げずに静かに終了
+        // ユーザーがキャンセルした場合
         setPasskeyRegistering(false);
         return;
       }
 
       const serialized = serializeAttestation(cred);
-      console.log("webauthn: attestation serialized", serialized);
 
       // send to server
       await sendAttestationToServer(serialized);
@@ -219,21 +249,20 @@ export default function PasskeySetupPage() {
       await markCompleteOnServer();
 
       setMsg({ type: "ok", text: "パスキーを登録しました。" });
-      // navigate home
-      router.replace("/home");
-    } catch (err: any) {
-      console.error("passkey register error:", err);
 
+      // 少し待ってからホームへ移動
+      setTimeout(() => {
+        router.replace("/home");
+      }, 1500);
+    } catch (err: any) {
       // ユーザーがキャンセルした場合はエラーメッセージを表示しない
       if (
         err?.name === "NotAllowedError" ||
         err?.message?.includes("cancelled")
       ) {
-        // 静かにキャンセル処理を終了
         return;
       }
 
-      // その他のエラーのみ表示
       const friendly =
         err?.message && typeof err.message === "string"
           ? err.message
@@ -242,7 +271,7 @@ export default function PasskeySetupPage() {
     } finally {
       setPasskeyRegistering(false);
     }
-  };
+  }
 
   const handleSkip = async () => {
     setMsg(null);
@@ -276,76 +305,98 @@ export default function PasskeySetupPage() {
             </h2>
           </div>
 
-          <div className="text-center space-y-6">
-            <p className="text-secondary text-sm leading-relaxed max-w-xs mx-auto text-center">
-              パスキーを登録すると、次回からパスワード不要で安全にログインできます。推奨設定です。
-            </p>
-
-            {/* パスキーアイコン */}
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
-              style={{
-                background:
-                  "color-mix(in srgb, var(--accent) 15%, transparent)",
-              }}
-            >
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{ color: "var(--accent)" }}
-              >
-                <path
-                  d="M12 2C9.243 2 7 4.243 7 7c0 1.646.804 3.103 2.041 4H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-4.041C16.196 10.103 17 8.646 17 7c0-2.757-2.243-5-5-5zM9 7c0-1.654 1.346-3 3-3s3 1.346 3 3-1.346 3-3 3-3-1.346-3-3zm0 8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4H9v-4z"
-                  fill="currentColor"
-                />
-              </svg>
-            </div>
-
-            <p className="text-sm text-muted text-center">
-              アカウントが作成されました。続けてパスキーを登録しますか？（推奨）
-            </p>
-          </div>
-
-          {msg && (
-            <div
-              className={`text-sm p-3 rounded-lg text-center mb-6 ${
-                msg.type === "error"
-                  ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
-                  : "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
-              }`}
-            >
-              {msg.text}
+          {/* セッション読み込み中の表示 */}
+          {status === "loading" && (
+            <div className="text-center space-y-4">
+              <div
+                className="w-8 h-8 rounded-full border-4 border-t-transparent mx-auto"
+                style={{
+                  borderColor: "var(--accent)",
+                  borderTopColor: "transparent",
+                  animation: "spin 900ms linear infinite",
+                }}
+              />
+              <p className="text-sm text-muted">セッションを確認中...</p>
             </div>
           )}
 
-          <div className="space-y-3">
-            <motion.button
-              type="button"
-              onClick={handleRegister}
-              disabled={passkeyRegistering}
-              whileTap={buttonTap.whileTap}
-              whileHover={buttonTap.whileHover}
-              transition={springTransition}
-              className="w-full font-semibold py-3 rounded-full text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-              style={{ background: "var(--accent)" }}
-            >
-              {passkeyRegistering ? "登録中…" : "パスキーを登録する（推奨）"}
-            </motion.button>
+          {/* メインコンテンツ（認証済みの場合のみ表示） */}
+          {status === "authenticated" && (
+            <>
+              <div className="text-center space-y-6">
+                <p className="text-secondary text-sm leading-relaxed max-w-xs mx-auto text-center">
+                  パスキーを登録すると、次回からパスワード不要で安全にログインできます。推奨設定です。
+                </p>
 
-            <motion.button
-              type="button"
-              onClick={handleSkip}
-              disabled={loading}
-              whileTap={buttonTap.whileTap}
-              whileHover={buttonTap.whileHover}
-              transition={springTransition}
-              className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-            >
-              今はスキップしてホームへ
-            </motion.button>
-          </div>
+                {/* パスキーアイコン */}
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
+                  style={{
+                    background:
+                      "color-mix(in srgb, var(--accent) 15%, transparent)",
+                  }}
+                >
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    <path
+                      d="M12 2C9.243 2 7 4.243 7 7c0 1.646.804 3.103 2.041 4H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-4.041C16.196 10.103 17 8.646 17 7c0-2.757-2.243-5-5-5zM9 7c0-1.654 1.346-3 3-3s3 1.346 3 3-1.346 3-3 3-3-1.346-3-3zm0 8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4H9v-4z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </div>
+
+                <p className="text-sm text-muted text-center">
+                  パスキーを登録しませんか？（推奨）
+                </p>
+              </div>
+
+              {msg && (
+                <div
+                  className={`text-sm p-3 rounded-lg text-center mb-6 ${
+                    msg.type === "error"
+                      ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
+                      : "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                  }`}
+                >
+                  {msg.text}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <motion.button
+                  type="button"
+                  onClick={handleRegister}
+                  disabled={passkeyRegistering}
+                  whileTap={buttonTap.whileTap}
+                  whileHover={buttonTap.whileHover}
+                  transition={springTransition}
+                  className="w-full font-semibold py-3 rounded-full text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  style={{ background: "var(--accent)" }}
+                >
+                  {passkeyRegistering
+                    ? "登録中…"
+                    : "パスキーを登録する（推奨）"}
+                </motion.button>
+
+                <motion.button
+                  type="button"
+                  onClick={handleSkip}
+                  disabled={loading}
+                  whileTap={buttonTap.whileTap}
+                  whileHover={buttonTap.whileHover}
+                  transition={springTransition}
+                  className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  今はスキップしてホームへ
+                </motion.button>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="text-center text-xs text-muted mt-8">© My-fridgeai</div>

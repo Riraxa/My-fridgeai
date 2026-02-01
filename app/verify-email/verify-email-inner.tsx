@@ -57,6 +57,29 @@ export default function VerifyEmailInner() {
           return;
         }
 
+        // signIn成功後、セッションが確立されるまで待機して確認
+        let sessionCheckCount = 0;
+        const maxSessionChecks = 10;
+
+        while (sessionCheckCount < maxSessionChecks) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+
+          // セッション状態を確認
+          const sessionCheck = await fetch("/api/auth/session", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (sessionCheck.ok) {
+            const sessionData = await sessionCheck.json();
+            if (sessionData?.user?.email === body.email) {
+              break; // セッション確立を確認
+            }
+          }
+
+          sessionCheckCount++;
+        }
+
         setStatus("success");
         setMessage("メール確認が完了しました。セキュリティ設定へ移動します…");
 

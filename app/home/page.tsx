@@ -44,8 +44,15 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (mounted && status === "unauthenticated") {
-      router.push("/login");
+    if (mounted) {
+      if (status === "loading") {
+        return;
+      }
+
+      if (status === "unauthenticated") {
+        router.push("/login");
+        return;
+      }
     }
   }, [status, mounted, session, router]);
 

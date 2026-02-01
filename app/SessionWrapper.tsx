@@ -11,8 +11,8 @@ export default function SessionWrapper({
   return (
     <SessionProvider
       basePath="/api/auth"
-      refetchInterval={0} // 自動リフレッシュを無効化
-      refetchOnWindowFocus={false} // ウィンドウフォーカス時のリフレッシュを無効化
+      refetchInterval={5 * 60} // 5分ごとにリフレッシュ（セッション安定性のため）
+      refetchOnWindowFocus={true} // ウィンドウフォーカス時のリフレッシュを有効化
     >
       {children}
     </SessionProvider>
