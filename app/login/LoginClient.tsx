@@ -304,7 +304,10 @@ export default function LoginClient() {
           router.replace("/home");
         }
       } else {
-        setMsg("メールアドレスまたはパスワードが正しくありません。");
+        const errorMsg = getErrorMessage(res?.error);
+        setMsg(
+          errorMsg || "メールアドレスまたはパスワードが正しくありません。",
+        );
       }
     } catch (err: any) {
       console.error("[password login] error:", err);
