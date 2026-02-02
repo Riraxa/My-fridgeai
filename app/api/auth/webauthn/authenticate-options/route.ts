@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
 import { getWebAuthnRP } from "@/lib/webauthnRP";
 import type { Passkey } from "@prisma/client";
+import { AUTH_ERROR_MESSAGES } from "@/lib/security";
 
 /** helpers */
 function bufferToBase64url(buf: Buffer | Uint8Array | ArrayBuffer) {
@@ -33,10 +34,14 @@ export async function POST(req: Request) {
     // 1. Find user
     const user = await prisma.user.findUnique({ where: { email: emailLower } });
     if (!user) {
+      // 安全性：ユーザー存在の有無にかかわらず統一メッセージで列挙攻撃を防止
+      console.warn(
+        `[webauthn authenticate-options] User not found: ${emailLower}`,
+      );
       return NextResponse.json(
         {
           ok: false,
-          message: "そのメールアドレスは未登録です。新規登録してください。",
+          message: AUTH_ERROR_MESSAGES.INVALID_CREDENTIALS,
         },
         { status: 404 },
       );
@@ -47,11 +52,13 @@ export async function POST(req: Request) {
       where: { userId: user.id },
     });
     if (passkeys.length === 0) {
+      console.warn(
+        `[webauthn authenticate-options] No passkeys found for user: ${emailLower}`,
+      );
       return NextResponse.json(
         {
           ok: false,
-          message:
-            "このアドレスではパスキーが登録されていません。メールアドレス・パスワードでログインしてください。",
+          message: AUTH_ERROR_MESSAGES.INVALID_CREDENTIALS, // 統一メッセージで情報漏洩防止
         },
         { status: 400 },
       );

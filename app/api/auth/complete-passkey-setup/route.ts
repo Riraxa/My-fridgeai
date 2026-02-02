@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { validateAndNormalizeIP } from "@/lib/security";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -50,7 +51,8 @@ export async function POST(req: NextRequest) {
 
     // IP Check
     if (user.allowedIps && user.allowedIps.length > 0) {
-      const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+      const rawIP = req.headers.get("x-forwarded-for");
+      const ip = validateAndNormalizeIP(rawIP);
       if (!user.allowedIps.includes(ip)) {
         return NextResponse.json(
           { error: "許可されていないIPからの操作です" },

@@ -48,6 +48,12 @@ export async function POST(req: Request) {
     const tokenHash = hashToken(token);
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
 
+    // invalidate existing tokens before creating new one
+    await prisma.passwordReset.updateMany({
+      where: { userId: user.id, used: false },
+      data: { used: true },
+    });
+
     // persist token
     await prisma.passwordReset.create({
       data: {

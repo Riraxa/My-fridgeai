@@ -84,7 +84,12 @@ export const authOptions: NextAuthOptions = {
         if (!user.password) return null;
 
         // auth_methodチェック：passkey_enabledユーザーはパスワードログインを禁止
+        // UX改善：エラーではなく適切な案内メッセージを返す
         if ((user as any).authMethod === "passkey_enabled") {
+          console.warn(
+            `[auth] Password login attempted for passkey_enabled user: ${email}`,
+          );
+          // NextAuthがエラーとして扱う特殊な値を返す
           throw new Error("PASSKEY_ONLY");
         }
 
@@ -129,7 +134,7 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/login",
     verifyRequest: "/verify-request",
-    error: "/login",
+    error: "/login", // エラー時もログインページに戻り、クエリパラメータでエラー種別を渡す
   },
 
   callbacks: {

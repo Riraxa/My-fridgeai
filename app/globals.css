@@ -1200,3 +1200,63 @@ img {
     animation-duration: 0.4s;
   }
 }
+
+/* Alert Component Styles */
+.alert {
+  @apply flex items-start gap-3 p-4 rounded-lg border shadow-sm;
+  transition: all 0.2s ease-in-out;
+}
+
+.alert-icon {
+  @apply flex-shrink-0 mt-0.5;
+}
+
+.alert-content {
+  @apply flex-1 min-w-0;
+}
+
+.alert-message {
+  @apply text-sm font-medium;
+}
+
+.alert-action {
+  @apply mt-2;
+}
+
+/* Alert Types */
+.alert-error {
+  @apply bg-red-50 border-red-200 text-red-900 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200;
+}
+
+.alert-error .alert-icon {
+  @apply text-red-600 dark:text-red-400;
+}
+
+.alert-success {
+  @apply bg-green-50 border-green-200 text-green-900 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200;
+}
+
+.alert-success .alert-icon {
+  @apply text-green-600 dark:text-green-400;
+}
+
+.alert-warning {
+  @apply bg-yellow-50 border-yellow-200 text-yellow-900 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200;
+}
+
+.alert-warning .alert-icon {
+  @apply text-yellow-600 dark:text-yellow-400;
+}
+
+.alert-info {
+  @apply bg-blue-50 border-blue-200 text-blue-900 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-200;
+}
+
+.alert-info .alert-icon {
+  @apply text-blue-600 dark:text-blue-400;
+}
+
+/* Alert hover effects */
+.alert:hover {
+  @apply shadow-md;
+}

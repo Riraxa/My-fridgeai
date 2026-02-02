@@ -8,6 +8,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
+import { Alert } from "@/app/components/Alert";
 
 function getErrorMessage(
   errorCode: string | null,
@@ -225,11 +226,9 @@ function RegisterPageContent() {
           {step === "select" ? (
             <div className="flex flex-col gap-4">
               {msg && (
-                <div
-                  className={`text-sm text-center ${msg.type === "error" ? "text-red-500" : "text-green-600"}`}
-                >
+                <Alert type={msg.type === "error" ? "error" : "success"}>
                   {msg.text}
-                </div>
+                </Alert>
               )}
 
               <motion.button
@@ -473,11 +472,9 @@ function RegisterPageContent() {
               </div>
 
               {msg && (
-                <div
-                  className={`text-sm ${msg.type === "error" ? "text-red-500" : "text-green-600"}`}
-                >
+                <Alert type={msg.type === "error" ? "error" : "success"}>
                   {msg.text}
-                </div>
+                </Alert>
               )}
 
               <motion.button

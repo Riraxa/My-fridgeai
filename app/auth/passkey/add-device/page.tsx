@@ -4,6 +4,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { motion } from "framer-motion";
 import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
@@ -16,6 +17,7 @@ import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
  */
 
 export default function AddDevicePage() {
+  const router = useRouter();
   const { theme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -219,11 +221,18 @@ export default function AddDevicePage() {
               </motion.button>
             </form>
 
-            <div className="mt-6 text-center">
-              <Link
-                href="/login"
-                className="text-sm text-secondary underline hover:text-primary transition-colors"
+            <div className="flex items-center justify-between mt-6">
+              <button
+                type="button"
+                className="text-sm underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push("/reset-password/request");
+                }}
               >
+                パスワードをお忘れですか？
+              </button>
+              <Link href="/login" className="text-sm underline">
                 ← ログインに戻る
               </Link>
             </div>

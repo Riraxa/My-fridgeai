@@ -72,9 +72,9 @@ export async function POST(req: Request) {
       data: { password: hashed },
     });
 
-    // mark reset token used
-    await prisma.passwordReset.updateMany({
-      where: { userId: user.id, tokenHash, used: false },
+    // mark reset token used (single record update)
+    await prisma.passwordReset.update({
+      where: { id: pr.id },
       data: { used: true },
     });
 

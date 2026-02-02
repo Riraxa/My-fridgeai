@@ -151,18 +151,23 @@ export function generateSecureRandomString(length = 32): string {
 }
 
 /**
- * IPアドレスの検証と正規化
+ * IPアドレスの検証と正規化（偽装対策強化版）
  */
 export function validateAndNormalizeIP(ip: string | null): string {
   if (!ip) return "unknown";
+
+  // X-Forwarded-Forヘッダーの場合、カンマ区切りで複数のIPが含まれる場合がある
+  // 最も左側のIPがオリジナルのクライアントIP
+  const ipList = ip.split(",").map((s) => s.trim());
+  const clientIP = ipList[0];
 
   // IPv4形式の検証
   const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
   // IPv6形式の検証（簡易）
   const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
 
-  if (ipv4Regex.test(ip)) {
-    const parts = ip.split(".");
+  if (ipv4Regex.test(clientIP)) {
+    const parts = clientIP.split(".");
     // 各オクテットが0-255の範囲内かチェック
     if (
       parts.every((part) => {
@@ -170,19 +175,36 @@ export function validateAndNormalizeIP(ip: string | null): string {
         return num >= 0 && num <= 255;
       })
     ) {
-      return ip;
+      return clientIP;
     }
   }
 
-  if (ipv6Regex.test(ip)) {
-    return ip;
+  if (ipv6Regex.test(clientIP)) {
+    return clientIP;
+  }
+
+  // プライベートIPアドレスの検証（偽装対策）
+  const privateIPRanges = [
+    /^10\./,
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+    /^192\.168\./,
+    /^127\./,
+    /^169\.254\./,
+    /^::1$/,
+    /^fc00:/,
+    /^fe80:/,
+  ];
+
+  const isPrivateIP = privateIPRanges.some((range) => range.test(clientIP));
+  if (isPrivateIP) {
+    return clientIP;
   }
 
   // 不明な形式の場合はハッシュ化して保存
   const crypto = require("crypto");
   return (crypto as any)
     .createHash("sha256")
-    .update(ip)
+    .update(clientIP)
     .digest("hex")
     .substring(0, 16);
 }
@@ -247,3 +269,11 @@ export function validatePasswordStrength(password: string): {
 
   return { valid: errors.length === 0, errors };
 }
+
+// 統一認証エラーメッセージ（ユーザー列挙対策）
+export const AUTH_ERROR_MESSAGES = {
+  INVALID_CREDENTIALS:
+    "認証情報が正しくありません。メールアドレスとパスワード（またはパスキー）を確認してください。",
+  PASSKEY_ONLY:
+    "このアカウントはパスキーでのログインのみ対応しています。パスキーを使用してログインしてください。",
+} as const;

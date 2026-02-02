@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { getWebAuthnRP } from "@/lib/webauthnRP";
+import { validateAndNormalizeIP, AUTH_ERROR_MESSAGES } from "@/lib/security";
 import crypto from "crypto";
 
 /** helpers */
@@ -67,15 +68,17 @@ export async function POST(req: Request) {
     // 1. Find user
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
+      // 安全性：ユーザー存在の有無にかかわらず統一メッセージで列挙攻撃を防止
+      console.warn(`[webauthn authenticate] User not found: ${email}`);
       return NextResponse.json(
-        { ok: false, message: "そのメールアドレスは未登録です。" },
+        { ok: false, message: AUTH_ERROR_MESSAGES.INVALID_CREDENTIALS },
         { status: 404 },
       );
     }
 
     // 2. IP Restriction Check
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const rawIP = req.headers.get("x-forwarded-for");
+    const ip = validateAndNormalizeIP(rawIP);
     if (user.allowedIps && user.allowedIps.length > 0) {
       if (!user.allowedIps.includes(ip)) {
         return NextResponse.json(
@@ -138,10 +141,13 @@ export async function POST(req: Request) {
       }) ?? null;
 
     if (!pk) {
+      console.warn(
+        `[webauthn authenticate] Passkey not found for user: ${email}, assertionId: ${assertionIdBase64url}`,
+      );
       return NextResponse.json(
         {
           ok: false,
-          message: "このアカウントに紐づくパスキーが見つかりません。",
+          message: AUTH_ERROR_MESSAGES.INVALID_CREDENTIALS, // 統一メッセージで情報漏洩防止
         },
         { status: 400 },
       );

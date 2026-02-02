@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { motion } from "framer-motion";
 import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
+import { Alert } from "@/app/components/Alert";
 
 /**
  * Helpers: base64url <-> Uint8Array
@@ -346,30 +347,42 @@ export default function LoginClient() {
           role="status"
           aria-live="polite"
         >
-          <p className="text-yellow-800 dark:text-yellow-200 font-medium mb-2">
-            🔐 このアカウントはパスキーで保護されています。
+          <p className="text-yellow-800 dark:text-yellow-200 font-medium mb-2 flex items-center justify-center gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+              />
+            </svg>
+            このアカウントはパスキーで保護されています
           </p>
           <p className="text-yellow-700 dark:text-yellow-300 text-xs mb-3">
-            パスキーでログインしてください。
+            セキュリティのため、パスキーでのログインのみ対応しています。
+            <br />
+            パスキーを設定した端末でログインしてください。
           </p>
           <a
             href="/auth/passkey/add-device"
             className="inline-block text-xs text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
           >
-            新しい端末での登録はこちら →
+            新しい端末でログインする場合はこちら
           </a>
         </div>
       );
     }
 
     return (
-      <div
-        className="text-sm text-center text-red-600 mt-2"
-        role="status"
-        aria-live="polite"
-      >
+      <Alert type="error" className="mt-2">
         {msg}
-      </div>
+      </Alert>
     );
   };
 
@@ -439,7 +452,22 @@ export default function LoginClient() {
                 transition={springTransition}
                 style={{ color: "var(--color-passkey-text)" }}
               >
-                🔐 パスキーでログイン（推奨・安全）
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="w-5 h-5"
+                  style={{ color: "var(--color-passkey-text)" }}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                  />
+                </svg>
+                パスキーでログイン（推奨・安全）
               </motion.button>
 
               <motion.button
@@ -450,7 +478,7 @@ export default function LoginClient() {
                 whileHover={buttonTap.whileHover}
                 transition={springTransition}
               >
-                🔑 パスワードでログイン（補助）
+                パスワードでログイン（補助）
               </motion.button>
 
               <div className="my-2 border-t border-gray-200 dark:border-gray-700 w-full"></div>

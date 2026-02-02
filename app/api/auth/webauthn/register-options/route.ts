@@ -6,6 +6,7 @@ import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { getWebAuthnRP } from "@/lib/webauthnRP";
 import { headers } from "next/headers";
 import { rateLimit } from "@/lib/rateLimiter";
+import { validateAndNormalizeIP } from "@/lib/security";
 
 /**
  * register-options route (Windows Hello / platform authenticator support)
@@ -79,7 +80,8 @@ export async function POST(req: Request) {
 
     // IP Restriction Check
     if (user.allowedIps && user.allowedIps.length > 0) {
-      const clientIp = ip.split(",")[0].trim();
+      const rawIP = headersList.get("x-forwarded-for");
+      const clientIp = validateAndNormalizeIP(rawIP);
       if (!user.allowedIps.includes(clientIp)) {
         return NextResponse.json(
           {

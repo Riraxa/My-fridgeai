@@ -9,12 +9,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 const getPlanByStatus = (status: Stripe.Subscription.Status) => {
+  // 安全性：有効なステータスのみ明示的にPROに設定、不明時はFREEでfail-safe
   switch (status) {
+    case "active":
+    case "trialing":
+      return "PRO" as const;
     case "canceled":
     case "incomplete_expired":
+    case "past_due":
+    case "unpaid":
+    case "incomplete":
       return "FREE" as const;
     default:
-      return "PRO" as const;
+      console.warn(`[billing-sync] Unexpected subscription status: ${status}`);
+      return "FREE" as const; // fail-safe: 未知ステータスは無料プラン扱い
   }
 };
 
