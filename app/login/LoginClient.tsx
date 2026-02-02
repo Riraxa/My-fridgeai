@@ -100,7 +100,9 @@ function getErrorMessage(errorCode: string | null): string | null {
     case "signup_failed":
       return "登録に失敗しました。もう一度お試しください。";
     case "PASSKEY_ONLY":
-      return "このアカウントはパスキーで保護されています。パスキーでログインしてください。";
+      return "PASSKEY_PROTECTED"; // 特別なケース - コンポーネント内で処理
+    case "passkey_registration_cancelled":
+      return "パスキーの登録が完了しなかったため、ログアウトしました。この端末を使用するには、再度登録を行ってください。";
     default:
       return "エラーが発生しました。もう一度お試しください。";
   }
@@ -333,8 +335,34 @@ export default function LoginClient() {
     }
   };
 
-  const Message = () =>
-    msg ? (
+  const Message = () => {
+    if (!msg) return null;
+
+    // PASSKEY_PROTECTED の特別なケース
+    if (msg === "PASSKEY_PROTECTED") {
+      return (
+        <div
+          className="text-sm text-center mt-4 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="text-yellow-800 dark:text-yellow-200 font-medium mb-2">
+            🔐 このアカウントはパスキーで保護されています。
+          </p>
+          <p className="text-yellow-700 dark:text-yellow-300 text-xs mb-3">
+            パスキーでログインしてください。
+          </p>
+          <a
+            href="/auth/passkey/add-device"
+            className="inline-block text-xs text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+          >
+            新しい端末での登録はこちら →
+          </a>
+        </div>
+      );
+    }
+
+    return (
       <div
         className="text-sm text-center text-red-600 mt-2"
         role="status"
@@ -342,7 +370,8 @@ export default function LoginClient() {
       >
         {msg}
       </div>
-    ) : null;
+    );
+  };
 
   return (
     <motion.div

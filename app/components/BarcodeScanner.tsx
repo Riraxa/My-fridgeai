@@ -157,6 +157,15 @@ export default function BarcodeScanner({
         ) {
           errorMessage =
             "カメラへのアクセスが拒否されました。設定で許可してください。";
+        } else if (e?.name === "NotFoundError") {
+          errorMessage =
+            "カメラが見つかりませんでした。カメラが接続されているか確認してください。";
+        } else if (e?.name === "NotReadableError" || e?.name === "AbortError") {
+          errorMessage =
+            "カメラが使用できません。他のアプリがカメラを使用している可能性があります。";
+        } else if (e?.name === "OverconstrainedError") {
+          errorMessage =
+            "ご利用のカメラはサポートされていません。別のカメラをお試しください。";
         }
 
         setError(errorMessage);

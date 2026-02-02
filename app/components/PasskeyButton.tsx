@@ -194,9 +194,12 @@ export default function PasskeyButton({ onSuccess }: PasskeyButtonProps) {
     } catch (err: any) {
       console.error("Passkey registration error:", err);
 
-      // User cancelled or timed out
-      if (err?.name === "NotAllowedError") {
-        setMessage("パスキー登録がキャンセルされました。");
+      // User cancelled, timed out, or already registered
+      if (
+        err?.name === "NotAllowedError" ||
+        err?.name === "InvalidStateError"
+      ) {
+        // 静かに終了（エラーメッセージを表示しない）
         return;
       }
 

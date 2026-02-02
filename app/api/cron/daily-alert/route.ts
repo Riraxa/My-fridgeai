@@ -135,7 +135,7 @@ export async function GET(req: Request) {
             const mailOptions = {
               from: process.env.EMAIL_FROM,
               to: userEmail,
-              subject: `【FridgeAI】賞味期限が近い食材があります(${itemsToNotify.length}件)`,
+              subject: `【My-fridgeai】賞味期限が近い食材があります(${itemsToNotify.length}件)`,
               text:
                 `${pref.user.name || "ユーザー"} 様\n\n` +
                 `以下の食材の賞味期限が近づいています。\n\n` +

@@ -139,33 +139,6 @@ export default function PasskeySetupPage() {
     }
   }, [status, session, router]);
 
-  // セッション有効性チェック
-  useEffect(() => {
-    if (status === "authenticated" && session?.user?.email) {
-      const checkSession = async () => {
-        try {
-          const res = await fetch("/api/auth/complete-passkey-setup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({}),
-          });
-
-          if (res.status === 401) {
-            router.replace("/login");
-            return;
-          }
-
-          // その他のエラーは無視して継続
-        } catch (error) {
-          // ネットワークエラー等は無視
-        }
-      };
-
-      const timer = setTimeout(checkSession, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [status, session, router]);
-
   const email = session?.user?.email ?? "";
 
   async function getRegistrationOptions() {
@@ -255,10 +228,12 @@ export default function PasskeySetupPage() {
         router.replace("/home");
       }, 1500);
     } catch (err: any) {
-      // ユーザーがキャンセルした場合はエラーメッセージを表示しない
+      // ユーザーがキャンセルした場合、または既に登録済みのパスキーの場合はエラーメッセージを表示しない
       if (
         err?.name === "NotAllowedError" ||
-        err?.message?.includes("cancelled")
+        err?.name === "InvalidStateError" ||
+        err?.message?.includes("cancelled") ||
+        err?.message?.includes("already registered")
       ) {
         return;
       }

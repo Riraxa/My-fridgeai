@@ -110,7 +110,7 @@ User-Agent: ${req.headers.get("user-agent") || "Unknown"}
 Referer: ${req.headers.get("referer") || "None"}
 
 ---
-このメールは My FridgeAI サポートシステムから自動送信されました。
+このメールは My-fridgeai サポートシステムから自動送信されました。
 `,
       attachments: screenshotBase64
         ? [

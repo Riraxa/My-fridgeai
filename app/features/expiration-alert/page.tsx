@@ -181,12 +181,7 @@ export default function ExpirationAlertPage() {
                     </span>
                   </h3>
                   <ul className="space-y-4">
-                    {[
-                      "リアルタイム・メール通知",
-                      "LINE連携によるプッシュ通知",
-                      "期限5日目からの先行アラート",
-                      "複数デバイスへの通知同期",
-                    ].map((text) => (
+                    {["期限5日目からの先行アラート"].map((text) => (
                       <li key={text} className="flex gap-3 text-indigo-100">
                         <svg
                           className="w-5 h-5 text-indigo-300 flex-shrink-0"
