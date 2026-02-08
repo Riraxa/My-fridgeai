@@ -22,10 +22,6 @@ export default function VerifyEmailInner() {
     }
 
     const run = async () => {
-      console.log(
-        "[VerifyEmail] Verification started for token:",
-        token?.substring(0, 10) + "...",
-      );
       try {
         const res = await fetch(
           `/api/auth/verify-email?token=${encodeURIComponent(token)}`,
@@ -34,11 +30,9 @@ export default function VerifyEmailInner() {
             headers: { Accept: "application/json" },
           },
         );
-        console.log("[VerifyEmail] API response status:", res.status);
 
         if (!res.ok) {
           const body = await res.json().catch(() => null);
-          console.error("[VerifyEmail] API failed:", body);
           setStatus("invalid");
           setMessage(body?.message ?? "このリンクは無効か期限切れです。");
           return;
@@ -46,24 +40,19 @@ export default function VerifyEmailInner() {
 
         // 成功レスポンス（JSON expected）
         const body = await res.json().catch(() => null);
-        console.log("[VerifyEmail] API success, body received");
 
         if (!body?.token || !body?.email) {
-          console.error("[VerifyEmail] Missing token/email in response:", body);
           throw new Error("認証データが不足しています。");
         }
 
         // バックグラウンドで signIn を実行
-        console.log("[VerifyEmail] Attempting signIn with credentials...");
         const signInResult = await signIn("credentials", {
           email: body.email,
           token: body.token,
           redirect: false,
         });
-        console.log("[VerifyEmail] signIn result:", signInResult);
 
         if (signInResult?.error) {
-          console.error("[VerifyEmail] signIn error:", signInResult.error);
           setStatus("invalid");
           setMessage("認証処理に失敗しました。再度ログインしてください。");
           return;
@@ -72,7 +61,6 @@ export default function VerifyEmailInner() {
         // signIn成功後、セッションが確立されるまで待機して確認
         let sessionCheckCount = 0;
         const maxSessionChecks = 10;
-        console.log("[VerifyEmail] Waiting for session establishment...");
 
         while (sessionCheckCount < maxSessionChecks) {
           await new Promise((resolve) => setTimeout(resolve, 500));
@@ -86,21 +74,11 @@ export default function VerifyEmailInner() {
           if (sessionCheck.ok) {
             const sessionData = await sessionCheck.json();
             if (sessionData?.user?.email === body.email) {
-              console.log(
-                "[VerifyEmail] Session verified for:",
-                sessionData.user.email,
-              );
               break; // セッション確立を確認
             }
           }
 
           sessionCheckCount++;
-        }
-
-        if (sessionCheckCount >= maxSessionChecks) {
-          console.warn(
-            "[VerifyEmail] Session verification timed out, but proceeding...",
-          );
         }
 
         setStatus("success");
@@ -111,7 +89,7 @@ export default function VerifyEmailInner() {
           router.replace("/passkey-setup");
         }, 1400);
       } catch (err) {
-        console.error("[VerifyEmail] Unexpected error:", err);
+        console.error("[VerifyEmail] Error:", err);
         setStatus("error");
         setMessage(
           "通信エラーが発生しました。ネットワークを確認して再試行してください。",

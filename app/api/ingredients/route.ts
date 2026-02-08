@@ -16,16 +16,6 @@ export async function GET(req: NextRequest) {
       secureCookie: process.env.NODE_ENV === "production",
     });
 
-    // Logging for diagnosis
-    if (!token) {
-      console.error(
-        "[API] No token found in getToken(). Cookies:",
-        req.headers.get("cookie"),
-      );
-    } else {
-      // console.log("[API] Token found. Sub:", token.sub);
-    }
-
     if (!token) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -75,10 +65,6 @@ export async function POST(req: NextRequest) {
     });
 
     if (!token) {
-      console.error(
-        "[API][POST] No token found. Cookies:",
-        req.headers.get("cookie"),
-      );
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 

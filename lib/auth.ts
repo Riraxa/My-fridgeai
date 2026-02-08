@@ -120,23 +120,16 @@ export const authOptions: NextAuthOptions = {
 
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
+      name: isProd
+        ? `__Secure-next-auth.session-token`
+        : `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
-        domain: process.env.NODE_ENV === "production" ? undefined : undefined,
+        secure: isProd,
+        domain: undefined,
       },
-    },
-  },
-
-  // デバッグ用ログ（本番環境でのCookie設定確認）
-  events: {
-    async session({ session }) {
-      if (process.env.NODE_ENV === "production") {
-        // console.log("[Auth] Session active for user:", session.user?.email);
-      }
     },
   },
 
