@@ -22,6 +22,13 @@ export function getWebAuthnRP() {
     }
   }
 
+  if (process.env.NODE_ENV === "production") {
+    console.log("[WebAuthn RP] Configured:", {
+      origin: url.origin,
+      rpID: url.hostname,
+    });
+  }
+
   return {
     origin: url.origin,
     rpID: url.hostname,

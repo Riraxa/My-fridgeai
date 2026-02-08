@@ -131,6 +131,15 @@ export const authOptions: NextAuthOptions = {
     },
   },
 
+  // デバッグ用ログ（本番環境でのCookie設定確認）
+  events: {
+    async session({ session }) {
+      if (process.env.NODE_ENV === "production") {
+        // console.log("[Auth] Session active for user:", session.user?.email);
+      }
+    },
+  },
+
   pages: {
     signIn: "/login",
     verifyRequest: "/verify-request",

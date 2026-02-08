@@ -128,6 +128,9 @@ export function validateJWTToken(token: any): {
 
   // ユーザーIDの形式検証（cuid/uuid/etc）
   if (!/^[a-zA-Z0-9_\-]{20,128}$/.test(userId)) {
+    console.error(
+      `[JWT Validation Error] Invalid format for userId: ${userId}`,
+    );
     return { valid: false, error: "Invalid user ID format" };
   }
 

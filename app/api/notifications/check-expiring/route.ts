@@ -28,7 +28,21 @@ export async function POST() {
 
     const expiringItems = ingredients.filter((i) => {
       if (!i.expirationDate) return false;
-      const days = differenceInDays(i.expirationDate, new Date());
+
+      // タイムゾーンを考慮した日付計算
+      const now = new Date();
+      now.setHours(0, 0, 0, 0); // 今日の開始時刻
+      const itemDate = new Date(i.expirationDate);
+      const itemDateOnly = new Date(
+        itemDate.getFullYear(),
+        itemDate.getMonth(),
+        itemDate.getDate(),
+      );
+
+      // 日数の差を計算
+      const diffTime = itemDateOnly.getTime() - now.getTime();
+      const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
       return days >= 0 && days <= alertDaysBefore;
     });
 
@@ -83,7 +97,21 @@ export async function POST() {
       createdAlerts.push({
         id: item.id,
         name: item.name,
-        daysRemaining: differenceInDays(item.expirationDate!, new Date()),
+        daysRemaining: (() => {
+          // タイムゾーンを考慮した日付計算
+          const now = new Date();
+          now.setHours(0, 0, 0, 0); // 今日の開始時刻
+          const itemDate = new Date(item.expirationDate!);
+          const itemDateOnly = new Date(
+            itemDate.getFullYear(),
+            itemDate.getMonth(),
+            itemDate.getDate(),
+          );
+
+          // 日数の差を計算
+          const diffTime = itemDateOnly.getTime() - now.getTime();
+          return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        })(),
       });
     }
 

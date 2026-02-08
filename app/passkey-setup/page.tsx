@@ -102,6 +102,13 @@ export default function PasskeySetupPage() {
 
   // guard: must be authenticated (this page is only reachable after clicking magic link)
   useEffect(() => {
+    console.log(
+      "[PasskeySetup] Session status:",
+      status,
+      "User:",
+      session?.user?.email,
+    );
+
     if (status === "loading") {
       return;
     }
@@ -111,6 +118,7 @@ export default function PasskeySetupPage() {
       const retryCheck = async () => {
         let retryCount = 0;
         const maxRetries = 8;
+        console.log("[PasskeySetup] Unauthenticated, starting retry check...");
 
         while (retryCount < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, 800));
@@ -120,6 +128,9 @@ export default function PasskeySetupPage() {
             if (sessionResponse.ok) {
               const sessionData = await sessionResponse.json();
               if (sessionData?.user?.email) {
+                console.log(
+                  "[PasskeySetup] Session recovered within retry loop",
+                );
                 return; // セッションが見つかったのでリダイレクトしない
               }
             }
@@ -131,6 +142,9 @@ export default function PasskeySetupPage() {
         }
 
         // 最大リトライ後もセッションがない場合はリダイレクト
+        console.warn(
+          "[PasskeySetup] Session not found after retries. Redirecting to login.",
+        );
         router.replace("/login");
       };
 

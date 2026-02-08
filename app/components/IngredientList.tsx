@@ -59,8 +59,19 @@ export default function IngredientList({
         </span>
       );
 
-    const diff = new Date(dateStr).getTime() - Date.now();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    // タイムゾーンを考慮した日付計算
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // 今日の開始時刻
+    const itemDate = new Date(dateStr);
+    const itemDateOnly = new Date(
+      itemDate.getFullYear(),
+      itemDate.getMonth(),
+      itemDate.getDate(),
+    );
+
+    // 日数の差を計算（ミリ秒単位）
+    const diffTime = itemDateOnly.getTime() - now.getTime();
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (days < 0)
       return (
@@ -71,13 +82,22 @@ export default function IngredientList({
           期限切れ
         </span>
       );
-    if (days <= 1)
+    if (days === 0)
       return (
         <span
           className="text-[10px] px-1.5 py-0.5 rounded"
           style={{ background: "#ef4444", color: "#fff" }}
         >
-          🔴 あと{days}日
+          🔴 今日中
+        </span>
+      );
+    if (days === 1)
+      return (
+        <span
+          className="text-[10px] px-1.5 py-0.5 rounded"
+          style={{ background: "#ef4444", color: "#fff" }}
+        >
+          🔴 明日まで
         </span>
       );
     if (days <= 3)

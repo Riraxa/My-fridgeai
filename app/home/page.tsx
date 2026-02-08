@@ -87,14 +87,24 @@ export default function HomePage() {
     if (!items || items.length === 0) return { total: 0, expiring: 0 };
 
     let expiring = 0;
-    const now = Date.now();
-    const threeDaysFromNow = now + 3 * 24 * 60 * 60 * 1000;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // 今日の開始時刻に設定
+    const threeDaysFromNow = new Date(now);
+    threeDaysFromNow.setDate(now.getDate() + 3);
+    threeDaysFromNow.setHours(23, 59, 59, 999); // 3日後の終了時刻に設定
 
     for (let i = 0; i < items.length; i++) {
       const dateStr = items[i].expirationDate;
       if (dateStr) {
-        const itemDate = new Date(dateStr).getTime();
-        if (itemDate >= now && itemDate <= threeDaysFromNow) {
+        const itemDate = new Date(dateStr);
+        // タイムゾーンを考慮して日付比較
+        const itemDateOnly = new Date(
+          itemDate.getFullYear(),
+          itemDate.getMonth(),
+          itemDate.getDate(),
+        );
+
+        if (itemDateOnly >= now && itemDateOnly <= threeDaysFromNow) {
           expiring++;
         }
       }
