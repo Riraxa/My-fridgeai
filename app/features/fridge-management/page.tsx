@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "冷蔵庫の在庫管理機能 | My-fridgeai",
   description:
     "数値管理／ざっくり管理（たっぷり/普通/少ない）に対応。バーコード読み取りで素早く登録、賞味期限を自動管理します。",
+  robots: "noindex, nofollow",
   openGraph: {
     title: "冷蔵庫の在庫管理機能 | My-fridgeai",
     description:

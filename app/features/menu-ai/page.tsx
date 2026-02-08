@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "AIで献立を自動生成 | My-fridgeai",
   description:
     "手持ちの食材と賞味期限を考慮して、メイン／代替案A（ジャンル違い）／代替案B（時短15分）を一度に3案生成します。",
+  robots: "noindex, nofollow",
   openGraph: {
     title: "AIで献立を自動生成 | My-fridgeai",
     description:

@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "賞味期限アラート機能 | My-fridgeai",
   description:
     "賞味期限3日以内の食材を検出してメール／アプリ内通知。Vercel Cronで毎日チェックします。",
+  robots: "noindex, nofollow",
   openGraph: {
     title: "賞味期限アラート機能 | My-fridgeai",
     description:
