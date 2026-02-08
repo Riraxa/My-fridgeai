@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import crypto from "crypto";
-import { resend, EMAIL_FROM } from "@/lib/mail/resend";
+import { resend, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail/resend";
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 256;
@@ -208,6 +208,7 @@ export async function POST(req: Request) {
           subject,
           text: plain,
           html,
+          replyTo: EMAIL_REPLY_TO,
         });
 
         if (error) {
@@ -317,6 +318,7 @@ export async function POST(req: Request) {
         subject,
         text: plain,
         html,
+        replyTo: EMAIL_REPLY_TO,
       });
 
       if (error) {
