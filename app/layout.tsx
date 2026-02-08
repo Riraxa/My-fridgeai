@@ -23,11 +23,12 @@ export const metadata: Metadata = {
   description: "AIで食材管理・献立作成ができるアプリ",
   icons: {
     icon: [
+      { url: "/favicon.ico", sizes: "any" },
       { url: "/icon.png", sizes: "32x32", type: "image/png" },
       { url: "/icon.png", sizes: "16x16", type: "image/png" },
       { url: "/icon.png", sizes: "192x192", type: "image/png" },
     ],
-    shortcut: "/icon.png",
+    shortcut: "/favicon.ico",
     apple: "/icon.png",
   },
   manifest: "/manifest.json",

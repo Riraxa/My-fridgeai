@@ -5,4 +5,13 @@ Disallow: /fridge-illustration-dark.png
 Disallow: /icon.png
 Disallow: /my-fridgeai-logo.png
 Disallow: /my-fridgeai-logo-white.png
+
+# 画像検索での表示を明示的にブロック
+User-agent: Googlebot-Image
+Disallow: /fridge-illustration.png
+Disallow: /fridge-illustration-dark.png
+Disallow: /icon.png
+Disallow: /my-fridgeai-logo.png
+Disallow: /my-fridgeai-logo-white.png
+
 Sitemap: https://www.my-fridgeai.com/sitemap.xml
