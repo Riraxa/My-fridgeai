@@ -42,16 +42,24 @@ export default function EnhancedPreferencesPage() {
   const [isPro, setIsPro] = useState(false);
 
   // States for different sections
-  const [preferences, setPreferences] = useState({
+  const [preferences, setPreferences] = useState<{
+    cookingSkill: string;
+    comfortableMethods: string[];
+    avoidMethods: string[];
+    kitchenEquipment: string[];
+  }>({
     cookingSkill: "intermediate",
-    comfortableMethods: [] as string[],
-    avoidMethods: [] as string[],
-    kitchenEquipment: [] as string[],
+    comfortableMethods: [],
+    avoidMethods: [],
+    kitchenEquipment: [],
   });
 
-  const [safety, setSafety] = useState({
-    allergies: [] as any[],
-    restrictions: [] as any[],
+  const [safety, setSafety] = useState<{
+    allergies: any[];
+    restrictions: any[];
+  }>({
+    allergies: [],
+    restrictions: [],
   });
 
   const [taste, setTaste] = useState({
@@ -123,9 +131,36 @@ export default function EnhancedPreferencesPage() {
           userData,
         });
 
-        if (prefsData.preferences) setPreferences(prefsData.preferences);
-        setSafety(safetyData);
-        setTaste((prev) => ({ ...prev, ...tasteData }));
+        if (prefsData.preferences) {
+          setPreferences({
+            ...prefsData.preferences,
+            comfortableMethods: prefsData.preferences.comfortableMethods ?? [],
+            avoidMethods: prefsData.preferences.avoidMethods ?? [],
+            kitchenEquipment: prefsData.preferences.kitchenEquipment ?? [],
+          });
+        }
+        setSafety({
+          allergies: safetyData.allergies ?? [],
+          restrictions: safetyData.restrictions ?? [],
+        });
+        setTaste((prev) => ({
+          ...prev,
+          ...tasteData,
+          tasteScores: tasteData.tasteScores ?? {},
+          lifestyle: {
+            weekdayMode: tasteData.lifestyle?.weekdayMode ?? {
+              timePriority: "normal",
+              dishwashingAvoid: false,
+              singlePan: false,
+            },
+            weekendMode: tasteData.lifestyle?.weekendMode ?? {
+              timePriority: "normal",
+              dishwashingAvoid: false,
+              singlePan: false,
+            },
+          },
+          freeText: tasteData.freeText ?? "",
+        }));
         setGenrePenalty(tasteData.recentGenrePenalty || {});
         setIsPro(userData.user?.plan === "PRO");
       } catch (e) {
@@ -159,7 +194,10 @@ export default function EnhancedPreferencesPage() {
     });
     if (res.ok) {
       const added = await res.json();
-      setSafety((prev) => ({ ...prev, allergies: [...prev.allergies, added] }));
+      setSafety((prev) => ({
+        ...prev,
+        allergies: [...(prev.allergies ?? []), added],
+      }));
     }
   };
 
@@ -173,7 +211,7 @@ export default function EnhancedPreferencesPage() {
       const added = await res.json();
       setSafety((prev) => ({
         ...prev,
-        restrictions: [...prev.restrictions, added],
+        restrictions: [...(prev.restrictions ?? []), added],
       }));
     }
   };
@@ -184,8 +222,8 @@ export default function EnhancedPreferencesPage() {
     });
     if (res.ok) {
       setSafety((prev) => ({
-        allergies: prev.allergies.filter((a) => a.id !== id),
-        restrictions: prev.restrictions.filter((r) => r.id !== id),
+        allergies: (prev.allergies ?? []).filter((a: any) => a.id !== id),
+        restrictions: (prev.restrictions ?? []).filter((r: any) => r.id !== id),
       }));
     }
   };
@@ -232,9 +270,36 @@ export default function EnhancedPreferencesPage() {
       // 取得データをログ出力
       console.log("Fetched data:", { prefsData, safetyData, tasteData });
 
-      if (prefsData.preferences) setPreferences(prefsData.preferences);
-      setSafety(safetyData);
-      setTaste((prev) => ({ ...prev, ...tasteData }));
+      if (prefsData.preferences) {
+        setPreferences({
+          ...prefsData.preferences,
+          comfortableMethods: prefsData.preferences.comfortableMethods ?? [],
+          avoidMethods: prefsData.preferences.avoidMethods ?? [],
+          kitchenEquipment: prefsData.preferences.kitchenEquipment ?? [],
+        });
+      }
+      setSafety({
+        allergies: safetyData.allergies ?? [],
+        restrictions: safetyData.restrictions ?? [],
+      });
+      setTaste((prev) => ({
+        ...prev,
+        ...tasteData,
+        tasteScores: tasteData.tasteScores ?? {},
+        lifestyle: {
+          weekdayMode: tasteData.lifestyle?.weekdayMode ?? {
+            timePriority: "normal",
+            dishwashingAvoid: false,
+            singlePan: false,
+          },
+          weekendMode: tasteData.lifestyle?.weekendMode ?? {
+            timePriority: "normal",
+            dishwashingAvoid: false,
+            singlePan: false,
+          },
+        },
+        freeText: tasteData.freeText ?? "",
+      }));
       setGenrePenalty(tasteData.recentGenrePenalty || {});
 
       setSaved(true);
@@ -399,7 +464,9 @@ export default function EnhancedPreferencesPage() {
                       <button
                         key={m}
                         onClick={() => {
-                          const list = [...preferences.comfortableMethods];
+                          const currentList =
+                            preferences.comfortableMethods ?? [];
+                          const list = [...currentList];
                           const i = list.indexOf(m);
                           if (i >= 0) list.splice(i, 1);
                           else list.push(m);
@@ -409,7 +476,7 @@ export default function EnhancedPreferencesPage() {
                           });
                         }}
                         className={`px-4 py-2 rounded-full text-xs font-semibold border transition ${
-                          preferences.comfortableMethods.includes(m)
+                          (preferences.comfortableMethods ?? []).includes(m)
                             ? "bg-green-100 border-green-200 text-green-700"
                             : "bg-slate-50 border-slate-200 text-slate-500"
                         }`}
@@ -439,7 +506,9 @@ export default function EnhancedPreferencesPage() {
                       <button
                         key={e}
                         onClick={() => {
-                          const list = [...preferences.kitchenEquipment];
+                          const currentList =
+                            preferences.kitchenEquipment ?? [];
+                          const list = [...currentList];
                           const i = list.indexOf(e);
                           if (i >= 0) list.splice(i, 1);
                           else list.push(e);
@@ -449,7 +518,7 @@ export default function EnhancedPreferencesPage() {
                           });
                         }}
                         className={`px-4 py-2 rounded-full text-xs font-semibold border transition ${
-                          preferences.kitchenEquipment.includes(e)
+                          (preferences.kitchenEquipment ?? []).includes(e)
                             ? "bg-indigo-100 border-indigo-200 text-indigo-700"
                             : "bg-slate-50 border-slate-200 text-slate-500"
                         }`}
@@ -487,7 +556,7 @@ export default function EnhancedPreferencesPage() {
                     </p>
                   </div>
                   <div className="mb-6 flex flex-wrap gap-2">
-                    {safety.allergies.map((a) => (
+                    {(safety.allergies ?? []).map((a: any) => (
                       <div
                         key={a.id}
                         className="bg-red-50 border border-red-100 px-3 py-1.5 rounded-full flex items-center gap-2 text-red-700 text-sm font-medium"
@@ -575,7 +644,7 @@ export default function EnhancedPreferencesPage() {
                     食事制限
                   </h2>
                   <div className="space-y-2">
-                    {safety.restrictions.map((r) => (
+                    {(safety.restrictions ?? []).map((r: any) => (
                       <div
                         key={r.id}
                         className="bg-amber-50 border border-amber-100 p-3 rounded-2xl flex justify-between items-center"
@@ -662,7 +731,7 @@ export default function EnhancedPreferencesPage() {
                   <Heart size={20} className="text-pink-500" /> 味の好み
                 </h2>
                 {tasteKeys.map((item) => {
-                  const score = taste.tasteScores[item.key] || 0;
+                  const score = taste.tasteScores?.[item.key] || 0;
                   return (
                     <div key={item.key} className="space-y-4">
                       <div className="flex justify-between items-end">
@@ -701,7 +770,7 @@ export default function EnhancedPreferencesPage() {
                         onChange={(e) =>
                           handleTasteChange({
                             tasteScores: {
-                              ...taste.tasteScores,
+                              ...(taste.tasteScores ?? {}),
                               [item.key]: parseInt(e.target.value),
                             },
                           })
@@ -748,17 +817,18 @@ export default function EnhancedPreferencesPage() {
                               onClick={() =>
                                 handleTasteChange({
                                   lifestyle: {
-                                    ...taste.lifestyle,
+                                    ...(taste.lifestyle ?? {}),
                                     [mode]: {
-                                      ...(taste.lifestyle as any)[mode],
+                                      ...((taste.lifestyle as any)?.[mode] ??
+                                        {}),
                                       timePriority: p,
                                     },
                                   },
                                 })
                               }
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                                (taste.lifestyle as any)[mode]?.timePriority ===
-                                p
+                                ((taste.lifestyle as any)?.[mode] ?? {})
+                                  ?.timePriority === p
                                   ? "bg-white text-indigo-600 shadow-sm"
                                   : "text-slate-400"
                               }`}
@@ -783,20 +853,20 @@ export default function EnhancedPreferencesPage() {
                           onClick={() =>
                             handleTasteChange({
                               lifestyle: {
-                                ...taste.lifestyle,
+                                ...(taste.lifestyle ?? {}),
                                 [mode]: {
-                                  ...(taste.lifestyle as any)[mode],
-                                  dishwashingAvoid: !(taste.lifestyle as any)[
-                                    mode
-                                  ].dishwashingAvoid,
+                                  ...((taste.lifestyle as any)?.[mode] ?? {}),
+                                  dishwashingAvoid: !(
+                                    (taste.lifestyle as any)?.[mode] ?? {}
+                                  ).dishwashingAvoid,
                                 },
                               },
                             })
                           }
-                          className={`w-12 h-6 rounded-full transition relative ${(taste.lifestyle as any)[mode].dishwashingAvoid ? "bg-indigo-600" : "bg-slate-300"}`}
+                          className={`w-12 h-6 rounded-full transition relative ${((taste.lifestyle as any)?.[mode] ?? {}).dishwashingAvoid ? "bg-indigo-600" : "bg-slate-300"}`}
                         >
                           <div
-                            className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${(taste.lifestyle as any)[mode].dishwashingAvoid ? "translate-x-6" : ""}`}
+                            className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${((taste.lifestyle as any)?.[mode] ?? {}).dishwashingAvoid ? "translate-x-6" : ""}`}
                           />
                         </button>
                       </div>

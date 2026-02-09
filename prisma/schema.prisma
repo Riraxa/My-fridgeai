@@ -329,10 +329,10 @@ model UserPreferences {
   id     String @id @default(cuid())
   userId String @unique
 
-  cookingSkill       String @default("intermediate") // beginner | intermediate | advanced
-  comfortableMethods Json? // ["炒め物", "煮物", "焼き物"]
-  avoidMethods       Json? // ["揚げ物"]
-  kitchenEquipment   Json? // ["電子レンジ", "オーブン"]
+  cookingSkill       String   @default("intermediate") // beginner | intermediate | advanced
+  comfortableMethods String[] @default([])            // ["炒め物", "煮物", "焼き物"]
+  avoidMethods       String[] @default([])            // ["揚げ物"]
+  kitchenEquipment   String[] @default([])            // ["電子レンジ", "オーブン"]
 
   // Alert Settings
   enableExpirationAlert Boolean @default(true)
