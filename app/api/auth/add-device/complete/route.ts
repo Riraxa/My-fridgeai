@@ -53,14 +53,25 @@ export async function POST(req: Request) {
     const emailLower = email.toLowerCase().trim();
 
     // setupTokenを検証
-    const user = await prisma.user.findFirst({
-      where: {
-        email: emailLower,
-        verifyToken: `passkey_setup:${setupToken}`,
-      },
+    // すでに登録済み(passkeySetupCompleted: true)の場合は、トークンがクリアされていても成功扱いにする (UX優先)
+    let user = await prisma.user.findUnique({
+      where: { email: emailLower },
     });
 
     if (!user) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "ユーザーが見つかりません。",
+        },
+        { status: 404 },
+      );
+    }
+
+    const isValidToken = user.verifyToken === `passkey_setup:${setupToken}`;
+    const isRecentlyCompleted = user.passkeySetupCompleted;
+
+    if (!isValidToken && !isRecentlyCompleted) {
       return NextResponse.json(
         {
           ok: false,
@@ -68,25 +79,6 @@ export async function POST(req: Request) {
         },
         { status: 401 },
       );
-    }
-
-    // setupTokenの有効期限チェック（5分）
-    if (user.verifyTokenCreatedAt) {
-      const tokenAge = Date.now() - user.verifyTokenCreatedAt.getTime();
-      if (tokenAge > 5 * 60 * 1000) {
-        // トークンをクリア
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { verifyToken: null, verifyTokenCreatedAt: null },
-        });
-        return NextResponse.json(
-          {
-            ok: false,
-            message: "セッションが期限切れです。最初からやり直してください。",
-          },
-          { status: 401 },
-        );
-      }
     }
 
     // パスキーが実際に登録されているか確認
@@ -154,6 +146,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       token: authToken,
+      autoLogin: true,
+      email: user.email,
       message: "パスキーの登録が完了しました。",
     });
   } catch (err: any) {

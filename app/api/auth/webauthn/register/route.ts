@@ -186,11 +186,14 @@ export async function POST(req: Request) {
     });
 
     // challenge は必ず破棄（再利用防止）し、パスキー登録完了フラグを立てる
+    // ただし、新端末登録フロー(passkey_setup:)の場合は、次の complete API で検証するため保持する
+    const isSetupToken = user.verifyToken?.startsWith("passkey_setup:");
+
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        verifyToken: null,
-        verifyTokenCreatedAt: null,
+        verifyToken: isSetupToken ? user.verifyToken : null,
+        verifyTokenCreatedAt: isSetupToken ? user.verifyTokenCreatedAt : null,
         passkeySetupCompleted: true,
         authMethod: "passkey_enabled" as any,
       },

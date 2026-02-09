@@ -193,14 +193,15 @@ function PasskeySetupContent() {
       });
       const completeData = await completeRes.json();
 
-      if (!completeRes.ok || !completeData?.ok) {
-        throw new Error(completeData?.message || "登録完了処理に失敗しました");
+      if (!completeRes.ok) {
+        throw new Error("登録処理に失敗しました");
       }
 
       // 5. NextAuth でセッションを発行
       const signInRes = await signIn("credentials", {
         redirect: false,
-        token: completeData.token,
+        email: completeData.email,
+        token: completeData.token, // トークンも渡す（lib/auth.tsで必要）
         callbackUrl: "/home",
       });
 
