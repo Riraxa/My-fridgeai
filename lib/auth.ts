@@ -83,6 +83,9 @@ export const authOptions: NextAuthOptions = {
         if (!user.emailVerified) return null;
         if (!user.password) return null;
 
+        const ok = await compare(credentials.password, user.password);
+        if (!ok) return null;
+
         // auth_methodチェック：passkey_enabledユーザーはパスワードログインを禁止
         // UX改善：エラーではなく適切な案内メッセージを返す
         if ((user as any).authMethod === "passkey_enabled") {
@@ -92,9 +95,6 @@ export const authOptions: NextAuthOptions = {
           // NextAuthがエラーとして扱う特殊な値を返す
           throw new Error("PASSKEY_ONLY");
         }
-
-        const ok = await compare(credentials.password, user.password);
-        if (!ok) return null;
 
         const result = {
           id: user.id,
