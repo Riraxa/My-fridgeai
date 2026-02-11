@@ -31,7 +31,7 @@ export interface UsedIngredient {
  * Normalize amount to a base unit for comparison
  */
 export function normalizeAmount(amount: number, unit: string): number {
-  if (!unit) return amount;
+  if (!unit || typeof unit !== "string") return amount;
 
   const normalizedUnit = unit.toLowerCase();
 
@@ -58,7 +58,8 @@ export function normalizeAmount(amount: number, unit: string): number {
     slice: 1,
   };
 
-  return amount * (unitMap[normalizedUnit] || 1);
+  const factor = unitMap[normalizedUnit];
+  return amount * (factor ?? 1);
 }
 
 /**
@@ -74,7 +75,7 @@ export function checkIngredientAvailability(
 
   for (const required of requiredIngredients) {
     // Skip if required ingredient is invalid
-    if (!required || !required.name || typeof required.name !== "string") {
+    if (!required?.name || typeof required.name !== "string") {
       console.warn("[Inventory] Skipping invalid ingredient:", required);
       continue;
     }
@@ -83,6 +84,9 @@ export function checkIngredientAvailability(
     // Stricter matching: Exact match or Prefix match (long enough) to avoid false positives like "鶏肉" matching "鶏ガラスープ" incorrectly if not careful
     // User requested: s === r || s.startsWith(r) || r.startsWith(s)
     const stock = userInventory.find((i) => {
+      if (!i.name || typeof i.name !== "string") return false;
+      if (!required.name || typeof required.name !== "string") return false;
+      
       const s = i.name.toLowerCase().trim();
       const r = required.name.toLowerCase().trim();
       return s === r || s.startsWith(r) || r.startsWith(s);
@@ -121,8 +125,8 @@ export function checkIngredientAvailability(
         let shortageAmount = required.amount; // Default to required amount
         let shortageUnit = required.unit;
 
-        // If units are the same, calculate actual shortage
-        if (stock.unit?.toLowerCase() === required.unit.toLowerCase()) {
+        // If units are same, calculate actual shortage
+        if (stock.unit?.toLowerCase() === required.unit?.toLowerCase()) {
           shortageAmount = required.amount - stock.amount;
         } else {
           // For different units, we'll show the required amount as shortage
@@ -186,7 +190,14 @@ export function calculateInventoryUpdates(
   const deletes: { id: string }[] = [];
 
   for (const used of usedIngredients) {
+    if (!used?.name || typeof used.name !== "string") {
+      console.warn("[Inventory] Skipping invalid used ingredient:", used);
+      continue;
+    }
+    
     const stock = userInventory.find((i) => {
+      if (!i.name || typeof i.name !== "string") return false;
+      
       const s = i.name.toLowerCase().trim();
       const u = used.name.toLowerCase().trim();
       return s === u || s.startsWith(u) || u.startsWith(s);
@@ -250,7 +261,7 @@ export function decreaseAmountLevel(current: string): string {
   if (currentIndex === -1) return "普通"; // Default fallback
 
   const nextIndex = Math.min(currentIndex + 1, levels.length - 1);
-  return levels[nextIndex];
+  return levels[nextIndex] ?? "なし";
 }
 
 /**
@@ -263,5 +274,5 @@ export function increaseAmountLevel(current: string): string {
   if (currentIndex === -1) return "普通";
 
   const prevIndex = Math.max(currentIndex - 1, 0);
-  return levels[prevIndex];
+  return levels[prevIndex] ?? "たっぷり";
 }

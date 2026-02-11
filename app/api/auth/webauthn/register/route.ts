@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       where: { email },
     });
 
-    if (!user || !user.verifyToken) {
+    if (!user?.verifyToken) {
       return NextResponse.json(
         {
           ok: false,
@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     }
 
     const registrationInfo = verification.registrationInfo;
-    if (!registrationInfo || !registrationInfo.credential) {
+    if (!registrationInfo?.credential) {
       return NextResponse.json(
         { ok: false, message: "登録情報が不足しています" },
         { status: 500 },

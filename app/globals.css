@@ -1201,6 +1201,7 @@ img {
   }
 }
 
+
 /* Alert Component Styles */
 .alert {
   @apply flex items-start gap-3 p-4 rounded-lg border shadow-sm;
@@ -1260,3 +1261,4 @@ img {
 .alert:hover {
   @apply shadow-md;
 }
+

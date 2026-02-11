@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
@@ -47,29 +47,29 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
     const body = await req.json();
 
-    const { cookingSkill, comfortableMethods, avoidMethods, kitchenEquipment } =
+    const { cookingSkill, comfortableMethods, avoidMethods, kitchenEquipment, aiMessageEnabled } =
       body;
+
+    // Build update/create data, only including aiMessageEnabled if explicitly provided
+    const data: any = {};
+    if (cookingSkill !== undefined) data.cookingSkill = cookingSkill;
+    if (comfortableMethods !== undefined) data.comfortableMethods = comfortableMethods;
+    if (avoidMethods !== undefined) data.avoidMethods = avoidMethods;
+    if (kitchenEquipment !== undefined) data.kitchenEquipment = kitchenEquipment;
+    if (typeof aiMessageEnabled === "boolean") data.aiMessageEnabled = aiMessageEnabled;
 
     const updated = await prisma.userPreferences.upsert({
       where: { userId },
-      update: {
-        cookingSkill,
-        comfortableMethods,
-        avoidMethods,
-        kitchenEquipment,
-      },
+      update: data,
       create: {
         userId,
-        cookingSkill,
-        comfortableMethods,
-        avoidMethods,
-        kitchenEquipment,
+        ...data,
       },
     });
 

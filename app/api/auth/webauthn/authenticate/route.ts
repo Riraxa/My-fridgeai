@@ -208,7 +208,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!verification || !verification.verified) {
+    if (!verification?.verified) {
       return NextResponse.json(
         { ok: false, message: "認証に失敗しました。" },
         { status: 400 },

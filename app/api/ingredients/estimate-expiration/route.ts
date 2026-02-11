@@ -442,7 +442,7 @@ export async function POST(req: Request) {
       temperature: 0.3,
     });
 
-    const content = completion.choices[0].message.content;
+    const content = completion.choices[0]?.message.content;
     if (content) {
       const result = JSON.parse(content);
       const days = result.days || 7;

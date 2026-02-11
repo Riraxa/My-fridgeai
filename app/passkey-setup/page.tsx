@@ -35,7 +35,10 @@ function base64urlToUint8Array(base64url: string) {
 function uint8ArrayToBase64url(buf: ArrayBuffer | Uint8Array) {
   const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
   let s = "";
-  for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+  for (let i = 0; i < u8.length; i++) {
+    const byte = u8[i];
+    if (byte !== undefined) s += String.fromCharCode(byte);
+  }
   const b64 = btoa(s);
   return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
@@ -54,7 +57,7 @@ function preformatCreateOptions(opts: any) {
     publicKey.challenge = new Uint8Array(publicKey.challenge);
   }
 
-  if (publicKey.user && publicKey.user.id) {
+  if (publicKey.user?.id) {
     if (typeof publicKey.user.id === "string") {
       publicKey.user.id = base64urlToUint8Array(publicKey.user.id);
     } else if (Array.isArray(publicKey.user.id)) {
@@ -332,11 +335,10 @@ export default function PasskeySetupPage() {
 
               {msg && (
                 <div
-                  className={`text-sm p-3 rounded-lg text-center mb-6 ${
-                    msg.type === "error"
+                  className={`text-sm p-3 rounded-lg text-center mb-6 ${msg.type === "error"
                       ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
                       : "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
-                  }`}
+                    }`}
                 >
                   {msg.text}
                 </div>

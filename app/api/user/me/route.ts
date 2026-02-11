@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       secureCookie: process.env.NODE_ENV === "production",
     });
 
-    if (!token || !token.sub) {
+    if (!token?.sub) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

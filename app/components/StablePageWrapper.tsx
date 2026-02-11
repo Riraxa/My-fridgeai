@@ -36,6 +36,7 @@ export default function StablePageWrapper({
       }, 100);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [children, displayContent, isReady]);
 
   return (

@@ -24,7 +24,10 @@ function base64urlToUint8Array(base64url?: string): Uint8Array {
 function arrayBufferToBase64url(buf: ArrayBuffer | Uint8Array): string {
   const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
   let s = "";
-  for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+  for (let i = 0; i < u8.length; i++) {
+    const byte = u8[i];
+    if (byte !== undefined) s += String.fromCharCode(byte);
+  }
   const b64 = btoa(s);
   return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
@@ -36,7 +39,7 @@ function preformatCreateOptions(opts: any) {
     ? { ...opts.publicKey }
     : { ...(opts ?? {}) };
 
-  if (!publicKey || !publicKey.challenge) {
+  if (!publicKey?.challenge) {
     throw new Error(
       "サーバーから有効なPublicKeyオプションが返されませんでした",
     );
@@ -50,7 +53,7 @@ function preformatCreateOptions(opts: any) {
   } // else assume it's already an ArrayBuffer / Uint8Array
 
   // user.id may be string base64url or array
-  if (publicKey.user && publicKey.user.id) {
+  if (publicKey.user?.id) {
     if (typeof publicKey.user.id === "string") {
       publicKey.user.id = base64urlToUint8Array(publicKey.user.id);
     } else if (Array.isArray(publicKey.user.id)) {
@@ -233,11 +236,10 @@ export default function PasskeyButton({ onSuccess }: PasskeyButtonProps) {
 
       {message && (
         <p
-          className={`mt-2 text-sm ${
-            message.startsWith("エラー")
+          className={`mt-2 text-sm ${message.startsWith("エラー")
               ? "text-red-600 dark:text-red-400"
               : "text-green-600 dark:text-green-400"
-          }`}
+            }`}
         >
           {message}
         </p>

@@ -49,7 +49,7 @@ export function escapeHtml(unsafe: string): string {
   if (typeof unsafe !== "string") {
     return String(unsafe);
   }
-  return unsafe.replace(/[&<>"'/]/g, (char) => htmlEscapes[char]);
+  return unsafe.replace(/[&<>"'/]/g, (char) => htmlEscapes[char] ?? char);
 }
 
 /**
@@ -76,28 +76,37 @@ export function sanitizeString(input: string, maxLength = 1000): string {
  * プロンプトインジェクション対策のための入力クリーニング
  */
 export function sanitizePromptInput(input: string): string {
-  if (typeof input !== "string") {
-    return "";
-  }
+  if (typeof input !== "string") return "";
 
-  // 危険なパターンを削除
+  // より包括的な危険パターン
   const dangerousPatterns = [
-    /ignore\s+above\s+instructions/gi,
-    /disregard\s+previous/gi,
-    /system\s*:/gi,
-    /assistant\s*:/gi,
-    /\n\n[A-Z_]+\s*:/g,
+    /ignore\s+(all\s+)?(above|previous|prior)\s+(instructions?|prompts?|rules?)/gi,
+    /disregard\s+(all\s+)?(above|previous|prior)/gi,
+    /(system|assistant|user)\s*[:：]/gi,
+    /\n\n(SYSTEM|USER|ASSISTANT)\s*[:：]/g,
     /```[\s\S]*?```/g,
     /`[^`]*`/g,
+    /(pretend|act\s+as|role\s*play)/gi,
+    /(開発者|developer)\s*(モード|mode)/gi,
+    /^\s*###\s*(system|user|assistant)/gi,
+    /\\x[0-9a-fA-F]{2}/g, // hex escape sequences
+    /[\u0000-\u001f]/g, // control characters
   ];
 
-  let sanitized = input;
+  let sanitized = input.trim();
   dangerousPatterns.forEach((pattern) => {
     sanitized = sanitized.replace(pattern, "");
   });
 
-  // 長さ制限
-  return sanitized.trim().slice(0, 2000);
+  // 追加のセキュリティチェック
+  if (sanitized.length < input.length * 0.5) {
+    // 50%以上削除された場合は疑わしい
+    console.warn(
+      `[SECURITY] Suspicious input detected: ${input.substring(0, 100)}`,
+    );
+  }
+
+  return sanitized.slice(0, 2000);
 }
 
 /**
@@ -147,7 +156,10 @@ export function generateSecureRandomString(length = 32): string {
 
   let result = "";
   for (let i = 0; i < length; i++) {
-    result += chars.charAt(randomValues[i] % chars.length);
+    const val = randomValues[i];
+    if (val !== undefined) {
+      result += chars.charAt(val % chars.length);
+    }
   }
 
   return result;
@@ -162,7 +174,7 @@ export function validateAndNormalizeIP(ip: string | null): string {
   // X-Forwarded-Forヘッダーの場合、カンマ区切りで複数のIPが含まれる場合がある
   // 最も左側のIPがオリジナルのクライアントIP
   const ipList = ip.split(",").map((s) => s.trim());
-  const clientIP = ipList[0];
+  const clientIP = ipList[0] ?? "unknown";
 
   // IPv4形式の検証
   const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;

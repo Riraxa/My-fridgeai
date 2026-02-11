@@ -28,7 +28,10 @@ function base64urlToUint8Array(base64url: string) {
 function uint8ArrayToBase64url(bytes: ArrayBuffer | Uint8Array) {
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   let binary = "";
-  for (let i = 0; i < u8.byteLength; i++) binary += String.fromCharCode(u8[i]);
+  for (let i = 0; i < u8.byteLength; i++) {
+    const byte = u8[i];
+    if (byte !== undefined) binary += String.fromCharCode(byte);
+  }
   const base64 = btoa(binary);
   return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

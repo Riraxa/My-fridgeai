@@ -192,5 +192,5 @@ export function extractJsonFromText(text: string): string | null {
 
   if (!candidates.length) return null;
   candidates.sort((a, b) => b.length - a.length);
-  return candidates[0];
+  return candidates[0] ?? null;
 }

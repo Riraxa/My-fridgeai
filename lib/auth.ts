@@ -27,9 +27,23 @@ export const authOptions: NextAuthOptions = {
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
+          // セキュリティ強化
+          hd: process.env.ALLOWED_DOMAIN, // 特定ドメインのみ許可（必要に応じて）
         },
       },
       allowDangerousEmailAccountLinking: false,
+      // 追加のセキュリティオプション
+      profile(profile) {
+        return {
+          id: profile.sub,
+          email: profile.email?.toLowerCase()?.trim(),
+          name: profile.name,
+          image: profile.picture,
+          // メールドメイン検証
+          emailVerified: profile.email_verified ? new Date() : null,
+          isPro: false,
+        };
+      },
     }),
 
     CredentialsProvider({
@@ -249,7 +263,7 @@ export const authOptions: NextAuthOptions = {
 
     async session({ session, token }) {
       // JWTストラテジーの場合、token引数にJWTトークン情報が入ってくる
-      if (session.user && token && token.sub) {
+      if (session.user && token?.sub) {
         session.user.id = token.sub;
 
         // 追加のユーザー情報をDBから確実に取得

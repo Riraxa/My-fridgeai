@@ -34,16 +34,25 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Fetch User Plan, Inventory & Preferences
-    const [ingredients, preferences, user] = await Promise.all([
-      prisma.ingredient.findMany({ where: { userId: userId } }),
-      prisma.userPreferences.findUnique({ where: { userId: userId } }),
-      prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
-    ]);
+    // 2. Fetch User Data (Plan, Inventory & Preferences) in one query
+    const userData = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        plan: true,
+        Ingredient: {
+          include: {
+            alerts: true,
+          },
+        },
+        preferences: true,
+      },
+    });
 
-    const isPro = user?.plan === "PRO";
+    const isPro = userData?.plan === "PRO";
+    const ingredients = userData?.Ingredient || [];
+    const preferences = userData?.preferences;
 
-    if (!ingredients || ingredients.length === 0) {
+    if (ingredients.length === 0) {
       return NextResponse.json(
         { error: "冷蔵庫に食材がありません。先に食材を追加してください。" },
         { status: 400 },
@@ -98,7 +107,7 @@ export async function POST(req: Request) {
       servings,
       budget,
     });
-    if (!menus || !menus.main) {
+    if (!menus?.main) {
       throw new Error("AIが有効な献立を生成できませんでした");
     }
 
@@ -113,20 +122,20 @@ export async function POST(req: Request) {
 
     const altADetails = menus.alternativeA
       ? checkIngredientAvailability(
-          (menus.alternativeA.dishes || []).flatMap(
-            (d: any) => d.ingredients || [],
-          ),
-          ingredients,
-        )
+        (menus.alternativeA.dishes || []).flatMap(
+          (d: any) => d.ingredients || [],
+        ),
+        ingredients,
+      )
       : mainDetails;
 
     const altBDetails = menus.alternativeB
       ? checkIngredientAvailability(
-          (menus.alternativeB.dishes || []).flatMap(
-            (d: any) => d.ingredients || [],
-          ),
-          ingredients,
-        )
+        (menus.alternativeB.dishes || []).flatMap(
+          (d: any) => d.ingredients || [],
+        ),
+        ingredients,
+      )
       : mainDetails;
 
     // Calculate Nutrition (Pro users only)

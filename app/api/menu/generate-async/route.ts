@@ -9,7 +9,7 @@ import { checkIngredientAvailability } from "@/lib/inventory";
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user?.id;
@@ -178,7 +178,7 @@ async function processMenuGeneration(
       throw aiError;
     }
 
-    if (!menus || !menus.main) {
+    if (!menus?.main) {
       console.error(`[MenuGen] AI returned invalid menu structure:`, menus);
       throw new Error("AIが有効な献立を生成できませんでした");
     }

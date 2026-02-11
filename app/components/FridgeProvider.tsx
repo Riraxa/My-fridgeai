@@ -9,6 +9,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useSession } from "next-auth/react";
 import { Ingredient } from "@/types";
 
 type Item = Ingredient & { id: string };
@@ -41,6 +42,7 @@ export type FridgeContextType = {
   openBarcode: () => void;
   openAddModal: (detail?: any) => void; // <-- detail optional
   fetchIngredients: () => Promise<void>;
+  isLoading: boolean;
 };
 
 const FridgeContext = createContext<FridgeContextType | undefined>(undefined);
@@ -69,6 +71,7 @@ const LS = {
 
 /* ---------- Provider component ---------- */
 export function FridgeProvider({ children }: { children: React.ReactNode }) {
+  const { status } = useSession();
   const todayISO = useCallback(() => new Date().toISOString().slice(0, 10), []);
 
   const initItems = useCallback((): Item[] => {
@@ -119,48 +122,49 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
   );
   const [barcodeOpen, setBarcodeOpen] = useState<boolean>(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // persist to localStorage when these change (client-only)
   useEffect(() => {
     if (!isClient()) return;
     try {
       localStorage.setItem(LS.items, JSON.stringify(items ?? []));
-    } catch {}
+    } catch { }
   }, [items]);
 
   useEffect(() => {
     if (!isClient()) return;
     try {
       localStorage.setItem(LS.savedMenus, JSON.stringify(savedMenus));
-    } catch {}
+    } catch { }
   }, [savedMenus]);
 
   useEffect(() => {
     if (!isClient()) return;
     try {
       localStorage.setItem(LS.favorites, JSON.stringify(favoriteTitles));
-    } catch {}
+    } catch { }
   }, [favoriteTitles]);
 
   useEffect(() => {
     if (!isClient()) return;
     try {
       localStorage.setItem(LS.usage, JSON.stringify(usage));
-    } catch {}
+    } catch { }
   }, [usage]);
 
   useEffect(() => {
     if (!isClient()) return;
     try {
       localStorage.setItem(LS.shopping, JSON.stringify(shopping));
-    } catch {}
+    } catch { }
   }, [shopping]);
 
   useEffect(() => {
     if (!isClient()) return;
     try {
       localStorage.setItem(LS.recognized, JSON.stringify(recognizedLabels));
-    } catch {}
+    } catch { }
   }, [recognizedLabels]);
 
   // toast auto clear
@@ -173,10 +177,12 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
   /* ---------- Server sync: fetchIngredients ---------- */
   const fetchIngredients = useCallback(async () => {
     if (!isClient()) return;
+    setIsLoading(true);
     try {
       const res = await fetch("/api/ingredients", { credentials: "include" });
       if (!res.ok) {
         console.debug("fetchIngredients: server returned non-ok", res.status);
+        setIsLoading(false);
         return;
       }
       const data = await res.json().catch(() => null);
@@ -185,13 +191,19 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       console.debug("fetchIngredients fallback to localStorage", e);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  // try fetch once on mount
+  // try fetch once on mount or when session status changes
   useEffect(() => {
-    fetchIngredients();
-  }, [fetchIngredients]);
+    if (status === "authenticated") {
+      fetchIngredients();
+    } else if (status === "unauthenticated") {
+      setIsLoading(false);
+    }
+  }, [status, fetchIngredients]);
 
   /* ---------- addOrUpdateItem ---------- */
   const addOrUpdateItem = useCallback(
@@ -218,15 +230,15 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       const withId: Item = isUpdate
         ? { ...(it as Item) }
         : ({
-            id: `${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
-            name,
-            quantity,
-            amount: it.amount ?? quantity,
-            amountLevel: it.amountLevel ?? null,
-            unit,
-            expirationDate,
-            category,
-          } as Item);
+          id: `${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+          name,
+          quantity,
+          amount: it.amount ?? quantity,
+          amountLevel: it.amountLevel ?? null,
+          unit,
+          expirationDate,
+          category,
+        } as Item);
 
       try {
         const method = isUpdate ? "PUT" : "POST";
@@ -236,14 +248,14 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
         const payload = isUpdate
           ? { ...it }
           : {
-              name,
-              quantity,
-              amount: it.amount ?? quantity,
-              amountLevel: it.amountLevel ?? null,
-              unit,
-              expirationDate,
-              category,
-            };
+            name,
+            quantity,
+            amount: it.amount ?? quantity,
+            amountLevel: it.amountLevel ?? null,
+            unit,
+            expirationDate,
+            category,
+          };
         const res = await fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
@@ -363,7 +375,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       // fallback: dispatch simple event
       try {
         window.dispatchEvent(new CustomEvent("fridge_open_add"));
-      } catch {}
+      } catch { }
     }
   }, []);
 
@@ -393,6 +405,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       openBarcode,
       openAddModal,
       fetchIngredients,
+      isLoading,
     }),
     [
       items,
@@ -418,6 +431,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       openBarcode,
       openAddModal,
       fetchIngredients,
+      isLoading,
     ],
   );
 
@@ -437,32 +451,33 @@ export function useFridge(): FridgeContextType {
     }
     return {
       items: [],
-      setItems: () => {},
+      setItems: () => { },
       addOrUpdateItem: async () => null,
       deleteItem: async () => false,
       savedMenus: [],
-      setSavedMenus: () => {},
+      setSavedMenus: () => { },
       favoriteTitles: [],
-      setFavoriteTitles: () => {},
+      setFavoriteTitles: () => { },
       usage: {
         date: new Date().toISOString().slice(0, 10),
         count: 0,
         premium: false,
       },
-      setUsage: () => {},
+      setUsage: () => { },
       toast: null,
-      setToast: () => {},
+      setToast: () => { },
       shopping: [],
-      setShopping: () => {},
+      setShopping: () => { },
       barcodeOpen: false,
-      setBarcodeOpen: () => {},
+      setBarcodeOpen: () => { },
       deletingIds: new Set(),
-      setDeletingIds: () => {},
+      setDeletingIds: () => { },
       recognizedLabels: [],
-      setRecognizedLabels: () => {},
-      openBarcode: () => {},
-      openAddModal: () => {}, // default no-op
-      fetchIngredients: async () => {},
+      setRecognizedLabels: () => { },
+      openBarcode: () => { },
+      openAddModal: () => { }, // default no-op
+      fetchIngredients: async () => { },
+      isLoading: false,
     };
   }
   return ctx;

@@ -94,7 +94,9 @@ export default function HomePage() {
     threeDaysFromNow.setHours(23, 59, 59, 999); // 3日後の終了時刻に設定
 
     for (let i = 0; i < items.length; i++) {
-      const dateStr = items[i].expirationDate;
+      const item = items[i];
+      if (!item) continue;
+      const dateStr = item.expirationDate;
       if (dateStr) {
         const itemDate = new Date(dateStr);
         // タイムゾーンを考慮して日付比較
@@ -123,8 +125,9 @@ export default function HomePage() {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (
-        item.name.toLowerCase().includes(query) ||
-        (item.category && item.category.toLowerCase().includes(query))
+        item &&
+        (item.name.toLowerCase().includes(query) ||
+          (item.category && item.category.toLowerCase().includes(query)))
       ) {
         result.push(item);
       }

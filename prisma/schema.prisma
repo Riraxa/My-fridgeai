@@ -27,6 +27,11 @@ model User {
   dailyResetAt         DateTime?
   authMethod           String    @default("password_only") @map("auth_method")
 
+  @@index([email, status])
+  @@index([createdAt])
+  @@index([plan])
+  @@index([stripeCustomerId])
+
   shoppingListItems ShoppingListItem[]
 
   // ===== Stripe / Paid plan =====
@@ -266,6 +271,9 @@ model Ingredient {
   alerts InventoryAlert[]
 
   @@index([userId, expirationDate])
+  @@index([userId, createdAt])
+  @@index([userId, category])
+  @@index([barcode])
 }
 
 model Menu {
@@ -319,6 +327,8 @@ model ShoppingListItem {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, checked])
 }
 
 // ==========================================
@@ -425,6 +435,7 @@ model MenuGeneration {
   cookingHistory CookingHistory[]
 
   @@index([userId, generatedAt])
+  @@index([status])
 }
 
 model CookingHistory {

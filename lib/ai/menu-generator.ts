@@ -122,6 +122,9 @@ export async function generateMenus(
 
   // 2. Pro Feature Layer (System Message - High Priority)
   if (preferences?.aiMessageEnabled && taste.freeText) {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AI Context] freeText included in prompt (length:", taste.freeText.length, ")");
+    }
     safetyInstructions += `\n\n# USER SPECIAL INSTRUCTIONS (PRO)
 These instructions have high priority:
 ${taste.freeText}`;
@@ -144,8 +147,8 @@ ${taste.freeText}`;
   const tastePrefs =
     tastePrefsEntries.length > 0
       ? tastePrefsEntries
-          .map(([k, v]) => `${k}: ${(v as number) > 0 ? "+" + v : v}`)
-          .join(", ")
+        .map(([k, v]) => `${k}: ${(v as number) > 0 ? "+" + v : v}`)
+        .join(", ")
       : "None";
 
   const equipment = (
@@ -213,25 +216,25 @@ ${taste.freeText}`;
   const criticalList =
     critical.length > 0
       ? critical
-          .map((i) => {
-            const days = i.expirationDate
-              ? differenceInDays(i.expirationDate, new Date())
-              : 0;
-            return `- ${i.name} (期限まで${days}日) ★最優先`;
-          })
-          .join("\n")
+        .map((i) => {
+          const days = i.expirationDate
+            ? differenceInDays(i.expirationDate, new Date())
+            : 0;
+          return `- ${i.name} (期限まで${days}日) ★最優先`;
+        })
+        .join("\n")
       : "なし";
 
   const warningList =
     warning.length > 0
       ? warning
-          .map((i) => {
-            const days = i.expirationDate
-              ? differenceInDays(i.expirationDate, new Date())
-              : 0;
-            return `- ${i.name} (期限まで${days}日) ☆優先`;
-          })
-          .join("\n")
+        .map((i) => {
+          const days = i.expirationDate
+            ? differenceInDays(i.expirationDate, new Date())
+            : 0;
+          return `- ${i.name} (期限まで${days}日) ☆優先`;
+        })
+        .join("\n")
       : "なし";
 
   // Extract preferences with proper type handling
@@ -368,7 +371,7 @@ ${warningList}
       max_tokens: 4000,
     });
 
-    const content = completion.choices[0].message.content;
+    const content = completion.choices[0]?.message.content;
     if (!content) {
       console.error("[AI] No content returned from OpenAI");
       throw new Error("AIからの応答が空でした");
@@ -596,7 +599,7 @@ ${ingredientList}
     // Actually let's adjust prompt to return object { "week": [...] } to be safe with strict JSON mode
     // But let's try direct map first or handle parsing.
 
-    const content = completion.choices[0].message.content;
+    const content = completion.choices[0]?.message.content;
     if (!content) throw new Error("No content generated");
 
     let parsed;

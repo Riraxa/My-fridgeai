@@ -30,8 +30,20 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files - 機密情報保護のため除外
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env.*.local
+
+# 例外: 機密情報を含まない環境変数例
+!.env.example
+!.env.template
+
+# Vercel環境変数（機密情報含む可能性）
+.vercel/.env*
 
 # vercel
 .vercel

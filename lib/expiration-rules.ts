@@ -423,8 +423,9 @@ export function estimateExpirationDate(
   const normalizedName = name.trim();
 
   // Try exact match
-  if (EXPIRATION_RULES[normalizedName]) {
-    return addDays(purchasedAt, EXPIRATION_RULES[normalizedName]);
+  const exactMatch = EXPIRATION_RULES[normalizedName];
+  if (exactMatch !== undefined) {
+    return addDays(purchasedAt, exactMatch);
   }
 
   // Try partial match (e.g. "豚肉小間切れ" -> "豚肉")
@@ -435,7 +436,10 @@ export function estimateExpirationDate(
 
   for (const key of sortedKeys) {
     if (normalizedName.includes(key)) {
-      return addDays(purchasedAt, EXPIRATION_RULES[key]);
+      const days = EXPIRATION_RULES[key];
+      if (days !== undefined) {
+        return addDays(purchasedAt, days);
+      }
     }
   }
 
@@ -447,8 +451,9 @@ export function estimateExpirationDate(
  */
 export function getExpirationDays(name: string): number | null {
   const normalizedName = name.trim();
-  if (EXPIRATION_RULES[normalizedName]) {
-    return EXPIRATION_RULES[normalizedName];
+  const exactMatch = EXPIRATION_RULES[normalizedName];
+  if (exactMatch !== undefined) {
+    return exactMatch;
   }
 
   const sortedKeys = Object.keys(EXPIRATION_RULES).sort(
@@ -456,7 +461,10 @@ export function getExpirationDays(name: string): number | null {
   );
   for (const key of sortedKeys) {
     if (normalizedName.includes(key)) {
-      return EXPIRATION_RULES[key];
+      const days = EXPIRATION_RULES[key];
+      if (days !== undefined) {
+        return days;
+      }
     }
   }
 

@@ -21,8 +21,10 @@ function hashToken(token: string) {
 }
 function maskEmail(email: string) {
   try {
-    const [local, domain] = String(email).split("@");
-    if (!domain) return "***";
+    const parts = String(email).split("@");
+    const local = parts[0];
+    const domain = parts[1];
+    if (!local || !domain) return "***";
     if (local.length <= 1) return `*@${domain}`;
     return `${local[0]}***@${domain}`;
   } catch {

@@ -131,7 +131,7 @@ export async function POST(req: Request) {
   <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin: 20px 0;">
     <p style="margin: 0 0 8px 0;"><strong>日時:</strong> ${formattedDate}</p>
     <p style="margin: 0 0 8px 0;"><strong>端末:</strong> ${deviceInfo}</p>
-    <p style="margin: 0;"><strong>IPアドレス:</strong> ${ip.split(",")[0].trim()}</p>
+    <p style="margin: 0;"><strong>IPアドレス:</strong> ${(ip.split(",")[0] ?? "unknown").trim()}</p>
   </div>
   <p style="color: #e74c3c; font-weight: bold; margin-top: 24px;">この操作に心当たりがない場合は、すぐにサポートまでご連絡ください。</p>
 </div>

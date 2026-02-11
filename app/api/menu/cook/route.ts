@@ -28,7 +28,7 @@ export async function POST(req: Request) {
         where: { id: menuGenerationId },
       });
 
-      if (!generation || generation.userId !== userId) {
+      if (generation?.userId !== userId) {
         return NextResponse.json({ error: "Menu not found" }, { status: 404 });
       }
 

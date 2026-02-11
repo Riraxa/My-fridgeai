@@ -17,7 +17,7 @@ export default function IngredientList({
   searchQuery,
   filteredItems,
 }: IngredientListProps) {
-  const { items, addOrUpdateItem, deleteItem, deletingIds } = useFridge();
+  const { items, addOrUpdateItem, deleteItem, deletingIds, isLoading } = useFridge();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<Ingredient | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -138,14 +138,32 @@ export default function IngredientList({
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
-  if (!mounted) {
+  if (!mounted || isLoading) {
     return (
       <div className="divide-y divide-[var(--surface-border)]">
         <div
-          className="p-4 text-center text-sm"
+          className="p-8 text-center text-sm"
           style={{ color: "var(--color-text-muted)" }}
         >
-          読み込み中...
+          <div className="flex flex-col items-center gap-3">
+            <svg className="animate-spin h-6 w-6" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            読み込み中...
+          </div>
         </div>
       </div>
     );
@@ -166,9 +184,8 @@ export default function IngredientList({
         displayItems.map((it) => (
           <div
             key={it.id}
-            className={`relative transition ${
-              it.id && deletingIds.has(it.id) ? "opacity-50 scale-95" : ""
-            }`}
+            className={`relative transition ${it.id && deletingIds.has(it.id) ? "opacity-50 scale-95" : ""
+              }`}
           >
             <div className="flex items-center justify-between px-3 py-3 sm:px-4">
               <div className="flex-1 min-w-0 pr-2 sm:pr-3">
@@ -224,11 +241,10 @@ export default function IngredientList({
                     <button
                       onClick={() => it.id && handleDelete(it.id)}
                       disabled={it.id ? deletingIds.has(it.id) : false}
-                      className={`flex items-center gap-1.5 px-3 py-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium shadow-sm transition min-h-[44px] ${
-                        it.id && deletingIds.has(it.id)
+                      className={`flex items-center gap-1.5 px-3 py-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium shadow-sm transition min-h-[44px] ${it.id && deletingIds.has(it.id)
                           ? "opacity-50 cursor-not-allowed"
                           : ""
-                      }`}
+                        }`}
                       style={{
                         background: "var(--surface-bg)",
                         border: "1px solid #fecaca",

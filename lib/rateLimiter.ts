@@ -10,6 +10,7 @@ interface RateLimitEntry {
   lastViolation?: number;
 }
 
+const MAX_ENTRIES = 10000;
 const requests = new Map<string, RateLimitEntry>();
 const VIOLATION_PENALTY_MULTIPLIER = 2; // 違反時のペナルティ倍率
 const VIOLATION_THRESHOLD = 5; // 違反回数のしきい値
@@ -29,6 +30,12 @@ export async function rateLimit(
   limit: number,
   windowSeconds: number,
 ): Promise<{ ok: boolean; remaining: number; resetTime: number }> {
+  // メモリリーク防止
+  if (requests.size > MAX_ENTRIES) {
+    console.log(`[RATE_LIMIT] Cleaning up ${requests.size} entries`);
+    cleanupRateLimit();
+  }
+
   const now = Date.now();
   const windowStart = now - windowSeconds * 1000;
 
@@ -44,8 +51,8 @@ export async function rateLimit(
       timestamp: now,
       violations:
         entry?.violations &&
-        entry.lastViolation &&
-        now - entry.lastViolation < VIOLATION_RESET_TIME
+          entry.lastViolation &&
+          now - entry.lastViolation < VIOLATION_RESET_TIME
           ? entry.violations
           : 0,
     };

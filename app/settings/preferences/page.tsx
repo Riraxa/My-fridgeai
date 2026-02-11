@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
@@ -14,8 +14,13 @@ import {
   AlertTriangle,
   Trash2,
   Plus,
+  Loader2,
+  AlertCircle,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAutoSave, SaveState } from "@/app/hooks/useAutoSave";
 
 // Simple custom debounce hook
 function useDebounce(callback: Function, delay: number) {
@@ -40,6 +45,13 @@ export default function EnhancedPreferencesPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [isPro, setIsPro] = useState(false);
+
+  // Independent AI context states
+  const [freeText, setFreeText] = useState("");
+  const [serverFreeText, setServerFreeText] = useState("");
+  const [aiMessageEnabled, setAiMessageEnabled] = useState(false);
+  const [toggleSaving, setToggleSaving] = useState(false);
+  const [toggleSaveState, setToggleSaveState] = useState<"idle" | "saved" | "error">("idle");
 
   // States for different sections
   const [preferences, setPreferences] = useState<{
@@ -123,20 +135,30 @@ export default function EnhancedPreferencesPage() {
         const tasteData = await tasteRes.json();
         const userData = await userRes.json();
 
-        // 初期データ取得時のログ
-        console.log("Initial data:", {
-          prefsData,
-          safetyData,
-          tasteData,
-          userData,
-        });
+        // Initialize AI context states from server
+        const initialFreeText = tasteData.freeText ?? "";
+        setFreeText(initialFreeText);
+        setServerFreeText(initialFreeText);
+        if (prefsData.preferences) {
+          setAiMessageEnabled(prefsData.preferences.aiMessageEnabled ?? false);
+        }
 
         if (prefsData.preferences) {
           setPreferences({
             ...prefsData.preferences,
-            comfortableMethods: prefsData.preferences.comfortableMethods ?? [],
-            avoidMethods: prefsData.preferences.avoidMethods ?? [],
-            kitchenEquipment: prefsData.preferences.kitchenEquipment ?? [],
+            comfortableMethods: Array.isArray(
+              prefsData.preferences.comfortableMethods,
+            )
+              ? prefsData.preferences.comfortableMethods
+              : [],
+            avoidMethods: Array.isArray(prefsData.preferences.avoidMethods)
+              ? prefsData.preferences.avoidMethods
+              : [],
+            kitchenEquipment: Array.isArray(
+              prefsData.preferences.kitchenEquipment,
+            )
+              ? prefsData.preferences.kitchenEquipment
+              : [],
           });
         }
         setSafety({
@@ -250,11 +272,7 @@ export default function EnhancedPreferencesPage() {
         }),
       ]);
 
-      // 保存結果をログ出力
-      console.log(
-        "Save results:",
-        saveResults.map((r) => r.status),
-      );
+
 
       // 保存成功後にデータを再取得して画面を更新
       const [prefsRes, safetyRes, tasteRes] = await Promise.all([
@@ -267,15 +285,24 @@ export default function EnhancedPreferencesPage() {
       const safetyData = await safetyRes.json();
       const tasteData = await tasteRes.json();
 
-      // 取得データをログ出力
-      console.log("Fetched data:", { prefsData, safetyData, tasteData });
+
 
       if (prefsData.preferences) {
         setPreferences({
           ...prefsData.preferences,
-          comfortableMethods: prefsData.preferences.comfortableMethods ?? [],
-          avoidMethods: prefsData.preferences.avoidMethods ?? [],
-          kitchenEquipment: prefsData.preferences.kitchenEquipment ?? [],
+          comfortableMethods: Array.isArray(
+            prefsData.preferences.comfortableMethods,
+          )
+            ? prefsData.preferences.comfortableMethods
+            : [],
+          avoidMethods: Array.isArray(prefsData.preferences.avoidMethods)
+            ? prefsData.preferences.avoidMethods
+            : [],
+          kitchenEquipment: Array.isArray(
+            prefsData.preferences.kitchenEquipment,
+          )
+            ? prefsData.preferences.kitchenEquipment
+            : [],
         });
       }
       setSafety({
@@ -373,9 +400,8 @@ export default function EnhancedPreferencesPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`relative px-4 py-4 text-sm font-medium transition ${
-                activeTab === tab ? "text-indigo-600" : "hover:text-indigo-600"
-              }`}
+              className={`relative px-4 py-4 text-sm font-medium transition ${activeTab === tab ? "text-indigo-600" : "hover:text-indigo-600"
+                }`}
               style={{
                 color:
                   activeTab === tab ? "#4f46e5" : "var(--color-text-secondary)",
@@ -430,11 +456,10 @@ export default function EnhancedPreferencesPage() {
                         onClick={() =>
                           setPreferences({ ...preferences, cookingSkill: s })
                         }
-                        className={`py-3 rounded-2xl text-xs font-bold border transition ${
-                          preferences.cookingSkill === s
-                            ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100"
-                            : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
-                        }`}
+                        className={`py-3 rounded-2xl text-xs font-bold border transition ${preferences.cookingSkill === s
+                          ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100"
+                          : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
+                          }`}
                       >
                         {s === "beginner"
                           ? "初心者"
@@ -475,11 +500,10 @@ export default function EnhancedPreferencesPage() {
                             comfortableMethods: list,
                           });
                         }}
-                        className={`px-4 py-2 rounded-full text-xs font-semibold border transition ${
-                          (preferences.comfortableMethods ?? []).includes(m)
-                            ? "bg-green-100 border-green-200 text-green-700"
-                            : "bg-slate-50 border-slate-200 text-slate-500"
-                        }`}
+                        className={`px-4 py-2 rounded-full text-xs font-semibold border transition ${(preferences.comfortableMethods ?? []).includes(m)
+                          ? "bg-green-100 border-green-200 text-green-700"
+                          : "bg-slate-50 border-slate-200 text-slate-500"
+                          }`}
                       >
                         {m}
                       </button>
@@ -517,11 +541,10 @@ export default function EnhancedPreferencesPage() {
                             kitchenEquipment: list,
                           });
                         }}
-                        className={`px-4 py-2 rounded-full text-xs font-semibold border transition ${
-                          (preferences.kitchenEquipment ?? []).includes(e)
-                            ? "bg-indigo-100 border-indigo-200 text-indigo-700"
-                            : "bg-slate-50 border-slate-200 text-slate-500"
-                        }`}
+                        className={`px-4 py-2 rounded-full text-xs font-semibold border transition ${(preferences.kitchenEquipment ?? []).includes(e)
+                          ? "bg-indigo-100 border-indigo-200 text-indigo-700"
+                          : "bg-slate-50 border-slate-200 text-slate-500"
+                          }`}
                       >
                         {e}
                       </button>
@@ -592,7 +615,7 @@ export default function EnhancedPreferencesPage() {
                       onClick={(e) => {
                         const input =
                           e.currentTarget.parentElement?.querySelector("input");
-                        if (input && input.value.trim()) {
+                        if (input?.value.trim()) {
                           addAllergy(input.value.trim());
                           input.value = "";
                         }
@@ -742,13 +765,12 @@ export default function EnhancedPreferencesPage() {
                           {item.label}
                         </label>
                         <span
-                          className={`text-xs font-bold px-3 py-1 rounded-full ${
-                            score === 2
-                              ? "bg-indigo-100 text-indigo-700"
-                              : score === -2
-                                ? "bg-slate-200 text-slate-600"
-                                : "bg-slate-50 text-slate-500"
-                          }`}
+                          className={`text-xs font-bold px-3 py-1 rounded-full ${score === 2
+                            ? "bg-indigo-100 text-indigo-700"
+                            : score === -2
+                              ? "bg-slate-200 text-slate-600"
+                              : "bg-slate-50 text-slate-500"
+                            }`}
                         >
                           {score === -2
                             ? "大の苦手"
@@ -826,12 +848,11 @@ export default function EnhancedPreferencesPage() {
                                   },
                                 })
                               }
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                                ((taste.lifestyle as any)?.[mode] ?? {})
-                                  ?.timePriority === p
-                                  ? "bg-white text-indigo-600 shadow-sm"
-                                  : "text-slate-400"
-                              }`}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${((taste.lifestyle as any)?.[mode] ?? {})
+                                ?.timePriority === p
+                                ? "bg-white text-indigo-600 shadow-sm"
+                                : "text-slate-400"
+                                }`}
                             >
                               {p === "short"
                                 ? "時短"
@@ -944,73 +965,262 @@ export default function EnhancedPreferencesPage() {
             )}
 
             {activeTab === "pro" && (
-              <section
-                className="p-6 rounded-3xl shadow-sm overflow-hidden relative"
-                style={{
-                  background: "var(--surface-bg)",
-                  border: "1px solid var(--surface-border)",
-                }}
-              >
-                {!isPro && (
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-8 text-center">
-                    <div className="bg-indigo-600 text-white p-4 rounded-3xl mb-4 shadow-xl shadow-indigo-100">
-                      <MessageSquare size={32} />
-                    </div>
-                    <h3
-                      className="text-lg font-extrabold mb-2"
-                      style={{ color: "var(--color-text-primary)" }}
-                    >
-                      AI個別指示
-                    </h3>
-                    <p className="text-sm text-slate-500 mb-6">
-                      「子供が食べやすい味」や「包丁を使わない手順」など、AIに個別のわがままを伝えることができます。
-                    </p>
-                    <button
-                      onClick={() => router.push("/settings/account")}
-                      className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:scale-105 active:scale-95 transition"
-                    >
-                      Proにアップグレード
-                    </button>
-                  </div>
-                )}
-                <h2
-                  className="text-base font-bold mb-4 flex items-center gap-2"
-                  style={{ color: "var(--color-text-primary)" }}
-                >
-                  <MessageSquare size={20} className="text-indigo-500" />{" "}
-                  AIへの伝言
-                </h2>
-                <textarea
-                  value={taste.freeText}
-                  onChange={(e) =>
-                    setTaste({
-                      ...taste,
-                      freeText: e.target.value.slice(0, 300),
-                    })
-                  }
-                  placeholder="例：平日は帰宅が遅いので包丁を使わないレシピを優先してください。子供がいるので辛いものは避けてください。"
-                  className="w-full h-48 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition resize-none"
-                  style={{
-                    background: "var(--surface-bg)",
-                    border: "1px solid var(--surface-border)",
-                    color: "var(--color-text-primary)",
-                  }}
-                />
-                <div className="flex justify-between mt-2 px-1">
-                  <span className="text-[10px] text-slate-400">
-                    ※最大300文字
-                  </span>
-                  <span
-                    className={`text-[10px] font-bold ${taste.freeText.length > 280 ? "text-red-500" : "text-slate-400"}`}
-                  >
-                    {taste.freeText.length}/300
-                  </span>
-                </div>
-              </section>
+              <ProTabContent
+                isPro={isPro}
+                router={router}
+                freeText={freeText}
+                setFreeText={setFreeText}
+                serverFreeText={serverFreeText}
+                setServerFreeText={setServerFreeText}
+                aiMessageEnabled={aiMessageEnabled}
+                setAiMessageEnabled={setAiMessageEnabled}
+                toggleSaving={toggleSaving}
+                setToggleSaving={setToggleSaving}
+                toggleSaveState={toggleSaveState}
+                setToggleSaveState={setToggleSaveState}
+              />
             )}
           </motion.div>
         </AnimatePresence>
       </main>
+    </div>
+  );
+}
+
+// ─── ProTabContent (Independent component) ───────────────────────────────
+
+interface ProTabContentProps {
+  isPro: boolean;
+  router: ReturnType<typeof import("next/navigation").useRouter>;
+  freeText: string;
+  setFreeText: (v: string) => void;
+  serverFreeText: string;
+  setServerFreeText: (v: string) => void;
+  aiMessageEnabled: boolean;
+  setAiMessageEnabled: (v: boolean) => void;
+  toggleSaving: boolean;
+  setToggleSaving: (v: boolean) => void;
+  toggleSaveState: "idle" | "saved" | "error";
+  setToggleSaveState: (v: "idle" | "saved" | "error") => void;
+}
+
+function ProTabContent({
+  isPro,
+  router,
+  freeText,
+  setFreeText,
+  serverFreeText,
+  setServerFreeText,
+  aiMessageEnabled,
+  setAiMessageEnabled,
+  toggleSaving,
+  setToggleSaving,
+  toggleSaveState,
+  setToggleSaveState,
+}: ProTabContentProps) {
+  // Auto-save for freeText (independent state machine)
+  const handleSaveFreeText = useCallback(
+    async (value: string, signal: AbortSignal) => {
+      const res = await fetch("/api/preferences/free-text", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ freeText: value }),
+        signal,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "保存に失敗しました");
+      }
+      setServerFreeText(value);
+    },
+    [setServerFreeText],
+  );
+
+  const { saveState, errorMessage, retry } = useAutoSave(
+    freeText,
+    serverFreeText,
+    {
+      debounceMs: 1500,
+      savedDisplayMs: 1000,
+      onSave: handleSaveFreeText,
+    },
+  );
+
+  // Toggle save handler (independent state machine)
+  const handleToggle = useCallback(
+    async (newValue: boolean) => {
+      setAiMessageEnabled(newValue);
+      setToggleSaving(true);
+      setToggleSaveState("idle");
+      try {
+        const res = await fetch("/api/settings/preferences", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ aiMessageEnabled: newValue }),
+        });
+        if (!res.ok) throw new Error("保存に失敗しました");
+        setToggleSaveState("saved");
+        setTimeout(() => setToggleSaveState("idle"), 1000);
+      } catch {
+        setAiMessageEnabled(!newValue); // revert
+        setToggleSaveState("error");
+        setTimeout(() => setToggleSaveState("idle"), 3000);
+      } finally {
+        setToggleSaving(false);
+      }
+    },
+    [setAiMessageEnabled, setToggleSaving, setToggleSaveState],
+  );
+
+  // Save state indicator renderer
+  const renderSaveIndicator = (state: SaveState, error: string | null) => {
+    switch (state) {
+      case "dirty":
+        return (
+          <span className="flex items-center gap-1 text-xs text-amber-500 font-medium">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            未保存の変更あり
+          </span>
+        );
+      case "saving":
+        return (
+          <span className="flex items-center gap-1 text-xs text-indigo-500 font-medium">
+            <Loader2 size={12} className="animate-spin" />
+            保存中...
+          </span>
+        );
+      case "saved":
+        return (
+          <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+            <Check size={12} />
+            保存しました
+          </span>
+        );
+      case "error":
+        return (
+          <button
+            onClick={retry}
+            className="flex items-center gap-1 text-xs text-red-500 font-medium hover:underline"
+          >
+            <AlertCircle size={12} />
+            {error || "保存失敗"} - タップで再試行
+          </button>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Toggle Section */}
+      <section
+        className="p-6 rounded-3xl shadow-sm overflow-hidden relative"
+        style={{
+          background: "var(--surface-bg)",
+          border: "1px solid var(--surface-border)",
+        }}
+      >
+        {!isPro && (
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-8 text-center">
+            <div className="bg-indigo-600 text-white p-4 rounded-3xl mb-4 shadow-xl shadow-indigo-100">
+              <MessageSquare size={32} />
+            </div>
+            <h3
+              className="text-lg font-extrabold mb-2"
+              style={{ color: "var(--color-text-primary)" }}
+            >
+              AI個別指示
+            </h3>
+            <p className="text-sm text-slate-500 mb-6">
+              「子供が食べやすい味」や「包丁を使わない手順」など、AIに個別のわがままを伝えることができます。
+            </p>
+            <button
+              onClick={() => router.push("/settings/account")}
+              className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:scale-105 active:scale-95 transition"
+            >
+              Proにアップグレード
+            </button>
+          </div>
+        )}
+
+        {/* AI Message Toggle */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <MessageSquare size={20} className="text-indigo-500" />
+            <div>
+              <h2
+                className="text-base font-bold"
+                style={{ color: "var(--color-text-primary)" }}
+              >
+                AIへの伝言を有効にする
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                有効にすると、下記の内容がAIの献立提案に反映されます
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {toggleSaveState === "saved" && (
+              <Check size={14} className="text-emerald-500" />
+            )}
+            {toggleSaveState === "error" && (
+              <AlertCircle size={14} className="text-red-500" />
+            )}
+            <button
+              onClick={() => handleToggle(!aiMessageEnabled)}
+              disabled={toggleSaving}
+              className="transition disabled:opacity-50"
+              aria-label="AI指示を有効にする"
+            >
+              {aiMessageEnabled ? (
+                <ToggleRight size={36} className="text-indigo-600" />
+              ) : (
+                <ToggleLeft size={36} className="text-slate-300" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div
+          className="border-t mb-6"
+          style={{ borderColor: "var(--surface-border)" }}
+        />
+
+        {/* Textarea */}
+        <textarea
+          value={freeText}
+          onChange={(e) => setFreeText(e.target.value.slice(0, 300))}
+          placeholder="例：平日は帰宅が遅いので包丁を使わないレシピを優先してください。子供がいるので辛いものは避けてください。"
+          className={`w-full h-48 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition resize-none ${!aiMessageEnabled ? "opacity-50" : ""
+            }`}
+          style={{
+            background: "var(--surface-bg)",
+            border: `1px solid ${saveState === "error"
+              ? "#ef4444"
+              : saveState === "dirty"
+                ? "#f59e0b"
+                : "var(--surface-border)"
+              }`,
+            color: "var(--color-text-primary)",
+          }}
+        />
+
+        {/* Footer: Character count + Save indicator */}
+        <div className="flex justify-between items-center mt-2 px-1">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-slate-400">※最大300文字</span>
+            {renderSaveIndicator(saveState, errorMessage)}
+          </div>
+          <span
+            className={`text-[10px] font-bold ${freeText.length > 280 ? "text-red-500" : "text-slate-400"
+              }`}
+          >
+            {freeText.length}/300
+          </span>
+        </div>
+      </section>
     </div>
   );
 }
