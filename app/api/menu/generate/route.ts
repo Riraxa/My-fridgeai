@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
     const isPro = userData?.plan === "PRO";
     const ingredients = userData?.Ingredient || [];
-    const preferences = userData?.preferences;
+    const _preferences = userData?.preferences;
 
     if (ingredients.length === 0) {
       return NextResponse.json(

@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ ok: true, message: "パスキー登録完了" });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "サーバーエラーが発生しました" },
       { status: 500 },

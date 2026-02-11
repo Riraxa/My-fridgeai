@@ -15,7 +15,7 @@ const getRandomValues = (length: number) => {
     try {
       const crypto = require("crypto") as any;
       return crypto.randomBytes(length);
-    } catch (e) {
+    } catch {
       // フォールバック
     }
   }
@@ -80,15 +80,15 @@ export function sanitizePromptInput(input: string): string {
 
   // より包括的な危険パターン
   const dangerousPatterns = [
-    /ignore\s+(all\s+)?(above|previous|prior)\s+(instructions?|prompts?|rules?)/gi,
-    /disregard\s+(all\s+)?(above|previous|prior)/gi,
-    /(system|assistant|user)\s*[:：]/gi,
-    /\n\n(SYSTEM|USER|ASSISTANT)\s*[:：]/g,
+    /ignore\s+(?:all\s+)?(?:above|previous|prior)\s+(?:instructions?|prompts?|rules?)/gi,
+    /disregard\s+(?:all\s+)?(?:above|previous|prior)/gi,
+    /(?:system|assistant|user)\s*[:：]/gi,
+    /\n\n(?:SYSTEM|USER|ASSISTANT)\s*[:：]/g,
     /```[\s\S]*?```/g,
     /`[^`]*`/g,
-    /(pretend|act\s+as|role\s*play)/gi,
-    /(開発者|developer)\s*(モード|mode)/gi,
-    /^\s*###\s*(system|user|assistant)/gi,
+    /(?:pretend|act\s+as|role\s*play)/gi,
+    /(?:開発者|developer)\s*(?:モード|mode)/gi,
+    /^\s*###\s*(?:system|user|assistant)/gi,
     /\\x[0-9a-fA-F]{2}/g, // hex escape sequences
     /[\u0000-\u001f]/g, // control characters
   ];
@@ -177,9 +177,9 @@ export function validateAndNormalizeIP(ip: string | null): string {
   const clientIP = ipList[0] ?? "unknown";
 
   // IPv4形式の検証
-  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+  const ipv4Regex = /^(?:\d{1,3}\.){3}\d{1,3}$/;
   // IPv6形式の検証（簡易）
-  const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
+  const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
 
   if (ipv4Regex.test(clientIP)) {
     const parts = clientIP.split(".");

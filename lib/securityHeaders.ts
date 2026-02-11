@@ -1,6 +1,5 @@
 // lib/securityHeaders.ts
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 /**
  * セキュリティヘッダーを設定するミドルウェア

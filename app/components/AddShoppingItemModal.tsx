@@ -1,7 +1,8 @@
 // app/components/AddShoppingItemModal.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+// import { useEffect } from "react"; // 将来使用
 import { ShoppingItem } from "@/types"; // 仮に types にあるとするか、直接定義
 
 interface AddShoppingItemModalProps {

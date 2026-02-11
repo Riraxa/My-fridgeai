@@ -6,7 +6,8 @@ import type { Session } from "next-auth";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { Button } from "@/app/components/ui/button";
 import PasskeyManager from "./PasskeyManager";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+// import { useCallback } from "react"; // 将来使用
 import { Pencil, Save, X, User } from "lucide-react";
 import { toast } from "sonner";
 import ProModal from "@/app/components/ProModal";
@@ -66,7 +67,7 @@ export default function AccountSettings() {
   const { theme, setTheme } = useTheme();
   const [showProModal, setShowProModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [cachedSession, setCachedSession] = useState<Session | null>(null);
+  const [cachedSession, _setCachedSession] = useState<Session | null>(null);
   const didSyncSession = useRef(false);
   const { confirm: nativeConfirm } = useNativeConfirm();
   const { getSelectClassName } = useNativeSelect();

@@ -122,8 +122,8 @@ export default function BarcodeScanner({
                   );
                   setLoading(false);
                 }
-              } catch (err) {
-                console.error("Barcode API error:", err);
+              } catch (_err) {
+                console.error("Barcode API error:", _err);
                 alert("通信エラーが発生しました。もう一度お試しください。");
                 setLoading(false);
               }

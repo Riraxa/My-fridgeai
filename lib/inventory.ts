@@ -117,10 +117,6 @@ export function checkIngredientAvailability(
           status: "available",
         });
       } else {
-        // Calculate shortage in required unit
-        // Convert the shortage back to required unit for display
-        const shortageNormalized = requiredNormalized - stockNormalized;
-
         // Convert back to required unit if possible
         let shortageAmount = required.amount; // Default to required amount
         let shortageUnit = required.unit;

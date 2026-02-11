@@ -107,8 +107,8 @@ export async function POST(req: Request) {
             transports = parsed;
           }
         }
-      } catch (e) {
-        // ignore parse error, treat as undefined/empty
+      } catch {
+        // ignore parse error
       }
 
       return {

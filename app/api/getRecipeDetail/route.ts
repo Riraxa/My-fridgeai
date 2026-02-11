@@ -25,7 +25,6 @@ export async function POST(req: Request) {
       : [];
     const allowAny = !!bodyRaw.allowAny || bodyRaw.mode === "omakase";
     const servings = Math.max(1, Number(bodyRaw.servings ?? 1));
-    const preferHighQuality = !!bodyRaw.highQuality; // UI can pass this to force gpt-4o
 
     if (!title) {
       return NextResponse.json(
@@ -84,14 +83,16 @@ export async function POST(req: Request) {
       if (jsonText) {
         try {
           parsed = JSON.parse(jsonText);
-        } catch (e) {
+        } catch {
           parsed = null;
         }
       } else {
         // quick parse attempt
         try {
           parsed = JSON.parse(raw);
-        } catch {}
+        } catch {
+          parsed = null;
+        }
       }
 
       if (!parsed) {

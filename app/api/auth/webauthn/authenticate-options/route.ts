@@ -73,7 +73,7 @@ export async function POST(req: Request) {
         if (pk.transports) {
           transports = JSON.parse(pk.transports);
         }
-      } catch (e) {
+      } catch {
         // ignore parse error
       }
       return {
