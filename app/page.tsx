@@ -46,7 +46,7 @@ export default function Page() {
             <Link href="/" className="flex items-center gap-2">
               <div className="block dark:hidden">
                 <Image
-                  src="/my-fridgeai-logo.png"
+                  src="/my-fridgeai-logo-light.png"
                   alt="My-fridgeai Logo"
                   width={120}
                   height={40}
@@ -55,7 +55,7 @@ export default function Page() {
               </div>
               <div className="hidden dark:block">
                 <Image
-                  src="/my-fridgeai-logo-white.png"
+                  src="/my-fridgeai-logo-dark.png"
                   alt="My-fridgeai Logo"
                   width={120}
                   height={40}
@@ -137,7 +137,7 @@ export default function Page() {
             <section className="relative aspect-square scale-90 md:scale-100 pointer-events-none">
               <div className="block dark:hidden">
                 <Image
-                  src="/fridge-illustration.png"
+                  src="/fridge-illustration-light.png"
                   alt="冷蔵庫のイラスト"
                   fill
                   className="object-contain"
@@ -261,7 +261,7 @@ export default function Page() {
               <div className="flex items-center gap-2">
                 <div className="block dark:hidden">
                   <Image
-                    src="/my-fridgeai-logo.png"
+                    src="/my-fridgeai-logo-light.png"
                     alt="My-fridgeai Logo"
                     width={120}
                     height={40}
@@ -270,7 +270,7 @@ export default function Page() {
                 </div>
                 <div className="hidden dark:block">
                   <Image
-                    src="/my-fridgeai-logo-white.png"
+                    src="/my-fridgeai-logo-dark.png"
                     alt="My-fridgeai Logo"
                     width={120}
                     height={40}

@@ -62,8 +62,8 @@ export default function ResetRequestPage() {
             <Image
               src={
                 theme === "dark"
-                  ? "/my-fridgeai-logo-white.png"
-                  : "/my-fridgeai-logo.png"
+                  ? "/my-fridgeai-logo-dark.png"
+                  : "/my-fridgeai-logo-light.png"
               }
               alt="My-fridgeai"
               width={180}
@@ -79,7 +79,7 @@ export default function ResetRequestPage() {
               src={
                 theme === "dark"
                   ? "/fridge-illustration-dark.png"
-                  : "/fridge-illustration.png"
+                  : "/fridge-illustration-light.png"
               }
               alt="Fridge"
               width={220}

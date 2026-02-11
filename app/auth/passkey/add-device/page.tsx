@@ -90,8 +90,8 @@ export default function AddDevicePage() {
             <Image
               src={
                 theme === "dark"
-                  ? "/my-fridgeai-logo-white.png"
-                  : "/my-fridgeai-logo.png"
+                  ? "/my-fridgeai-logo-dark.png"
+                  : "/my-fridgeai-logo-light.png"
               }
               alt="My-fridgeai"
               width={180}

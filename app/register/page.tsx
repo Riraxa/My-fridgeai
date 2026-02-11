@@ -185,8 +185,8 @@ function RegisterPageContent() {
             <Image
               src={
                 theme === "dark"
-                  ? "/my-fridgeai-logo-white.png"
-                  : "/my-fridgeai-logo.png"
+                  ? "/my-fridgeai-logo-dark.png"
+                  : "/my-fridgeai-logo-light.png"
               }
               alt="My-fridgeai"
               width={180}
@@ -202,7 +202,7 @@ function RegisterPageContent() {
               src={
                 theme === "dark"
                   ? "/fridge-illustration-dark.png"
-                  : "/fridge-illustration.png"
+                  : "/fridge-illustration-light.png"
               }
               alt="Fridge illustration"
               width={220}
