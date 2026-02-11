@@ -4,7 +4,6 @@
  * - SEO keywords: 賞味期限, アラート, 食材ロス
  */
 
-import React from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,10 +12,9 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "賞味期限アラート機能 | My-fridgeai",
+  title: "賞味期限管理・食品ロス | My-fridgeai",
   description:
-    "賞味期限3日以内の食材を検出してメール／アプリ内通知。Vercel Cronで毎日チェックします。",
-  robots: "noindex, nofollow",
+    "賞味期限3日前から自動通知！メールとアプリ内で食材の賞味期限を管理。Vercel Cronで毎日チェックし、食品ロスを削減する賞味期限管理アプリ。",
   openGraph: {
     title: "賞味期限アラート機能 | My-fridgeai",
     description:

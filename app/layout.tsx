@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "My-fridgeai",
-  description: "AIで食材管理・献立作成ができるアプリ",
+  description: "AIで冷蔵庫の食材を管理し、賞味期限が近い食材を優先して献立を自動提案。食品ロスを削減し、毎日の料理を楽にするスマート冷蔵庫アプリ。",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -38,6 +38,30 @@ export const metadata: Metadata = {
   // ページ遷移のパフォーマンス最適化
   other: {
     "theme-color": "#ff914d",
+    "application/ld+json": JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "My-fridgeai",
+      "description": "AIで食材管理・献立作成ができるアプリ。冷蔵庫の食材を管理し、賞味期限が近い食材を優先して献立を提案。",
+      "url": "https://www.my-fridgeai.com",
+      "applicationCategory": "LifestyleApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "JPY"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "My-fridgeai"
+      },
+      "featureList": [
+        "食材管理",
+        "献立作成",
+        "賞味期限アラート",
+        "食品ロス削減"
+      ]
+    }),
   },
 };
 

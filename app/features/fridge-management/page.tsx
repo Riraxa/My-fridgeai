@@ -4,7 +4,6 @@
  * - SEO keywords: 冷蔵庫管理, 在庫管理, 食材管理
  */
 
-import React from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,10 +12,9 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "冷蔵庫の在庫管理機能 | My-fridgeai",
+  title: "食材管理・冷蔵庫管理 | My-fridgeai",
   description:
-    "数値管理／ざっくり管理（たっぷり/普通/少ない）に対応。バーコード読み取りで素早く登録、賞味期限を自動管理します。",
-  robots: "noindex, nofollow",
+    "バーコード読み取りで簡単登録！数値管理・ざっくり管理に対応した食材管理アプリ。賞味期限自動管理で食品ロスを削減。冷蔵庫の在庫を効率的に管理。",
   openGraph: {
     title: "冷蔵庫の在庫管理機能 | My-fridgeai",
     description:

@@ -4,6 +4,36 @@
     <loc>https://www.my-fridgeai.com/</loc>
     <priority>1.0</priority>
     <changefreq>weekly</changefreq>
-    <lastmod>2026-02-08</lastmod>
+    <lastmod>2026-02-11</lastmod>
+  </url>
+  <url>
+    <loc>https://www.my-fridgeai.com/features/fridge-management</loc>
+    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+    <lastmod>2026-02-11</lastmod>
+  </url>
+  <url>
+    <loc>https://www.my-fridgeai.com/features/menu-ai</loc>
+    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+    <lastmod>2026-02-11</lastmod>
+  </url>
+  <url>
+    <loc>https://www.my-fridgeai.com/features/expiration-alert</loc>
+    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+    <lastmod>2026-02-11</lastmod>
+  </url>
+  <url>
+    <loc>https://www.my-fridgeai.com/privacy</loc>
+    <priority>0.3</priority>
+    <changefreq>yearly</changefreq>
+    <lastmod>2026-02-11</lastmod>
+  </url>
+  <url>
+    <loc>https://www.my-fridgeai.com/terms</loc>
+    <priority>0.3</priority>
+    <changefreq>yearly</changefreq>
+    <lastmod>2026-02-11</lastmod>
   </url>
 </urlset>

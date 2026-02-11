@@ -5,7 +5,6 @@
  * - SEO keywords: 献立, AI献立, 余り物 献立
  */
 
-import React from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,10 +13,9 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "AIで献立を自動生成 | My-fridgeai",
+  title: "献立生成AI・自動献立 | My-fridgeai",
   description:
-    "手持ちの食材と賞味期限を考慮して、メイン／代替案A（ジャンル違い）／代替案B（時短15分）を一度に3案生成します。",
-  robots: "noindex, nofollow",
+    "冷蔵庫の余り物食材と賞味期限をAIが考慮して献立を自動生成！メイン・ジャンル違い・時短15分で3案提案。食材ロス削減に貢献する献立作成アプリ。",
   openGraph: {
     title: "AIで献立を自動生成 | My-fridgeai",
     description:
