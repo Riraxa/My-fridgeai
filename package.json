@@ -32,6 +32,7 @@
     "date-fns": "^4.1.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "framer-motion": "^12.23.24",
+    "hono": "^4.11.9",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.542.0",
     "next": "16.1.6",
@@ -63,11 +64,20 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "eslint-plugin-security": "^3.0.1",
+    "lodash": "^4.17.21",
     "prettier": "^3.7.4",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "overrides": {
+    "hono": "^4.11.9",
+    "lodash": "^4.17.21",
+    "chevrotain": "^11.1.1",
+    "@chevrotain/cst-dts-gen": "^11.1.1",
+    "@chevrotain/gast": "^11.1.1",
+    "@mrleebo/prisma-ast": "^0.13.1"
   }
 }

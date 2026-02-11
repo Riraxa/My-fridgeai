@@ -15,10 +15,22 @@ export async function POST() {
     const userId = session.user.id;
 
     // ユーザーの設定を取得
-    const preferences = await prisma.userPreferences.findUnique({
-      where: { userId },
-    });
-
+    // 生のSQLクエリを使用して配列フィールドの問題を回避
+    let preferences = null;
+    try {
+      const result = await prisma.$queryRaw`
+        SELECT id, "userId", "alertDaysBefore" 
+        FROM "UserPreferences" 
+        WHERE "userId" = ${userId}
+        LIMIT 1
+      `;
+      preferences = Array.isArray(result) && result.length > 0 ? result[0] : null;
+    } catch (prefError) {
+      console.error("Error fetching preferences:", prefError);
+      // デフォルト値を使用
+      preferences = { alertDaysBefore: 3 };
+    }
+    
     const alertDaysBefore = preferences?.alertDaysBefore || 3;
 
     // 賞味期限が近い食材を取得
