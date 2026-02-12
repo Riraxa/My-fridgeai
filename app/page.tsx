@@ -1,5 +1,4 @@
 //app/page.tsx
-import React from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,11 +8,11 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "My-fridgeai｜冷蔵庫の余り物で献立を自動提案するAIアプリ",
+  title: "My-fridgeai",
   description:
     "冷蔵庫の食材を管理し、賞味期限が近い食材を優先してAIが今日作れる献立を提案。食材ロスを減らし、毎日の料理を楽にします。",
   openGraph: {
-    title: "My-fridgeai｜冷蔵庫の余り物で献立を自動提案するAIアプリ",
+    title: "My-fridgeai",
     description:
       "賞味期限が近い食材を優先してAIが今日作れる献立を提案。食材ロスを減らし、毎日の料理を楽にします。",
     url: SITE_URL,
@@ -23,7 +22,7 @@ export const metadata: Metadata = {
         url: `${SITE_URL}/og-images/og-top.png`,
         width: 1200,
         height: 630,
-        alt: "My-fridgeai - 冷蔵庫の余り物で献立を自動提案",
+        alt: "My-fridgeai",
       },
     ],
     locale: "ja_JP",
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "My-fridgeai｜冷蔵庫の余り物で献立を自動提案するAIアプリ",
+    title: "My-fridgeai",
     description: "賞味期限が近い食材を優先してAIが今日作れる献立を提案。",
   },
 };

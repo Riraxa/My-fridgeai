@@ -12,11 +12,11 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "食材管理・冷蔵庫管理 | My-fridgeai",
+  title: "冷蔵庫管理・在庫管理 | My-fridgeai",
   description:
     "バーコード読み取りで簡単登録！数値管理・ざっくり管理に対応した食材管理アプリ。賞味期限自動管理で食品ロスを削減。冷蔵庫の在庫を効率的に管理。",
   openGraph: {
-    title: "冷蔵庫の在庫管理機能 | My-fridgeai",
+    title: "冷蔵庫管理・在庫管理 | My-fridgeai",
     description:
       "数値管理／ざっくり管理に対応。バーコードで簡単登録、賞味期限アラートで食材ロスを削減。",
     url: `${SITE_URL}/features/fridge-management`,
