@@ -144,7 +144,7 @@ export default function MenuGeneratePage() {
 
   // 状態の保存・復元
   useEffect(() => {
-    // ページ読み込み時に状態を復元
+    // ページ読み込み時に状態を復元 from localStorage (Processing State)
     const savedState = localStorage.getItem("menuGenerationState");
     if (savedState) {
       try {
@@ -167,6 +167,18 @@ export default function MenuGeneratePage() {
       } catch (e) {
         console.error("Failed to restore state:", e);
         localStorage.removeItem("menuGenerationState");
+      }
+    }
+
+    // Restore generated result from sessionStorage (Result State)
+    const savedResult = sessionStorage.getItem("menuGeneratedResult");
+    if (savedResult) {
+      try {
+        const parsed = JSON.parse(savedResult);
+        setGenerated(parsed);
+      } catch (e) {
+        console.error("Failed to restore generated menu:", e);
+        sessionStorage.removeItem("menuGeneratedResult");
       }
     }
   }, []);
@@ -323,13 +335,17 @@ export default function MenuGeneratePage() {
         if (statusData.status === "completed") {
           // 生成完了
           setGenerated(statusData.data);
+          sessionStorage.setItem(
+            "menuGeneratedResult",
+            JSON.stringify(statusData.data),
+          );
           setUsage((prev) =>
             prev
               ? {
-                  ...prev,
-                  today: prev.today + 1,
-                  remaining: Math.max(0, prev.remaining - 1),
-                }
+                ...prev,
+                today: prev.today + 1,
+                remaining: Math.max(0, prev.remaining - 1),
+              }
               : null,
           );
           setLoading(false);
@@ -457,6 +473,7 @@ export default function MenuGeneratePage() {
 
       // 全ての状態をリセットして初期画面に戻る
       setGenerated(null);
+      sessionStorage.removeItem("menuGeneratedResult");
       setSelectedMenuType(null);
       setSelectedMenuData(null);
       setRecipeDetails([]);
@@ -672,9 +689,8 @@ export default function MenuGeneratePage() {
                         />
                         <label
                           htmlFor="budget-toggle"
-                          className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${
-                            enableBudget ? "bg-[var(--accent)]" : "bg-gray-300"
-                          }`}
+                          className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${enableBudget ? "bg-[var(--accent)]" : "bg-gray-300"
+                            }`}
                         ></label>
                       </div>
                     </div>
@@ -711,9 +727,8 @@ export default function MenuGeneratePage() {
               <button
                 onClick={handleGenerate}
                 disabled={loading}
-                className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  loading ? "cursor-not-allowed" : ""
-                }`}
+                className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${loading ? "cursor-not-allowed" : ""
+                  }`}
                 style={{
                   background: loading
                     ? "color-mix(in srgb, var(--accent) 70%, transparent)"
@@ -772,7 +787,10 @@ export default function MenuGeneratePage() {
                   おすすめの献立
                 </h2>
                 <button
-                  onClick={() => setGenerated(null)}
+                  onClick={() => {
+                    setGenerated(null);
+                    sessionStorage.removeItem("menuGeneratedResult");
+                  }}
                   className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center gap-1"
                 >
                   <ArrowLeft size={14} />
@@ -916,11 +934,10 @@ export default function MenuGeneratePage() {
                           <button
                             key={idx}
                             onClick={() => setCurrentDishIndex(idx)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
-                              currentDishIndex === idx
+                            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${currentDishIndex === idx
                                 ? "bg-[var(--accent)] text-white"
                                 : "bg-[var(--surface-bg)] text-[var(--color-text-secondary)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
-                            }`}
+                              }`}
                           >
                             {r.title}
                           </button>
@@ -1042,11 +1059,10 @@ export default function MenuGeneratePage() {
                 <button
                   onClick={handleConfirmCook}
                   disabled={loadingCook}
-                  className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 ${
-                    loadingCook
+                  className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 ${loadingCook
                       ? "bg-[var(--surface-bg)] cursor-not-allowed text-[var(--color-text-muted)]"
                       : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
+                    }`}
                 >
                   {loadingCook ? (
                     <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>

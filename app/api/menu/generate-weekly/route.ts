@@ -51,7 +51,9 @@ export async function POST(req: Request) {
     // 4. Fetch Inventory & Preferences
     const [ingredients, preferences] = await Promise.all([
       prisma.ingredient.findMany({ where: { userId } }),
-      prisma.userPreferences.findUnique({ where: { userId } }),
+      prisma.$queryRaw`SELECT * FROM "UserPreferences" WHERE "userId" = ${userId} LIMIT 1`.then(
+        (rows: any) => (rows && rows.length > 0 ? rows[0] : null),
+      ),
     ]);
 
     if (ingredients.length === 0) {

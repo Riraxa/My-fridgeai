@@ -46,11 +46,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Fetch Inventory & Preferences
-    const [ingredients, preferences] = await Promise.all([
-      prisma.ingredient.findMany({ where: { userId: userId } }),
-      prisma.userPreferences.findUnique({ where: { userId: userId } }),
-    ]);
+    // 2. Fetch Inventory
+    const ingredients = await prisma.ingredient.findMany({
+      where: { userId: userId },
+    });
 
     if (!ingredients || ingredients.length === 0) {
       return NextResponse.json(
@@ -121,7 +120,6 @@ export async function POST(req: Request) {
       generation.id,
       userId,
       ingredients,
-      preferences || undefined,
       { servings, budget }, // Pass options
     ).catch((error) => {
       console.error("Background processing failed:", error);
@@ -155,7 +153,6 @@ async function processMenuGeneration(
   generationId: string,
   userId: string,
   ingredients: any[],
-  preferences: any,
   options?: { servings: number; budget: number | null },
 ) {
   try {
@@ -193,20 +190,20 @@ async function processMenuGeneration(
 
     const altADetails = menus.alternativeA
       ? checkIngredientAvailability(
-          (menus.alternativeA.dishes || []).flatMap(
-            (d: any) => d.ingredients || [],
-          ),
-          ingredients,
-        )
+        (menus.alternativeA.dishes || []).flatMap(
+          (d: any) => d.ingredients || [],
+        ),
+        ingredients,
+      )
       : mainDetails;
 
     const altBDetails = menus.alternativeB
       ? checkIngredientAvailability(
-          (menus.alternativeB.dishes || []).flatMap(
-            (d: any) => d.ingredients || [],
-          ),
-          ingredients,
-        )
+        (menus.alternativeB.dishes || []).flatMap(
+          (d: any) => d.ingredients || [],
+        ),
+        ingredients,
+      )
       : mainDetails;
 
     // Calculate Nutrition

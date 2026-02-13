@@ -97,7 +97,10 @@ export async function generateMenus(
 ): Promise<MenuGenerationResult> {
   // Fetch detailed preferences and safety info
   const [preferences, allergies, restrictions] = await Promise.all([
-    prisma.userPreferences.findUnique({ where: { userId } }),
+    // Workaround for Prisma bug with String[] fields: Use $queryRaw for UserPreferences
+    prisma.$queryRaw`SELECT * FROM "UserPreferences" WHERE "userId" = ${userId} LIMIT 1`.then(
+      (rows: any) => (rows && rows.length > 0 ? rows[0] : null),
+    ),
     prisma.userAllergy.findMany({ where: { userId } }),
     prisma.userRestriction.findMany({ where: { userId } }),
   ]);
