@@ -128,6 +128,17 @@ export default function LoginClient() {
   >("select");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const goToPasskeyLogin = () => {
+    setStep("passkey_email");
+
+    window.setTimeout(() => {
+      const el = document.getElementById("passkey-email-input");
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      (el as HTMLInputElement).focus?.();
+    }, 0);
+  };
   const [msg, setMsg] = useState<string | null>(
     registered
       ? "登録完了しました。ログインしてください。"
@@ -346,11 +357,11 @@ export default function LoginClient() {
     if (msg === "PASSKEY_PROTECTED") {
       return (
         <div
-          className="text-sm text-center mt-4 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800"
+          className="passkey-protected text-sm text-center mt-4 p-4 rounded-lg"
           role="status"
           aria-live="polite"
         >
-          <p className="text-yellow-800 dark:text-yellow-200 font-medium mb-2 flex items-center justify-center gap-2">
+          <p className="passkey-protected__title font-medium mb-2 flex items-center justify-center gap-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -367,10 +378,16 @@ export default function LoginClient() {
             </svg>
             このアカウントはパスキーで保護されています
           </p>
-          <p className="text-yellow-700 dark:text-yellow-300 text-xs mb-3">
+          <p className="passkey-protected__text text-xs mb-3">
             セキュリティのため、パスキーでのログインのみ対応しています。
             <br />
-            パスキーを設定した端末でログインしてください。
+            <button
+              type="button"
+              onClick={goToPasskeyLogin}
+              className="underline"
+            >
+              パスキーでログインしてください。
+            </button>
           </p>
           <a
             href="/auth/passkey/add-device"
@@ -447,6 +464,7 @@ export default function LoginClient() {
               <Message />
 
               <motion.button
+                id="passkey-login-recommended"
                 onClick={() => setStep("passkey_email")}
                 disabled={loading}
                 className="w-full bg-white border rounded-full py-3 text-sm font-semibold flex items-center justify-center gap-2 transition transform duration-150 ease-out active:translate-y-1 disabled:opacity-60"
@@ -571,6 +589,7 @@ export default function LoginClient() {
                 パスキーでログイン
               </p>
               <input
+                id="passkey-email-input"
                 className="w-full input rounded-lg border px-3 py-2 text-sm"
                 placeholder="メールアドレス"
                 type="email"

@@ -1058,6 +1058,7 @@ function ProTabContent({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ aiMessageEnabled: newValue }),
         });
+        
         if (!res.ok) throw new Error("保存に失敗しました");
         setToggleSaveState("saved");
         setTimeout(() => setToggleSaveState("idle"), 1000);

@@ -15,6 +15,15 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
+    const body = await req.json();
+
+    const parsed = freeTextSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "300文字以内で入力してください" },
+        { status: 400 },
+      );
+    }
 
     // Pro ユーザーチェック
     const user = await prisma.user.findUnique({
@@ -32,16 +41,7 @@ export async function PUT(req: Request) {
       );
     }
 
-    const body = await req.json();
-    const parsed = freeTextSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "300文字以内で入力してください" },
-        { status: 400 },
-      );
-    }
-
-    // 簡易フィルタリング（実際はもっと高度にする可能性があるが、今回は指示通り）
+    // 簡易フィルタリング
     const forbiddenPatterns = [
       /危険/i,
       /殺す/i,

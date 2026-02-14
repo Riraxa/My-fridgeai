@@ -59,9 +59,15 @@ export async function POST(req: Request) {
     // Build update/create data, only including aiMessageEnabled if explicitly provided
     const data: any = {};
     if (cookingSkill !== undefined) data.cookingSkill = cookingSkill;
-    if (comfortableMethods !== undefined) data.comfortableMethods = comfortableMethods;
-    if (avoidMethods !== undefined) data.avoidMethods = avoidMethods;
-    if (kitchenEquipment !== undefined) data.kitchenEquipment = kitchenEquipment;
+    if (comfortableMethods !== undefined) {
+      data.comfortableMethods = Array.isArray(comfortableMethods) ? comfortableMethods : [];
+    }
+    if (avoidMethods !== undefined) {
+      data.avoidMethods = Array.isArray(avoidMethods) ? avoidMethods : [];
+    }
+    if (kitchenEquipment !== undefined) {
+      data.kitchenEquipment = Array.isArray(kitchenEquipment) ? kitchenEquipment : [];
+    }
     if (typeof aiMessageEnabled === "boolean") data.aiMessageEnabled = aiMessageEnabled;
 
     const updated = await prisma.userPreferences.upsert({

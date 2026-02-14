@@ -1,9 +1,15 @@
 //app/components/NotificationModal.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { X, Bell, Calendar, AlertCircle, Trash2, ChefHat } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+  PanInfo,
+} from "framer-motion";
 import { springTransition } from "./motion";
 import { useRouter } from "next/navigation";
 
@@ -17,6 +23,152 @@ interface Alert {
   };
 }
 
+const DELETE_BUTTON_WIDTH = 72;
+const REVEAL_THRESHOLD = -50;
+const FULL_DELETE_THRESHOLD = -200;
+
+function SwipeableNotificationItem({
+  alert,
+  revealedId,
+  setRevealedId,
+  deletingIds,
+  onDelete,
+  onGenerateMenu,
+}: {
+  alert: Alert;
+  revealedId: string | null;
+  setRevealedId: (id: string | null) => void;
+  deletingIds: Set<string>;
+  onDelete: (id: string) => void;
+  onGenerateMenu: () => void;
+}) {
+  const x = useMotionValue(0);
+  const isRevealed = revealedId === alert.id;
+  const isDeleting = deletingIds.has(alert.id);
+
+  // Background delete button opacity: visible when dragging left or revealed
+  const deleteButtonOpacity = useTransform(x, [-DELETE_BUTTON_WIDTH, 0], [1, 0]);
+
+  // Snap to revealed position when revealedId changes
+  useEffect(() => {
+    if (isRevealed) {
+      x.set(-DELETE_BUTTON_WIDTH);
+    } else {
+      x.set(0);
+    }
+  }, [isRevealed, x]);
+
+  const handleDragEnd = useCallback(
+    (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      const offsetX = info.offset.x;
+
+      if (offsetX < FULL_DELETE_THRESHOLD) {
+        // Full swipe → delete immediately
+        onDelete(alert.id);
+        setRevealedId(null);
+      } else if (offsetX < REVEAL_THRESHOLD) {
+        // Partial swipe → reveal delete button
+        setRevealedId(alert.id);
+      } else {
+        // Swipe not far enough → close
+        setRevealedId(null);
+      }
+    },
+    [alert.id, onDelete, setRevealedId],
+  );
+
+  return (
+    <motion.div
+      className="relative overflow-hidden rounded-2xl"
+      initial={{ height: "auto", opacity: 1 }}
+      animate={{
+        height: isDeleting ? 0 : "auto",
+        opacity: isDeleting ? 0 : 1,
+        marginBottom: isDeleting ? 0 : undefined,
+      }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    >
+      {/* 削除ボタン背景 (常に背面に存在) */}
+      <motion.div
+        className="absolute inset-0 rounded-2xl flex items-center justify-end z-0"
+        style={{
+          background: "#ef4444",
+          opacity: deleteButtonOpacity,
+        }}
+      >
+        <button
+          onClick={() => onDelete(alert.id)}
+          className="flex flex-col items-center justify-center gap-1 h-full px-4"
+          style={{ width: `${DELETE_BUTTON_WIDTH}px` }}
+        >
+          <Trash2 size={20} color="white" />
+          <span className="text-[10px] text-white font-medium">削除</span>
+        </button>
+      </motion.div>
+
+      {/* 通知アイテム (ドラッグ可能) */}
+      <motion.div
+        className="p-3 rounded-2xl flex gap-3 relative z-10 cursor-pointer"
+        style={{
+          background: "var(--surface-bg)",
+          border: "1px solid var(--surface-border)",
+          x,
+        }}
+        drag="x"
+        dragConstraints={{ left: -300, right: 0 }}
+        dragElastic={0.15}
+        onDragEnd={handleDragEnd}
+      >
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{
+            background: "color-mix(in srgb, #f59e0b 20%, transparent)",
+          }}
+        >
+          <AlertCircle size={20} style={{ color: "#f59e0b" }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div
+            className="text-sm font-bold truncate"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            {alert.ingredient?.name}の賞味期限が近いです
+          </div>
+          <div
+            className="text-[11px] mt-0.5 flex items-center gap-1"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            <Calendar size={12} />
+            期限:{" "}
+            {alert.ingredient?.expirationDate
+              ? new Date(
+                alert.ingredient.expirationDate,
+              ).toLocaleDateString("ja-JP")
+              : "未設定"}
+          </div>
+          <div
+            className="text-[10px] mt-2"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            {new Date(alert.lastAlertedAt).toLocaleString("ja-JP")}
+          </div>
+          <button
+            onClick={onGenerateMenu}
+            className="mt-2 w-full px-3 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition"
+            style={{
+              background: "var(--accent)",
+              color: "#fff",
+            }}
+          >
+            <ChefHat size={12} />
+            献立を生成しましょう
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function NotificationModal({
   onClose,
 }: {
@@ -25,7 +177,7 @@ export default function NotificationModal({
   const router = useRouter();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [swipingId, setSwipingId] = useState<string | null>(null);
+  const [revealedId, setRevealedId] = useState<string | null>(null);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -45,14 +197,16 @@ export default function NotificationModal({
     fetchNotifications();
   }, []);
 
-  const handleDelete = async (alertId: string) => {
+  const handleDelete = useCallback(async (alertId: string) => {
     setDeletingIds((prev) => new Set(prev).add(alertId));
     try {
       const res = await fetch(`/api/notifications?id=${alertId}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        setAlerts((prev) => prev.filter((alert) => alert.id !== alertId));
+        setTimeout(() => {
+          setAlerts((prev) => prev.filter((alert) => alert.id !== alertId));
+        }, 300);
       }
     } catch (e) {
       console.error("Failed to delete notification", e);
@@ -63,12 +217,12 @@ export default function NotificationModal({
         return newSet;
       });
     }
-  };
+  }, []);
 
-  const handleGenerateMenu = () => {
+  const handleGenerateMenu = useCallback(() => {
     onClose();
     router.push("/menu/generate");
-  };
+  }, [onClose, router]);
 
   return (
     <motion.div
@@ -77,6 +231,7 @@ export default function NotificationModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      onClick={() => setRevealedId(null)}
     >
       <motion.div
         className="w-full max-w-sm modal-card shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
@@ -84,6 +239,7 @@ export default function NotificationModal({
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
         transition={springTransition}
+        onClick={(e) => e.stopPropagation()}
       >
         <div
           className="p-6 flex justify-between items-center"
@@ -150,96 +306,15 @@ export default function NotificationModal({
             </div>
           ) : (
             alerts.map((alert) => (
-              <motion.div
+              <SwipeableNotificationItem
                 key={alert.id}
-                className="relative"
-                initial={{ x: 0 }}
-                animate={{
-                  x: swipingId === alert.id ? -100 : 0,
-                  opacity: deletingIds.has(alert.id) ? 0 : 1,
-                }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              >
-                {/* 削除ボタン背景 */}
-                <AnimatePresence>
-                  {swipingId === alert.id && (
-                    <motion.div
-                      className="absolute inset-0 bg-red-500 rounded-2xl flex items-center justify-end pr-4 z-0"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <Trash2 size={20} color="white" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* 通知アイテム */}
-                <motion.div
-                  className="p-3 rounded-2xl flex gap-3 relative z-10 cursor-pointer"
-                  style={{
-                    background: "var(--surface-bg)",
-                    border: "1px solid var(--surface-border)",
-                  }}
-                  drag="x"
-                  dragConstraints={{ left: -100, right: 0 }}
-                  dragElastic={0.2}
-                  onDragStart={() => setSwipingId(alert.id)}
-                  onDragEnd={(e, info) => {
-                    if (info.offset.x < -50) {
-                      handleDelete(alert.id);
-                    }
-                    setSwipingId(null);
-                  }}
-                >
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{
-                      background:
-                        "color-mix(in srgb, #f59e0b 20%, transparent)",
-                    }}
-                  >
-                    <AlertCircle size={20} style={{ color: "#f59e0b" }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className="text-sm font-bold truncate"
-                      style={{ color: "var(--color-text-primary)" }}
-                    >
-                      {alert.ingredient?.name}の賞味期限が近いです
-                    </div>
-                    <div
-                      className="text-[11px] mt-0.5 flex items-center gap-1"
-                      style={{ color: "var(--color-text-secondary)" }}
-                    >
-                      <Calendar size={12} />
-                      期限:{" "}
-                      {alert.ingredient?.expirationDate
-                        ? new Date(
-                            alert.ingredient.expirationDate,
-                          ).toLocaleDateString("ja-JP")
-                        : "未設定"}
-                    </div>
-                    <div
-                      className="text-[10px] mt-2"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      {new Date(alert.lastAlertedAt).toLocaleString("ja-JP")}
-                    </div>
-                    <button
-                      onClick={handleGenerateMenu}
-                      className="mt-2 w-full px-3 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition"
-                      style={{
-                        background: "var(--accent)",
-                        color: "#fff",
-                      }}
-                    >
-                      <ChefHat size={12} />
-                      献立を生成しましょう
-                    </button>
-                  </div>
-                </motion.div>
-              </motion.div>
+                alert={alert}
+                revealedId={revealedId}
+                setRevealedId={setRevealedId}
+                deletingIds={deletingIds}
+                onDelete={handleDelete}
+                onGenerateMenu={handleGenerateMenu}
+              />
             ))
           )}
         </div>
@@ -247,3 +322,4 @@ export default function NotificationModal({
     </motion.div>
   );
 }
+

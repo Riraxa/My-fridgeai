@@ -405,7 +405,11 @@ export default function AccountSettings() {
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
               <div className="relative group">
-                <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center border-2 border-gray-200 dark:border-gray-700">
+                <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center border-2"
+                style={{
+                  background: 'var(--surface-bg)',
+                  borderColor: 'var(--surface-border)'
+                }}>
                   {displaySession.user.image ? (
                     <img
                       src={displaySession.user.image}
@@ -413,7 +417,7 @@ export default function AccountSettings() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <User className="w-8 h-8 text-gray-400" />
+                    <User style={{ color: 'var(--color-text-secondary)' }} />
                   )}
                   {isUploadingImage && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -426,12 +430,16 @@ export default function AccountSettings() {
                   <>
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute -bottom-1 -right-1 p-1.5 bg-white dark:bg-gray-900 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 hover:scale-110 transition-transform"
+                      className="absolute -bottom-1 -right-1 p-1.5 rounded-full shadow-lg border hover:scale-110 transition-transform"
+                      style={{
+                        background: 'var(--surface-bg)',
+                        borderColor: 'var(--surface-border)'
+                      }}
                       title="アイコンを変更"
                     >
                       <Pencil
                         size={12}
-                        className="text-gray-600 dark:text-gray-400"
+                        style={{ color: 'var(--color-text-secondary)' }}
                       />
                     </button>
                     <input
@@ -453,7 +461,13 @@ export default function AccountSettings() {
                         type="text"
                         value={tempName}
                         onChange={(e) => setTempName(e.target.value)}
-                        className="bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded px-2 py-1 flex-1 outline-none text-sm"
+                        className="px-2 py-1 flex-1 outline-none text-sm"
+                        style={{
+                          background: 'var(--surface-bg)',
+                          color: 'var(--color-text-primary)',
+                          border: '1px solid var(--surface-border)',
+                          borderRadius: '0.25rem'
+                        }}
                         placeholder="名前を入力"
                         autoFocus
                         onKeyDown={(e) => {
@@ -464,13 +478,13 @@ export default function AccountSettings() {
                       <button
                         onClick={saveName}
                         disabled={isSavingName}
-                        className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                        className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
                       >
                         <Save size={18} />
                       </button>
                       <button
                         onClick={() => setIsEditingName(false)}
-                        className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                        className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded transition-colors"
                       >
                         <X size={18} />
                       </button>
@@ -485,7 +499,7 @@ export default function AccountSettings() {
                           setTempName(displaySession.user.name || "");
                           setIsEditingName(true);
                         }}
-                        className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                        className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded transition-colors"
                       >
                         <Pencil size={16} />
                       </button>
