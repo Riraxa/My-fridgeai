@@ -268,7 +268,7 @@ export default function AccountSettings() {
                     </div>
                   )}
                   {displaySession?.user &&
-                  (displaySession.user as any).cancelAtPeriodEnd ? (
+                    (displaySession.user as any).cancelAtPeriodEnd ? (
                     <span className="text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
                       解約予約中
                     </span>
@@ -293,7 +293,7 @@ export default function AccountSettings() {
                 style={{ color: "var(--color-text-secondary)" }}
               >
                 {displaySession?.user &&
-                (displaySession.user as any).cancelAtPeriodEnd
+                  (displaySession.user as any).cancelAtPeriodEnd
                   ? "Proプランは解約済みです。"
                   : "ご支援ありがとうございます！あなたのサポートが開発の力になります。"}
               </p>
@@ -326,7 +326,7 @@ export default function AccountSettings() {
               >
                 お支払い方法の変更や、
                 {displaySession?.user &&
-                (displaySession.user as any).cancelAtPeriodEnd
+                  (displaySession.user as any).cancelAtPeriodEnd
                   ? "解約のキャンセル"
                   : "プランの解約"}{" "}
                 などの手続きを行えます。
@@ -335,7 +335,7 @@ export default function AccountSettings() {
                 <Button
                   variant={
                     displaySession?.user &&
-                    (displaySession.user as any).cancelAtPeriodEnd
+                      (displaySession.user as any).cancelAtPeriodEnd
                       ? "default"
                       : "destructive"
                   }
@@ -344,19 +344,19 @@ export default function AccountSettings() {
                   className="w-full sm:w-auto border-2 hover:scale-[1.02] transition-all"
                   style={
                     displaySession?.user &&
-                    (displaySession.user as any).cancelAtPeriodEnd
+                      (displaySession.user as any).cancelAtPeriodEnd
                       ? {}
                       : {
-                          borderColor: "var(--accent)",
-                          background: "var(--accent)",
-                          color: "#fff",
-                        }
+                        borderColor: "var(--accent)",
+                        background: "var(--accent)",
+                        color: "#fff",
+                      }
                   }
                 >
                   {isPortalLoading
                     ? "読み込み中..."
                     : displaySession?.user &&
-                        (displaySession.user as any).cancelAtPeriodEnd
+                      (displaySession.user as any).cancelAtPeriodEnd
                       ? "解約をキャンセルする"
                       : "Proプランを解約する"}
                 </Button>
@@ -406,10 +406,10 @@ export default function AccountSettings() {
             <div className="flex items-center gap-4">
               <div className="relative group">
                 <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center border-2"
-                style={{
-                  background: 'var(--surface-bg)',
-                  borderColor: 'var(--surface-border)'
-                }}>
+                  style={{
+                    background: 'var(--surface-bg)',
+                    borderColor: 'var(--surface-border)'
+                  }}>
                   {displaySession.user.image ? (
                     <img
                       src={displaySession.user.image}
@@ -543,6 +543,36 @@ export default function AccountSettings() {
         {/* ← ここも .card */}
         <div className="card">
           <PasskeyManager />
+        </div>
+      </section>
+
+      {/* Legal Information */}
+      <section>
+        <h2 className="text-xl font-bold mb-4">法的事項</h2>
+        <div className="card space-y-2">
+          <a
+            href="/terms"
+            className="block p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex justify-between items-center"
+          >
+            <span className="text-gray-700 dark:text-gray-300">利用規約</span>
+            <span className="text-gray-400">→</span>
+          </a>
+          <div className="border-t border-gray-100 dark:border-gray-800"></div>
+          <a
+            href="/privacy"
+            className="block p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex justify-between items-center"
+          >
+            <span className="text-gray-700 dark:text-gray-300">プライバシーポリシー</span>
+            <span className="text-gray-400">→</span>
+          </a>
+          <div className="border-t border-gray-100 dark:border-gray-800"></div>
+          <a
+            href="/tokusho"
+            className="block p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex justify-between items-center"
+          >
+            <span className="text-gray-700 dark:text-gray-300">特定商取引法に基づく表記</span>
+            <span className="text-gray-400">→</span>
+          </a>
         </div>
       </section>
 

@@ -275,6 +275,8 @@ export const authOptions: NextAuthOptions = {
               cancelAtPeriodEnd: true,
               stripeCurrentPeriodEnd: true,
               passkeySetupCompleted: true,
+              name: true,
+              image: true,
             },
           });
 
@@ -287,6 +289,10 @@ export const authOptions: NextAuthOptions = {
               dbUser.stripeCurrentPeriodEnd;
             (session.user as any).passkeySetupCompleted =
               dbUser.passkeySetupCompleted ?? false;
+
+            // 名前と画像をDBから最新のもので上書き
+            if (dbUser.name) session.user.name = dbUser.name;
+            if (dbUser.image) session.user.image = dbUser.image;
           }
         } catch (e) {
           console.error(
