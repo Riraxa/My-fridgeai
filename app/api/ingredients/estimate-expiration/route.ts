@@ -12,10 +12,10 @@ export async function POST(req: Request) {
     const { name, purchasedAt } = await req.json();
     const purchaseDate = purchasedAt ? new Date(purchasedAt) : new Date();
 
-    // 1. Rule Based
+    // 1. Rule Based (Backup)
     const ruleBasedDate = estimateExpirationDate(name, purchaseDate);
 
-    // ルールベースのカテゴリ推定
+    // ルールベースのカテゴリ推定関数
     const estimateCategory = (itemName: string): string => {
       const lowerName = itemName.toLowerCase();
 
@@ -105,8 +105,7 @@ export async function POST(req: Request) {
         lowerName.includes("ブルーベリー") ||
         lowerName.includes("ラズベリー") ||
         lowerName.includes("いちじく") ||
-        lowerName.includes("くり") ||
-        lowerName.includes("いちじく")
+        lowerName.includes("くり")
       )
         return "野菜";
 
@@ -347,9 +346,7 @@ export async function POST(req: Request) {
         lowerName.includes("ミネラルウォーター") ||
         lowerName.includes("ウォーター") ||
         lowerName.includes("水") ||
-        lowerName.includes("お茶") ||
-        lowerName.includes("紅茶") ||
-        lowerName.includes("コーヒー")
+        lowerName.includes("お茶")
       )
         return "その他";
 
@@ -386,18 +383,9 @@ export async function POST(req: Request) {
       return "冷蔵";
     };
 
-    if (ruleBasedDate) {
-      return NextResponse.json({
-        success: true,
-        estimatedExpiration: ruleBasedDate,
-        estimatedCategory: estimateCategory(name),
-        source: "rule",
-      });
-    }
-
-    // 2. AI Fallback
+    // 2. AI Estimation (Primary)
     const prompt = `
-食材「${name}」の一般的な賞味期限（冷蔵保存）と適切なカテゴリを推定してください。
+食材「${name}」の一般的な賞味期限（冷蔵保存）、適切なカテゴリ、および**標準的な購入単位での数量（g/ml/個）**を推定してください。
 購入日は${purchaseDate.toISOString().split("T")[0]}です。
 
 以下の点を考慮して推定してください：
@@ -420,47 +408,70 @@ export async function POST(req: Request) {
 - 調味料（醤油、味噌、ソース、香辛料等）
 - その他（穀類、菓子類、飲料等）
 
-【特別な考慮事項】
-- 日本の一般的な家庭での保存条件を想定
-- 未開封状態の賞味期限を推定
-- 季節による変動は考慮しない
-- 特殊な保存方法（冷凍・真空パック等）は考慮しない
+【数量・単位の推定ルール】★最重要
+- **可能な限り「g（グラム）」「ml（ミリリットル）」「個」などの標準的な物理単位を使用してください。**
+- 曖昧な単位（丁、束、袋、パック、本）は避け、標準量に換算してください。
+  - 例: 豆腐 1丁 → 350 g
+  - 例: ほうれん草 1束 → 200 g
+  - 例: 牛乳 1パック → 1000 ml
+  - 例: 卵 1パック → 10 個
+  - 例: 納豆 1パック → 50 g
+- 一般的なスーパーで売られている「使い切りサイズ」または「標準サイズ」を想定してください。
 
 回答は以下のJSON形式のみで返してください:
 {
   "days": 7, // 購入日からの日数（整数）
   "category": "冷蔵", // 推定カテゴリ
+  "amount": 300, // 推定数量（数値）
+  "unit": "g", // 推定単位（g, ml, 個 など）
   "confidence": "medium", // high/medium/low
   "reasoning": "推定の根拠（簡潔に）"
 }
 `;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      temperature: 0.3,
-    });
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+      });
 
-    const content = completion.choices[0]?.message.content;
-    if (content) {
-      const result = JSON.parse(content);
-      const days = result.days || 7;
-      const aiDate = new Date(purchaseDate);
-      aiDate.setDate(aiDate.getDate() + days);
-      const estimatedCategory = result.category || "その他";
+      const content = completion.choices[0]?.message.content;
+      if (content) {
+        const result = JSON.parse(content);
+        const days = result.days || 7;
+        const aiDate = new Date(purchaseDate);
+        aiDate.setDate(aiDate.getDate() + days);
+        const estimatedCategory = result.category || estimateCategory(name);
 
+        return NextResponse.json({
+          success: true,
+          estimatedExpiration: aiDate,
+          estimatedCategory,
+          estimatedAmount: result.amount,
+          estimatedUnit: result.unit,
+          confidence: result.confidence || "medium",
+          reasoning: result.reasoning || "",
+          source: "ai",
+        });
+      }
+    } catch (aiError) {
+      console.error("AI Estimation failed:", aiError);
+    }
+
+    // Fallback if AI fails
+    if (ruleBasedDate) {
       return NextResponse.json({
         success: true,
-        estimatedExpiration: aiDate,
-        estimatedCategory,
-        confidence: result.confidence || "medium",
-        reasoning: result.reasoning || "",
-        source: "ai",
+        estimatedExpiration: ruleBasedDate,
+        estimatedCategory: estimateCategory(name),
+        source: "rule_fallback",
       });
     }
 
     return NextResponse.json({ error: "Could not estimate" }, { status: 400 });
+
   } catch (error) {
     console.error("Estimation Error:", error);
     return NextResponse.json(

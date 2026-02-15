@@ -42,6 +42,8 @@ export default function AddEditModal({
   const [estimatedCategory, setEstimatedCategory] = useState<string | null>(
     null,
   );
+  const [estimatedAmount, setEstimatedAmount] = useState<number | null>(null); // New
+  const [estimatedUnit, setEstimatedUnit] = useState<string | null>(null); // New
   const [daysFromPurchase, setDaysFromPurchase] = useState<number | null>(null);
 
   // Saving state
@@ -59,6 +61,8 @@ export default function AddEditModal({
     setCategory(item?.category ?? "その他");
     setEstimatedExpiry(null);
     setEstimatedCategory(null);
+    setEstimatedAmount(null);
+    setEstimatedUnit(null);
     setDaysFromPurchase(null);
   }, [item]);
 
@@ -90,9 +94,22 @@ export default function AddEditModal({
             setCategory(data.estimatedCategory);
           }
 
+          // 数量・単位推定結果を設定 (未入力時のみ)
+          if (data.estimatedAmount && data.estimatedUnit) {
+            setEstimatedAmount(data.estimatedAmount);
+            setEstimatedUnit(data.estimatedUnit);
+
+            // ユーザーがまだ何も入力していない場合のみ自動セット
+            if (!amount && unit === "個") { // Default unit is "個"
+              setAmount(data.estimatedAmount);
+              setUnit(data.estimatedUnit);
+              setAmountMode("precise"); // 詳細モードへ
+            }
+          }
+
           const days = Math.ceil(
             (new Date(data.estimatedExpiration).getTime() - Date.now()) /
-              (1000 * 60 * 60 * 24),
+            (1000 * 60 * 60 * 24),
           );
           setDaysFromPurchase(days);
         }
@@ -138,6 +155,9 @@ export default function AddEditModal({
           </span>
           {estimatedCategory && (
             <span>📂 カテゴリ推定: {estimatedCategory}</span>
+          )}
+          {estimatedAmount && estimatedUnit && (
+            <span>⚖️ 数量推定: {estimatedAmount}{estimatedUnit}</span>
           )}
         </div>
       )}
@@ -314,11 +334,10 @@ export default function AddEditModal({
             }
           }}
           disabled={isSaving}
-          className={`flex-1 ml-2 rounded-full py-2.5 text-sm font-medium shadow-sm transition ${
-            isSaving
+          className={`flex-1 ml-2 rounded-full py-2.5 text-sm font-medium shadow-sm transition ${isSaving
               ? "bg-gray-400 text-gray-200 cursor-not-allowed"
               : "bg-[var(--accent)] hover:brightness-110 text-white"
-          }`}
+            }`}
         >
           {isSaving ? (
             <span className="flex items-center justify-center gap-2">

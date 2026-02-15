@@ -51,11 +51,25 @@ export function normalizeAmount(amount: number, unit: string): number {
     tsp: 5,
     カップ: 200,
     cup: 200,
-    個: 1,
-    本: 1,
-    枚: 1,
+    個: 1, // "個" is standard for some but ambiguous. Treat as 1.
     piece: 1,
     slice: 1,
+
+    // 拡張単位変換 (全て g/ml 換算の目安)
+    丁: 350,   // 豆腐 1丁 ≈ 300-400g
+    cho: 350,
+    束: 200,   // ほうれん草など 1束 ≈ 200g
+    bunch: 200,
+    袋: 100,   // きのこ、カット野菜など 1袋 ≈ 100g (かなり変動ありだが目安として)
+    bag: 100,
+    合: 150,   // 米 1合 = 150g
+    go: 150,
+    升: 1500,  // 米 1升 = 1.5kg
+    sho: 1500,
+    パック: 200, // 肉・魚 1パック (小) ≈ 200g と仮定
+    pack: 200,
+    本: 150,   // 人参・大根など。変動大きいが目安。
+    玉: 200,   // 玉ねぎ1個など。キャベツだと1kgだが... AIがg提案するため補助的。
   };
 
   const factor = unitMap[normalizedUnit];
@@ -86,7 +100,7 @@ export function checkIngredientAvailability(
     const stock = userInventory.find((i) => {
       if (!i.name || typeof i.name !== "string") return false;
       if (!required.name || typeof required.name !== "string") return false;
-      
+
       const s = i.name.toLowerCase().trim();
       const r = required.name.toLowerCase().trim();
       return s === r || s.startsWith(r) || r.startsWith(s);
@@ -190,10 +204,10 @@ export function calculateInventoryUpdates(
       console.warn("[Inventory] Skipping invalid used ingredient:", used);
       continue;
     }
-    
+
     const stock = userInventory.find((i) => {
       if (!i.name || typeof i.name !== "string") return false;
-      
+
       const s = i.name.toLowerCase().trim();
       const u = used.name.toLowerCase().trim();
       return s === u || s.startsWith(u) || u.startsWith(s);
