@@ -180,6 +180,14 @@ export default function NotificationModal({
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   useEffect(() => {
     async function fetchNotifications() {
       try {

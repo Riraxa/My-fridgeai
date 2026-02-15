@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function TermsPage() {
   return (
-    <main className="max-w-3xl mx-auto p-6 text-gray-800 dark:text-gray-100">
+    <main className="max-w-3xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">利用規約</h1>
       <p className="mb-4 legal-text">
         この利用規約（以下「本規約」）は、運営者が提供する「My-fridgeai」（以下「本サービス」）の利用条件を定めるものです。ユーザーの皆様には、本規約に同意いただいた上で、本サービスをご利用いただきます。
@@ -136,7 +136,10 @@ export default function TermsPage() {
         本規約の解釈にあたっては、日本法を準拠法とします。本サービスに関して紛争が生じた場合には、運営者の本店所在地を管轄する裁判所を専属的合意管轄とします。
       </p>
 
-      <p className="text-right text-sm text-gray-600 dark:text-gray-400 mt-8">
+      <p
+        className="text-right text-sm mt-8"
+        style={{ color: "var(--color-text-muted)" }}
+      >
         改定日：2026年2月2日
       </p>
 

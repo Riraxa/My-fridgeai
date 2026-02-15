@@ -549,29 +549,29 @@ export default function AccountSettings() {
       {/* Legal Information */}
       <section>
         <h2 className="text-xl font-bold mb-4">法的事項</h2>
-        <div className="card space-y-2">
+        <div className="card legal-links">
           <a
             href="/terms"
-            className="block p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex justify-between items-center"
+            className="legal-link"
           >
-            <span className="text-gray-700 dark:text-gray-300">利用規約</span>
-            <span className="text-gray-400">→</span>
+            <span className="legal-link__label">利用規約</span>
+            <span className="legal-link__arrow">→</span>
           </a>
-          <div className="border-t border-gray-100 dark:border-gray-800"></div>
+          <div className="legal-divider"></div>
           <a
             href="/privacy"
-            className="block p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex justify-between items-center"
+            className="legal-link"
           >
-            <span className="text-gray-700 dark:text-gray-300">プライバシーポリシー</span>
-            <span className="text-gray-400">→</span>
+            <span className="legal-link__label">プライバシーポリシー</span>
+            <span className="legal-link__arrow">→</span>
           </a>
-          <div className="border-t border-gray-100 dark:border-gray-800"></div>
+          <div className="legal-divider"></div>
           <a
             href="/tokusho"
-            className="block p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex justify-between items-center"
+            className="legal-link"
           >
-            <span className="text-gray-700 dark:text-gray-300">特定商取引法に基づく表記</span>
-            <span className="text-gray-400">→</span>
+            <span className="legal-link__label">特定商取引法に基づく表記</span>
+            <span className="legal-link__arrow">→</span>
           </a>
         </div>
       </section>

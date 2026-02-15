@@ -95,6 +95,56 @@ h3,
     text-shadow 0.3s ease;
 }
 
+.legal-text {
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+}
+
+.legal-text strong {
+  color: var(--color-text-primary);
+}
+
+.legal-links {
+  display: flex;
+  flex-direction: column;
+}
+
+.legal-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  color: var(--color-text-secondary);
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.legal-link:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--color-text-primary);
+}
+
+.legal-link:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 3px;
+}
+
+.legal-link__label {
+  color: inherit;
+}
+
+.legal-link__arrow {
+  color: var(--color-text-muted);
+}
+
+.legal-divider {
+  border-top: 1px solid var(--surface-border);
+  margin: 0.25rem 0;
+}
+
 /* ===============================
    入力フィールド（統合）
    =============================== */
@@ -115,6 +165,13 @@ h3,
     border-color 160ms ease;
 }
 
+.input-field {
+  border-radius: 0.6rem;
+  transition:
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
 .input {
   padding: 0.75rem;
 }
@@ -122,10 +179,15 @@ h3,
 /* 元の .input 固有のパディングを維持 */
 
 .input:focus,
-.input-field:focus,
 .wizard-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(255, 145, 77, 0.25);
+  transform: scale(1.01);
+}
+
+.input-field:focus {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  border-color: color-mix(in srgb, var(--accent) 50%, #0000);
   transform: scale(1.01);
 }
 
@@ -146,8 +208,7 @@ h3,
    カード
    =============================== */
 
-.card,
-.modal-card {
+.card {
   background: var(--card-bg);
   backdrop-filter: blur(var(--card-blur)) saturate(140%);
   border-radius: 1.5rem;
@@ -160,6 +221,23 @@ h3,
     transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.3s ease,
     background 0.4s ease;
+}
+
+.modal-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(var(--card-blur)) saturate(140%);
+  border-radius: 1rem;
+  box-shadow: 0 14px 40px var(--shadow-color);
+  padding: 0.75rem;
+  border: 1px solid var(--surface-border);
+  color: var(--color-text-primary);
+  animation: fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s ease,
+    background 0.4s ease;
+  max-height: calc(100vh - 6rem);
+  overflow: auto;
 }
 
 .card:hover {
@@ -202,8 +280,9 @@ h3,
   background: var(--accent);
   color: #fff;
   border: none;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
-  padding: 0.9rem 1.3rem;
+  box-shadow: none;
+  padding: 0.6rem 1rem;
+  border-radius: 9999px;
   width: 100%;
 }
 
@@ -259,17 +338,24 @@ h3,
    =============================== */
 
 .cancel-btn {
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
   color: var(--color-text-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  transition: all 0.25s ease;
+  border: 1px solid var(--surface-border);
+  padding: 0.6rem 1rem;
+  border-radius: 9999px;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
   min-height: 44px;
+  box-shadow: none !important;
 }
 
 .cancel-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   color: var(--color-text-primary);
   transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* モバイルでのフォーム要素最適化 */
@@ -680,14 +766,7 @@ input[type="date"] {
 }
 
 /* 疑似要素で矢印を追加 */
-.ios-select {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 12px center;
-  background-repeat: no-repeat;
-  background-size: 16px;
-  padding-right: 40px;
-}
-
+.ios-select,
 .android-select {
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   background-position: right 12px center;
@@ -813,57 +892,7 @@ input[type="date"] {
   backdrop-filter: blur(2px);
 }
 
-.modal-card {
-  background: var(--card-bg);
-  border: 1px solid var(--surface-border);
-  color: var(--color-text-primary);
-}
-
 /* AddEditModal - inputs and buttons */
-.input-field {
-  background: var(--surface-bg);
-  color: var(--color-text-primary);
-  border: 1px solid var(--surface-border);
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.6rem;
-  outline: none;
-  transition:
-    box-shadow 160ms ease,
-    border-color 160ms ease;
-}
-
-.input-field:focus {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-  border-color: color-mix(in srgb, var(--accent) 50%, #0000);
-}
-
-/* cancel / continue buttons adapt */
-.cancel-btn {
-  background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--surface-border);
-  padding: 0.6rem 1rem;
-  border-radius: 9999px;
-  transition:
-    background 160ms ease,
-    color 160ms ease,
-    border-color 160ms ease;
-  box-shadow: none !important;
-}
-
-.cancel-btn:hover {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.continue-btn {
-  background: var(--accent);
-  color: #fff;
-  padding: 0.6rem 1rem;
-  border-radius: 9999px;
-  border: none;
-  box-shadow: none;
-}
 
 /* badge / small text */
 .badge {
@@ -1009,17 +1038,6 @@ input[type="date"] {
 .action-label {
   display: inline-block;
   line-height: 1;
-}
-
-/* modal card (smaller variant) */
-.modal-card {
-  background: var(--card-bg);
-  border: 1px solid var(--surface-border);
-  color: var(--color-text-primary);
-  border-radius: 1rem;
-  padding: 0.75rem;
-  max-height: calc(100vh - 6rem);
-  overflow: auto;
 }
 
 /* react-datepicker helpers inside modal */
@@ -1226,7 +1244,6 @@ img {
   }
 }
 
-
 /* Alert Component Styles */
 .alert {
   display: flex;
@@ -1346,4 +1363,3 @@ img {
 :root[data-theme="dark"] .alert-info .alert-icon {
   color: #60a5fa;
 }
-

@@ -172,6 +172,21 @@ export default function LoginClient() {
     e.preventDefault();
     setMsg(null);
 
+    // Initial check for In-App Browsers (Yahoo! JAPAN, LINE, etc.)
+    // These browsers often have broken or incomplete WebAuthn implementations.
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isInApp =
+      /yahoo|yjapp|line|instagram|facebook|fban|fbav/i.test(ua) ||
+      // Special check for outcome of "Code for in-app browser detection" logic if needed
+      false;
+
+    if (isInApp) {
+      setMsg(
+        "Yahoo! JAPANアプリやLINEなどのアプリ内ブラウザでは、パスキー（指紋・顔認証）が正しく動作しない場合があります。\n\nお手数ですが、Safari（iPhone）またはChrome（Android）でこのページを開き直してから、再度お試しください。",
+      );
+      return;
+    }
+
     if (!email) return setMsg("メールアドレスを入力してください。");
 
     setLoading(true);

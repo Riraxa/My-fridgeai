@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function PrivacyPage() {
   return (
-    <main className="max-w-3xl mx-auto p-6 text-gray-900 dark:text-gray-100">
+    <main className="max-w-3xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">プライバシーポリシー</h1>
 
       <p className="mb-4 legal-text">
@@ -180,7 +180,10 @@ export default function PrivacyPage() {
         本ポリシーの解釈および適用については、日本法を準拠法とします。
       </p>
 
-      <p className="text-right text-sm text-gray-600 dark:text-gray-400 mt-8">
+      <p
+        className="text-right text-sm mt-8"
+        style={{ color: "var(--color-text-muted)" }}
+      >
         改定日：2026年2月2日
       </p>
 
