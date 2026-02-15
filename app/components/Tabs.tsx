@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -99,18 +100,27 @@ export default function Tabs() {
               key={tab.name}
               href={tab.href}
               className={cn(
-                "relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex-1",
+                "relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex-1 z-10",
                 isActive
-                  ? "text-white shadow-md"
+                  ? "text-[var(--accent)]"
                   : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]",
               )}
-              style={{
-                color: isActive ? "var(--accent)" : undefined,
-                background: isActive
-                  ? "color-mix(in srgb, var(--accent) 12%, transparent)"
-                  : undefined,
-              }}
             >
+              {isActive && (
+                <motion.div
+                  layoutId="activeSettingTab"
+                  className="absolute inset-0 rounded-lg z-[-1]"
+                  style={{
+                    background:
+                      "color-mix(in srgb, var(--accent) 12%, transparent)",
+                  }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 30,
+                  }}
+                />
+              )}
               <div className="flex items-center gap-2">
                 <div
                   style={{

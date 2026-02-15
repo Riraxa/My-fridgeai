@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Home, ChefHat, ShoppingCart, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import TabTransition from "@/app/components/PageTransition";
 
 export default function NavBar() {
@@ -93,31 +94,36 @@ export default function NavBar() {
               <Link
                 key={item.to}
                 href={item.to}
-                className={`group relative flex items-center justify-center w-full transition-colors duration-200 ${
-                  currentActiveIndex === index
-                    ? "bg-black/90 rounded-full px-2 py-1"
-                    : ""
-                }`}
+                className="group relative flex items-center justify-center w-full transition-colors duration-200 py-1"
               >
-                <div className="relative flex flex-col items-center">
+                {currentActiveIndex === index && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute inset-0 bg-black/90 rounded-full z-0"
+                    transition={{
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 30,
+                    }}
+                  />
+                )}
+                <div className="relative flex flex-col items-center z-10">
                   {/* アイコン */}
                   <div
-                    className={`transition-colors duration-200 ${
-                      currentActiveIndex === index
-                        ? "text-white"
-                        : "text-gray-600 group-hover:text-gray-800"
-                    }`}
+                    className={`transition-colors duration-200 ${currentActiveIndex === index
+                      ? "text-white"
+                      : "text-gray-600 group-hover:text-gray-800"
+                      }`}
                   >
                     {item.icon}
                   </div>
 
                   {/* ラベル */}
                   <span
-                    className={`text-xs font-medium transition-colors duration-200 mt-1 whitespace-nowrap ${
-                      currentActiveIndex === index
-                        ? "text-white font-bold"
-                        : "opacity-60 group-hover:opacity-80 text-gray-600"
-                    }`}
+                    className={`text-xs font-medium transition-colors duration-200 mt-1 whitespace-nowrap ${currentActiveIndex === index
+                      ? "text-white font-bold"
+                      : "opacity-60 group-hover:opacity-80 text-gray-600"
+                      }`}
                     style={{
                       minWidth: "50px",
                       textAlign: "center",
