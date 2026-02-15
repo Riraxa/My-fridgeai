@@ -88,6 +88,7 @@ export default function RootLayout({
               {" "}
               {/* ✅ ここで全体を包む！ */}
               {children}
+              <NavBarContainer />
             </FridgeProvider>
           </ThemeProvider>
         </SessionWrapper>
@@ -95,3 +96,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+import NavBarContainer from "@/app/components/NavBarContainer";

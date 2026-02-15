@@ -4,7 +4,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import NavBar from "@/app/components/NavBar";
 import { useTheme } from "@/app/components/ThemeProvider";
 
 interface Dish {
@@ -96,7 +95,6 @@ export default function WeeklyPlanningPage() {
     return (
       <div className="min-h-screen flex items-center justify-center pb-32">
         <div className="text-gray-500">読み込み中...</div>
-        <NavBar />
       </div>
     );
   }
@@ -127,7 +125,6 @@ export default function WeeklyPlanningPage() {
             Proプランにアップグレード
           </button>
         </div>
-        <NavBar />
       </div>
     );
   }
@@ -244,7 +241,6 @@ export default function WeeklyPlanningPage() {
           </div>
         </div>
       )}
-      <NavBar />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 //app/shopping-list/page.tsx
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
-import NavBar from "@/app/components/NavBar";
 import ShoppingListItem from "@/app/components/ShoppingListItem";
 import { useFridge } from "@/app/components/FridgeProvider";
 import Toast from "@/app/components/Toast";
@@ -196,7 +195,6 @@ export default function ShoppingListPage() {
         )}
       </AnimatePresence>
 
-      <NavBar />
       <Toast msg={toast} onClose={() => setToast(null)} />
     </PageTransition>
   );

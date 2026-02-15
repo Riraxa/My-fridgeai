@@ -100,7 +100,7 @@ export default function Tabs() {
               key={tab.name}
               href={tab.href}
               className={cn(
-                "relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex-1 z-10",
+                "relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 flex-1 z-10 no-tap-highlight",
                 isActive
                   ? "text-[var(--accent)]"
                   : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]",
@@ -109,23 +109,28 @@ export default function Tabs() {
               {isActive && (
                 <motion.div
                   layoutId="activeSettingTab"
-                  className="absolute inset-0 rounded-lg z-[-1]"
+                  className="absolute inset-0 rounded-lg z-[-1] shadow-sm"
                   style={{
                     background:
                       "color-mix(in srgb, var(--accent) 12%, transparent)",
                   }}
                   transition={{
                     type: "spring",
-                    stiffness: 400,
+                    stiffness: 380,
                     damping: 30,
+                    mass: 0.8,
                   }}
                 />
               )}
-              <div className="flex items-center gap-2">
+              <motion.div
+                className="flex items-center gap-2"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+              >
                 <div
                   style={{
-                    transform: isActive ? "scale(1.05)" : "scale(1)",
-                    transition: "transform 0.12s ease-out",
+                    transform: isActive ? "scale(1.1) translateY(-1px)" : "scale(1)",
+                    transition: "transform 0.2s cubic-bezier(0.2, 0, 0, 1)",
                   }}
                 >
                   {tab.icon}
@@ -134,12 +139,11 @@ export default function Tabs() {
                   className="hidden sm:inline"
                   style={{
                     fontWeight: isActive ? 600 : 500,
-                    transition: "font-weight 0.12s ease-out",
                   }}
                 >
                   {tab.name}
                 </span>
-              </div>
+              </motion.div>
             </Link>
           );
         })}

@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import NavBar from "@/app/components/NavBar";
 
 export default function ExpirationSettingsPage() {
   const router = useRouter();
@@ -75,7 +74,6 @@ export default function ExpirationSettingsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center pb-32">
         <div className="text-gray-500">読み込み中...</div>
-        <NavBar />
       </div>
     );
   }
@@ -103,7 +101,6 @@ export default function ExpirationSettingsPage() {
             Proプランにアップグレード
           </button>
         </div>
-        <NavBar />
       </div>
     );
   }
@@ -206,9 +203,8 @@ export default function ExpirationSettingsPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-              saving ? "bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-700"
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+            className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${saving ? "bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-700"
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
           >
             {saving ? "保存中..." : "設定を保存する"}
           </button>
@@ -223,7 +219,6 @@ export default function ExpirationSettingsPage() {
           ← 献立生成に戻る
         </a>
       </div>
-      <NavBar />
     </div>
   );
 }

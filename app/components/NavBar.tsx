@@ -94,35 +94,44 @@ export default function NavBar() {
               <Link
                 key={item.to}
                 href={item.to}
-                className="group relative flex items-center justify-center w-full transition-colors duration-200 py-1"
+                className="group relative flex items-center justify-center w-full transition-all duration-300 py-1 no-tap-highlight"
               >
                 {currentActiveIndex === index && (
                   <motion.div
                     layoutId="activeTab"
-                    className="absolute inset-0 bg-black/90 rounded-full z-0"
+                    className="absolute inset-0 bg-black/90 rounded-full z-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
                     transition={{
                       type: "spring",
-                      stiffness: 400,
+                      stiffness: 380,
                       damping: 30,
+                      mass: 0.8,
                     }}
                   />
                 )}
-                <div className="relative flex flex-col items-center z-10">
+                <motion.div
+                  className="relative flex flex-col items-center z-10"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.92 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                >
                   {/* アイコン */}
-                  <div
-                    className={`transition-colors duration-200 ${currentActiveIndex === index
-                      ? "text-white"
-                      : "text-gray-600 group-hover:text-gray-800"
+                  <motion.div
+                    animate={{
+                      y: currentActiveIndex === index ? -2 : 0,
+                    }}
+                    className={`transition-colors duration-300 ${currentActiveIndex === index
+                        ? "text-white"
+                        : "text-gray-500 group-hover:text-gray-800"
                       }`}
                   >
                     {item.icon}
-                  </div>
+                  </motion.div>
 
                   {/* ラベル */}
                   <span
-                    className={`text-xs font-medium transition-colors duration-200 mt-1 whitespace-nowrap ${currentActiveIndex === index
-                      ? "text-white font-bold"
-                      : "opacity-60 group-hover:opacity-80 text-gray-600"
+                    className={`text-[10px] sm:text-xs font-medium transition-all duration-300 mt-1 whitespace-nowrap ${currentActiveIndex === index
+                        ? "text-white font-bold opacity-100"
+                        : "opacity-40 group-hover:opacity-70 text-gray-600"
                       }`}
                     style={{
                       minWidth: "50px",
@@ -132,7 +141,7 @@ export default function NavBar() {
                   >
                     {item.label}
                   </span>
-                </div>
+                </motion.div>
               </Link>
             ))}
           </div>

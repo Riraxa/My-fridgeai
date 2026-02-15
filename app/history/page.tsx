@@ -4,7 +4,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, RotateCcw, Utensils } from "lucide-react";
-import NavBar from "@/app/components/NavBar";
 import { motion } from "framer-motion";
 
 export default function HistoryPage() {
@@ -160,7 +159,7 @@ export default function HistoryPage() {
                 key={h.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`card p-4 border border-[var(--surface-border)] ${isCancelled ? "opacity-60" : ""}`}
+                className={`card p - 4 border border - [var(--surface - border)] ${isCancelled ? "opacity-60" : ""} `}
                 style={{ background: isCancelled ? "var(--surface-bg)" : "" }}
               >
                 <div className="flex justify-between items-start mb-2">
@@ -274,8 +273,6 @@ export default function HistoryPage() {
           })
         )}
       </main>
-
-      <NavBar />
     </div>
   );
 }

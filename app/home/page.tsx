@@ -7,7 +7,6 @@ import { Plus, Search, Bell, ScanLine } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useFridge } from "@/app/components/FridgeProvider";
-import NavBar from "@/app/components/NavBar";
 import IngredientList from "@/app/components/IngredientList";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import Toast from "@/app/components/Toast";
@@ -360,7 +359,6 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      <NavBar />
       <Toast msg={toast} onClose={() => setToast(null)} />
     </PageTransition>
   );

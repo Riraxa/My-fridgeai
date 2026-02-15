@@ -4,7 +4,6 @@
 import { useState, useEffect } from "react";
 import MenuCard from "@/app/components/menu-card";
 import ErrorBoundary from "@/app/components/error-boundary";
-import NavBar from "@/app/components/NavBar";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -935,8 +934,8 @@ export default function MenuGeneratePage() {
                             key={idx}
                             onClick={() => setCurrentDishIndex(idx)}
                             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${currentDishIndex === idx
-                                ? "bg-[var(--accent)] text-white"
-                                : "bg-[var(--surface-bg)] text-[var(--color-text-secondary)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
+                              ? "bg-[var(--accent)] text-white"
+                              : "bg-[var(--surface-bg)] text-[var(--color-text-secondary)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
                               }`}
                           >
                             {r.title}
@@ -1060,8 +1059,8 @@ export default function MenuGeneratePage() {
                   onClick={handleConfirmCook}
                   disabled={loadingCook}
                   className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 ${loadingCook
-                      ? "bg-[var(--surface-bg)] cursor-not-allowed text-[var(--color-text-muted)]"
-                      : "bg-green-600 text-white hover:bg-green-700"
+                    ? "bg-[var(--surface-bg)] cursor-not-allowed text-[var(--color-text-muted)]"
+                    : "bg-green-600 text-white hover:bg-green-700"
                     }`}
                 >
                   {loadingCook ? (
@@ -1080,7 +1079,7 @@ export default function MenuGeneratePage() {
         )}
       </AnimatePresence>
 
-      {!selectedMenuType && <NavBar />}
+      {/* 以前ここに NavBar がありましたが、RootLayout に統合されました */}
     </ErrorBoundary>
   );
 }

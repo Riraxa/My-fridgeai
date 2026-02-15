@@ -2,7 +2,6 @@
 "use client";
 
 import Tabs from "@/app/components/Tabs";
-import NavBar from "@/app/components/NavBar";
 import ProThankYouModal from "@/app/components/ProThankYouModal";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -57,7 +56,6 @@ function SettingsLayoutContent({ children }: { children: React.ReactNode }) {
         <Tabs />
         {children}
       </div>
-      <NavBar />
       <ProThankYouModal open={showThankYouModal} onClose={handleModalClose} />
     </div>
   );
