@@ -575,6 +575,14 @@ input[type="date"] {
    最高の 動くインジケーター ナビゲーションバー
    =============================== */
 
+.nav-fixed-optimized {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: layout paint;
+}
+
 /* 最高のタブバーのベーススタイル */
 .modern-tab-bar,
 .ios-tab-bar-modern,

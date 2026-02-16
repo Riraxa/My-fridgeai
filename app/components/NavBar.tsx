@@ -72,7 +72,7 @@ export default function NavBar() {
 
   // OSに応じたクラス名を決定 - useMemoで最適化
   const navBarClass = useMemo(() => {
-    const baseClass = "fixed inset-x-0 bottom-0 z-50 ";
+    const baseClass = "fixed inset-x-0 bottom-0 z-50 nav-fixed-optimized ";
     if (isIOS) {
       return baseClass + "ios-tab-bar-modern";
     } else if (isAndroid) {
