@@ -12,9 +12,9 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "賞味期限管理・食品ロス | My-fridgeai",
+  title: "賞味期限管理・食品ロス削減｜ My-fridgeai",
   description:
-    "賞味期限3日前から自動通知！メールとアプリ内で食材の賞味期限を管理。Vercel Cronで毎日チェックし、食品ロスを削減する賞味期限管理アプリ。",
+    "賞味期限3日前から自動通知！メールとアプリプッシュで見逃し防止。毎日自動チェックで食品ロスを削減。簡単設定で安心な賞味期限管理アプリ。",
   openGraph: {
     title: "賞味期限アラート機能 | My-fridgeai",
     description:

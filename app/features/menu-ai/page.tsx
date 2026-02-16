@@ -13,9 +13,9 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
 
 export const metadata: Metadata = {
-  title: "献立生成AI・自動献立 | My-fridgeai",
+  title: "AIで献立を自動生成｜ My-fridgeai",
   description:
-    "冷蔵庫の余り物食材と賞味期限をAIが考慮して献立を自動生成！メイン・ジャンル違い・時短15分で3案提案。食材ロス削減に貢献する献立作成アプリ。",
+    "冷蔵庫の食材と賞味期限をAIが分析して献立を自動生成。時短レシピ、栄養バランス、消費優先で3案提案。食品ロス削減に貢献する無料の献立作成アプリ。",
   openGraph: {
     title: "AIで献立を自動生成 | My-fridgeai",
     description:
