@@ -330,6 +330,14 @@ export default function Page() {
                     プライバシーポリシー
                   </Link>
                 </li>
+                <li>
+                  <Link
+                    href="/tokusho"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    特定商取引法に基づく表記
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
