@@ -28,6 +28,16 @@ html {
   --passkey-protected-border: rgba(251, 191, 36, 0.55);
   --passkey-protected-title: #78350f;
   --passkey-protected-text: #92400e;
+
+  /* ナビゲーション用 */
+  --nav-indicator: rgba(15, 23, 42, 0.9);
+  /* 選択中の背景（しっかりしたダーク） */
+  --nav-active-text: #ffffff;
+  /* 選択中の文字色（白） */
+  --nav-inactive-text: #64748b;
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  /* カプセル自体の背景 */
+  --nav-border: rgba(0, 0, 0, 0.1);
 }
 
 /* ダークモード変数（値はオリジナルのまま） */
@@ -51,6 +61,16 @@ html {
   --passkey-protected-border: rgba(180, 83, 9, 0.5);
   --passkey-protected-title: #fde68a;
   --passkey-protected-text: #fcd34d;
+
+  /* ナビゲーション用（ダーク） */
+  --nav-indicator: #ffffff;
+  /* 選択中の背景（純白） */
+  --nav-active-text: #0f172a;
+  /* 選択中の文字色（ダーク） */
+  --nav-inactive-text: #94a3b8;
+  --nav-bg: rgba(30, 41, 59, 0.95);
+  /* カプセル自体の背景（ダーク） */
+  --nav-border: rgba(255, 255, 255, 0.15);
 }
 
 .passkey-protected {
@@ -575,11 +595,31 @@ input[type="date"] {
    最高の 動くインジケーター ナビゲーションバー
    =============================== */
 
+.nav-inactive {
+  color: var(--nav-inactive-text);
+  opacity: 0.7;
+}
+
+.nav-inactive:hover {
+  color: var(--color-text-primary);
+  opacity: 1;
+}
+
 .nav-glass {
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--nav-glass-bg);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  transition: backdrop-filter 140ms ease, -webkit-backdrop-filter 140ms ease, background 140ms ease;
+  border: 1px solid var(--nav-glass-border);
+  transition: all 140ms ease;
+}
+
+.nav-glass-strong {
+  background: var(--nav-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--nav-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  transition: all 200ms ease;
 }
 
 .nav-glass--scrolling {
@@ -594,7 +634,6 @@ input[type="date"] {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   contain: layout paint;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-hidden {

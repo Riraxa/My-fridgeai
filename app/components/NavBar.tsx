@@ -1,11 +1,11 @@
 // components/NavBar.tsx
 "use client";
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Home, ChefHat, ShoppingCart, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import TabTransition from "@/app/components/PageTransition";
+
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -14,9 +14,6 @@ export default function NavBar() {
   const [isWindows, setIsWindows] = useState(false);
   const [currentActiveIndex, setCurrentActiveIndex] = useState(-1);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const [isNavHidden, setIsNavHidden] = useState(false);
-  const lastScrollY = useRef(0);
 
   useEffect(() => {
     // OS検出
@@ -30,51 +27,6 @@ export default function NavBar() {
     setIsWindows(isWindowsDevice);
   }, []);
 
-  useEffect(() => {
-    let scrollEndTimer: number | null = null;
-    let rafId: number | null = null;
-
-    const onScroll = () => {
-      if (rafId != null) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        const currentY = window.scrollY;
-        const diff = currentY - lastScrollY.current;
-
-        // 下スクロールで一定量以上なら隠す
-        if (diff > 0 && currentY > 80) {
-          setIsNavHidden(true);
-        }
-        // 上スクロールで一定量以上なら表示
-        else if (diff < 0 && currentY > 80) {
-          setIsNavHidden(false);
-        }
-
-        // 最上部では必ず表示
-        if (currentY <= 0) {
-          setIsNavHidden(false);
-        }
-
-        lastScrollY.current = currentY;
-
-        // 既存のスクロール中フラグ（blur軽量化）は維持
-        setIsScrolling(true);
-        if (scrollEndTimer != null) {
-          window.clearTimeout(scrollEndTimer);
-        }
-        scrollEndTimer = window.setTimeout(() => {
-          setIsScrolling(false);
-        }, 120);
-      });
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (scrollEndTimer != null) window.clearTimeout(scrollEndTimer);
-      if (rafId != null) window.cancelAnimationFrame(rafId);
-    };
-  }, []);
 
   const navItems = useMemo(
     () => [
@@ -121,36 +73,38 @@ export default function NavBar() {
 
   // OSに応じたクラス名を決定 - useMemoで最適化
   const navBarClass = useMemo(() => {
-    const baseClass = `fixed inset-x-0 bottom-0 z-50 nav-fixed-optimized ${isNavHidden ? "nav-hidden" : ""}`;
+    const baseClass = "fixed inset-x-0 bottom-0 z-50 nav-fixed-optimized";
     if (isIOS) {
-      return baseClass + "ios-tab-bar-modern";
+      return `${baseClass} ios-tab-bar-modern`;
     } else if (isAndroid) {
-      return baseClass + "android-tab-bar-modern";
+      return `${baseClass} android-tab-bar-modern`;
     } else if (isWindows) {
-      return baseClass + "windows-tab-bar-modern";
+      return `${baseClass} windows-tab-bar-modern`;
     } else {
-      return baseClass + "modern-tab-bar";
+      return `${baseClass} modern-tab-bar`;
     }
-  }, [isIOS, isAndroid, isWindows, isNavHidden]);
+  }, [isIOS, isAndroid, isWindows]);
 
   return (
-    <nav className={navBarClass}>
-      <div className="max-w-md mx-auto px-4 pb-4">
-        {/* 透明感のあるカプセル型ナビゲーション */}
-        <div
-          className={`nav-glass rounded-full border border-white/50 shadow-lg px-3 ${isScrolling ? "nav-glass--scrolling" : ""}`}
-        >
-          <div className="flex items-center justify-between py-2 relative min-w-[350px] px-3">
+    <nav className={navBarClass} style={{ background: "transparent", pointerEvents: "none" }}>
+      <div className="max-w-md mx-auto px-4 pb-6 pt-2 pointer-events-auto">
+        {/* 丸みのあるプレミアムなカプセル型ナビゲーション */}
+        <div className="nav-glass-strong rounded-full px-2 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+          <div className="flex items-center justify-between py-2 relative min-w-[320px] px-1">
             {navItems.map((item, index) => (
               <Link
                 key={item.to}
                 href={item.to}
-                className="group relative flex items-center justify-center w-full transition-all duration-300 py-1 no-tap-highlight"
+                className="group relative flex items-center justify-center w-full transition-all duration-300 py-2 no-tap-highlight"
               >
                 {currentActiveIndex === index && (
                   <motion.div
                     layoutId="activeTab"
-                    className="absolute inset-0 bg-black/90 rounded-full z-0 shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
+                    className="absolute inset-0 z-0"
+                    style={{
+                      backgroundColor: 'var(--nav-indicator)',
+                      borderRadius: '9999px'
+                    }}
                     transition={{
                       type: "spring",
                       stiffness: 380,
@@ -166,23 +120,18 @@ export default function NavBar() {
                   transition={{ type: "spring", stiffness: 400, damping: 17 }}
                 >
                   {/* アイコン */}
-                  <motion.div
-                    animate={{
-                      y: currentActiveIndex === index ? -2 : 0,
-                    }}
-                    className={`transition-colors duration-300 ${currentActiveIndex === index
-                        ? "text-white"
-                        : "text-gray-500 group-hover:text-gray-800"
-                      }`}
-                  >
+                  <div className={`transition-colors duration-300 ${currentActiveIndex === index
+                    ? "text-[var(--nav-active-text)]"
+                    : "nav-inactive"
+                    }`}>
                     {item.icon}
-                  </motion.div>
+                  </div>
 
                   {/* ラベル */}
                   <span
-                    className={`text-[10px] sm:text-xs font-medium transition-all duration-300 mt-1 whitespace-nowrap ${currentActiveIndex === index
-                        ? "text-white font-bold opacity-100"
-                        : "opacity-40 group-hover:opacity-70 text-gray-600"
+                    className={`text-[10px] sm:text-xs font-bold transition-all duration-300 mt-1 whitespace-nowrap ${currentActiveIndex === index
+                      ? "text-[var(--nav-active-text)]"
+                      : "nav-inactive"
                       }`}
                     style={{
                       minWidth: "50px",
@@ -199,7 +148,7 @@ export default function NavBar() {
         </div>
 
         {/* ホームインジケーター用の安全領域 */}
-        <div className="h-safe-area-inset-bottom bg-inherit" />
+        <div className="h-safe-area-inset-bottom" />
       </div>
     </nav>
   );
