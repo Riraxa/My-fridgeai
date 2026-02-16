@@ -29,23 +29,32 @@ export default function NavBar() {
   }, []);
 
   useEffect(() => {
-    let timeoutId: number | undefined;
+    let scrollEndTimer: number | null = null;
+    let rafId: number | null = null;
 
-    const handleScroll = () => {
-      if (!isScrolling) setIsScrolling(true);
-      if (timeoutId) window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(() => {
-        setIsScrolling(false);
-      }, 160);
+    const onScroll = () => {
+      if (rafId != null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        setIsScrolling(true);
+
+        if (scrollEndTimer != null) {
+          window.clearTimeout(scrollEndTimer);
+        }
+
+        scrollEndTimer = window.setTimeout(() => {
+          setIsScrolling(false);
+        }, 120);
+      });
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      window.removeEventListener("scroll", handleScroll);
-      if (timeoutId) window.clearTimeout(timeoutId);
+      window.removeEventListener("scroll", onScroll);
+      if (scrollEndTimer != null) window.clearTimeout(scrollEndTimer);
+      if (rafId != null) window.cancelAnimationFrame(rafId);
     };
-  }, [isScrolling]);
+  }, []);
 
   const navItems = useMemo(
     () => [
@@ -108,15 +117,9 @@ export default function NavBar() {
     <nav className={navBarClass}>
       <div className="max-w-md mx-auto px-4 pb-4">
         {/* 透明感のあるカプセル型ナビゲーション */}
-        <div className="rounded-full border border-white/50 shadow-lg px-3 relative">
-          <div
-            className={`absolute inset-0 rounded-full nav-glass-heavy transition-opacity duration-200 ${isScrolling ? "opacity-0" : "opacity-100"}`}
-            aria-hidden="true"
-          />
-          <div
-            className={`absolute inset-0 rounded-full nav-glass-light transition-opacity duration-200 ${isScrolling ? "opacity-100" : "opacity-0"}`}
-            aria-hidden="true"
-          />
+        <div
+          className={`nav-glass rounded-full border border-white/50 shadow-lg px-3 ${isScrolling ? "nav-glass--scrolling" : ""}`}
+        >
           <div className="flex items-center justify-between py-2 relative min-w-[350px] px-3">
             {navItems.map((item, index) => (
               <Link
