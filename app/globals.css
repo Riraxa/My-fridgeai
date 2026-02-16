@@ -30,14 +30,14 @@ html {
   --passkey-protected-text: #92400e;
 
   /* ナビゲーション用 */
-  --nav-indicator: rgba(15, 23, 42, 0.9);
-  /* 選択中の背景（しっかりしたダーク） */
+  --nav-indicator: #111111;
+  /* 選択中のピル（黒） */
   --nav-active-text: #ffffff;
-  /* 選択中の文字色（白） */
+  /* 選択中の文字色 */
   --nav-inactive-text: #64748b;
-  --nav-bg: rgba(255, 255, 255, 0.95);
-  /* カプセル自体の背景 */
-  --nav-border: rgba(0, 0, 0, 0.1);
+  --nav-bg: #ffffff;
+  /* フッター自体の背景（完全不透明） */
+  --nav-border: rgba(0, 0, 0, 0.05);
 }
 
 /* ダークモード変数（値はオリジナルのまま） */
@@ -64,13 +64,13 @@ html {
 
   /* ナビゲーション用（ダーク） */
   --nav-indicator: #ffffff;
-  /* 選択中の背景（純白） */
+  /* 選択中のピル（白） */
   --nav-active-text: #0f172a;
   /* 選択中の文字色（ダーク） */
   --nav-inactive-text: #94a3b8;
-  --nav-bg: rgba(30, 41, 59, 0.95);
-  /* カプセル自体の背景（ダーク） */
-  --nav-border: rgba(255, 255, 255, 0.15);
+  --nav-bg: #1e293b;
+  /* フッター自体の背景（ダーク・完全不透明） */
+  --nav-border: rgba(255, 255, 255, 0.08);
 }
 
 .passkey-protected {

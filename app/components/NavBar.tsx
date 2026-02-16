@@ -86,69 +86,69 @@ export default function NavBar() {
   }, [isIOS, isAndroid, isWindows]);
 
   return (
-    <nav className={navBarClass} style={{ background: "transparent", pointerEvents: "none" }}>
-      <div className="max-w-md mx-auto px-4 pb-6 pt-2 pointer-events-auto">
-        {/* 丸みのあるプレミアムなカプセル型ナビゲーション */}
-        <div className="nav-glass-strong rounded-full px-2 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
-          <div className="flex items-center justify-between py-2 relative min-w-[320px] px-1">
-            {navItems.map((item, index) => (
-              <Link
-                key={item.to}
-                href={item.to}
-                className="group relative flex items-center justify-center w-full transition-all duration-300 py-2 no-tap-highlight"
-              >
-                {currentActiveIndex === index && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute inset-0 z-0"
-                    style={{
-                      backgroundColor: 'var(--nav-indicator)',
-                      borderRadius: '9999px'
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 380,
-                      damping: 30,
-                      mass: 0.8,
-                    }}
-                  />
-                )}
+    <nav
+      className={navBarClass}
+      style={{
+        background: "var(--nav-bg)",
+        borderTop: "1px solid var(--nav-border)",
+        borderTopLeftRadius: "28px",
+        borderTopRightRadius: "28px",
+        boxShadow: "0 -8px 32px rgba(0,0,0,0.06)",
+        paddingBottom: "env(safe-area-inset-bottom, 20px)"
+      }}
+    >
+      <div className="max-w-md mx-auto px-6 pt-3">
+        {/* 丸みを生かした不動のプレミアム・フッター */}
+        <div className="flex items-center justify-between py-2 relative">
+          {navItems.map((item, index) => (
+            <Link
+              key={item.to}
+              href={item.to}
+              className="group relative flex items-center justify-center w-full transition-all duration-300 py-2 no-tap-highlight"
+            >
+              {currentActiveIndex === index && (
                 <motion.div
-                  className="relative flex flex-col items-center z-10"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.92 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                >
-                  {/* アイコン */}
-                  <div className={`transition-colors duration-300 ${currentActiveIndex === index
+                  layoutId="activeTab"
+                  className="absolute inset-0 z-0"
+                  style={{
+                    backgroundColor: 'var(--nav-indicator)',
+                    borderRadius: '9999px'
+                  }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 380,
+                    damping: 30,
+                    mass: 0.8,
+                  }}
+                />
+              )}
+              <div className="relative flex flex-col items-center z-10">
+                {/* アイコン */}
+                <div className={`transition-colors duration-300 ${currentActiveIndex === index
+                  ? "text-[var(--nav-active-text)]"
+                  : "nav-inactive"
+                  }`}>
+                  {item.icon}
+                </div>
+
+                {/* ラベル */}
+                <span
+                  className={`text-[10px] sm:text-xs font-bold transition-all duration-300 mt-1 whitespace-nowrap ${currentActiveIndex === index
                     ? "text-[var(--nav-active-text)]"
                     : "nav-inactive"
-                    }`}>
-                    {item.icon}
-                  </div>
-
-                  {/* ラベル */}
-                  <span
-                    className={`text-[10px] sm:text-xs font-bold transition-all duration-300 mt-1 whitespace-nowrap ${currentActiveIndex === index
-                      ? "text-[var(--nav-active-text)]"
-                      : "nav-inactive"
-                      }`}
-                    style={{
-                      minWidth: "50px",
-                      textAlign: "center",
-                      display: "block",
-                    }}
-                  >
-                    {item.label}
-                  </span>
-                </motion.div>
-              </Link>
-            ))}
-          </div>
+                    }`}
+                  style={{
+                    minWidth: "50px",
+                    textAlign: "center",
+                    display: "block",
+                  }}
+                >
+                  {item.label}
+                </span>
+              </div>
+            </Link>
+          ))}
         </div>
-
-        {/* ホームインジケーター用の安全領域 */}
-        <div className="h-safe-area-inset-bottom" />
       </div>
     </nav>
   );
