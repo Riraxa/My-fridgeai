@@ -14,6 +14,7 @@ export default function NavBar() {
   const [isWindows, setIsWindows] = useState(false);
   const [currentActiveIndex, setCurrentActiveIndex] = useState(-1);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isScrolling, setIsScrolling] = useState(false);
 
   useEffect(() => {
     // OS検出
@@ -26,6 +27,25 @@ export default function NavBar() {
     setIsAndroid(isAndroidDevice);
     setIsWindows(isWindowsDevice);
   }, []);
+
+  useEffect(() => {
+    let timeoutId: number | undefined;
+
+    const handleScroll = () => {
+      if (!isScrolling) setIsScrolling(true);
+      if (timeoutId) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        setIsScrolling(false);
+      }, 160);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [isScrolling]);
 
   const navItems = useMemo(
     () => [
@@ -88,7 +108,15 @@ export default function NavBar() {
     <nav className={navBarClass}>
       <div className="max-w-md mx-auto px-4 pb-4">
         {/* 透明感のあるカプセル型ナビゲーション */}
-        <div className="bg-white/60 backdrop-blur-2xl rounded-full border border-white/50 shadow-lg px-3">
+        <div className="rounded-full border border-white/50 shadow-lg px-3 relative">
+          <div
+            className={`absolute inset-0 rounded-full nav-glass-heavy transition-opacity duration-200 ${isScrolling ? "opacity-0" : "opacity-100"}`}
+            aria-hidden="true"
+          />
+          <div
+            className={`absolute inset-0 rounded-full nav-glass-light transition-opacity duration-200 ${isScrolling ? "opacity-100" : "opacity-0"}`}
+            aria-hidden="true"
+          />
           <div className="flex items-center justify-between py-2 relative min-w-[350px] px-3">
             {navItems.map((item, index) => (
               <Link
