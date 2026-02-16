@@ -27,6 +27,7 @@ export async function proxy(req: NextRequest) {
     "/register",
     "/terms",
     "/privacy",
+    "/tokusho",
     "/reset-password",
     "/robots.txt",
     "/sitemap.xml",
