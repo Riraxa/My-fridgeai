@@ -1,6 +1,6 @@
 // components/NavBar.tsx
 "use client";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Home, ChefHat, ShoppingCart, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -15,6 +15,8 @@ export default function NavBar() {
   const [currentActiveIndex, setCurrentActiveIndex] = useState(-1);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [isNavHidden, setIsNavHidden] = useState(false);
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
     // OS検出
@@ -36,12 +38,30 @@ export default function NavBar() {
       if (rafId != null) return;
       rafId = window.requestAnimationFrame(() => {
         rafId = null;
-        setIsScrolling(true);
+        const currentY = window.scrollY;
+        const diff = currentY - lastScrollY.current;
 
+        // 下スクロールで一定量以上なら隠す
+        if (diff > 0 && currentY > 80) {
+          setIsNavHidden(true);
+        }
+        // 上スクロールで一定量以上なら表示
+        else if (diff < 0 && currentY > 80) {
+          setIsNavHidden(false);
+        }
+
+        // 最上部では必ず表示
+        if (currentY <= 0) {
+          setIsNavHidden(false);
+        }
+
+        lastScrollY.current = currentY;
+
+        // 既存のスクロール中フラグ（blur軽量化）は維持
+        setIsScrolling(true);
         if (scrollEndTimer != null) {
           window.clearTimeout(scrollEndTimer);
         }
-
         scrollEndTimer = window.setTimeout(() => {
           setIsScrolling(false);
         }, 120);
@@ -101,7 +121,7 @@ export default function NavBar() {
 
   // OSに応じたクラス名を決定 - useMemoで最適化
   const navBarClass = useMemo(() => {
-    const baseClass = "fixed inset-x-0 bottom-0 z-50 nav-fixed-optimized ";
+    const baseClass = `fixed inset-x-0 bottom-0 z-50 nav-fixed-optimized ${isNavHidden ? "nav-hidden" : ""}`;
     if (isIOS) {
       return baseClass + "ios-tab-bar-modern";
     } else if (isAndroid) {
@@ -111,7 +131,7 @@ export default function NavBar() {
     } else {
       return baseClass + "modern-tab-bar";
     }
-  }, [isIOS, isAndroid, isWindows]);
+  }, [isIOS, isAndroid, isWindows, isNavHidden]);
 
   return (
     <nav className={navBarClass}>

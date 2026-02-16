@@ -594,6 +594,11 @@ input[type="date"] {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   contain: layout paint;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-hidden {
+  transform: translateY(100%);
 }
 
 /* 最高のタブバーのベーススタイル */
