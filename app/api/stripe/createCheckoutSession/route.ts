@@ -8,8 +8,6 @@ const stripeKey = process.env.STRIPE_SECRET_KEY;
 const priceId = process.env.STRIPE_PRICE_ID;
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
-console.log("[createCheckoutSession] PRICE_ID:", priceId);
-console.log("[createCheckoutSession] BASE_URL:", baseUrl);
 
 if (!stripeKey) console.error("STRIPE_SECRET_KEY not set");
 if (!priceId) console.error("STRIPE_PRICE_ID not set");
@@ -42,10 +40,6 @@ export async function POST(req: NextRequest) {
     let userId: string | null = null;
     try {
       const session = await getServerSession(authOptions);
-      console.log(
-        "[createCheckoutSession] session:",
-        JSON.stringify(session, null, 2),
-      );
       if (session?.user?.id) userId = String(session.user.id);
     } catch (e: any) {
       console.error(
@@ -84,9 +78,6 @@ export async function POST(req: NextRequest) {
     if (!user) {
       const session = await getServerSession(authOptions);
       if (session?.user?.email) {
-        console.log(
-          `[createCheckoutSession] User fallback to email: ${session.user.email}`,
-        );
         user = await prisma.user.findUnique({
           where: { email: session.user.email },
         });
@@ -109,9 +100,6 @@ export async function POST(req: NextRequest) {
     // 3) Stripe Customer を確保
     let customerId = user.stripeCustomerId ?? undefined;
     if (!customerId) {
-      console.log(
-        `[createCheckoutSession] Creating new Stripe customer for ${user.email}`,
-      );
       const customer = await stripe.customers.create({
         email: user.email ?? undefined,
         metadata: { userId: user.id },
@@ -130,10 +118,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(
-      "[createCheckoutSession] Creating session for customer:",
-      customerId,
-    );
 
     // 4) Checkout Session 作成（環境不整合によるエラーを考慮）
     let session: Stripe.Checkout.Session;
@@ -180,10 +164,6 @@ export async function POST(req: NextRequest) {
         });
 
         // 再度試行
-        console.log(
-          "[createCheckoutSession] Retrying session creation with new customer:",
-          customerId,
-        );
         session = await stripe.checkout.sessions.create({
           mode: "subscription",
           customer: customerId,
@@ -209,10 +189,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(
-      "[createCheckoutSession] Session created successfully:",
-      session.id,
-    );
     return NextResponse.json({ url: session.url }, { status: 200 });
   } catch (err: any) {
     console.error("[createCheckoutSession] UNEXPECTED ERROR:", err);

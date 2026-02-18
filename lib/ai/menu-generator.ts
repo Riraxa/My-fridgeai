@@ -106,7 +106,11 @@ export async function generateMenus(
   ]);
 
   const taste = (preferences?.tasteJson as any) || {};
-  const lifestyle = taste.lifestyle?.defaultMode || {};
+  const dayOfWeek = new Date().getDay(); // 0=Sunday, 6=Saturday
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const lifestyle = isWeekend 
+    ? (taste.lifestyle?.weekendMode || taste.lifestyle?.defaultMode || {})
+    : (taste.lifestyle?.weekdayMode || taste.lifestyle?.defaultMode || {});
   const servings = options?.servings || 1;
   const budget = options?.budget;
 
@@ -125,9 +129,6 @@ export async function generateMenus(
 
   // 2. Pro Feature Layer (System Message - High Priority)
   if (preferences?.aiMessageEnabled && taste.freeText) {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[AI Context] freeText included in prompt (length:", taste.freeText.length, ")");
-    }
     safetyInstructions += `\n\n# USER SPECIAL INSTRUCTIONS (PRO)
 These instructions have high priority:
 ${taste.freeText}`;
@@ -271,6 +272,12 @@ ${warningList}
 - 得意な調理法: ${comfortableMethods}
 - 避けたい調理法: ${avoidMethods}
 - 利用可能な設備: ${equipmentOld}
+- 味の好み: ${tastePrefs}
+- ジャンルの好み: ${genrePrefs}
+- ライフスタイル優先度: ${lifestyle.timePriority || "normal"}
+- 時短優先: ${lifestyle.timePriority === "fast" ? "はい" : "いいえ"}
+- 洗い物回避: ${lifestyle.dishwashingAvoid ? "はい" : "いいえ"}
+- 一つの鍋で調理: ${lifestyle.singlePan ? "はい" : "いいえ"}
 
 # 重要な制約
 1. **手持ちの食材を最大限活用すること**
@@ -282,6 +289,16 @@ ${warningList}
    - 「優先的に使うべき食材」リストの食材を積極的に使う
 
 3. **避けたい調理法は絶対に使わないこと**
+
+4. **味の好みを考慮すること**
+   - ユーザーの味の好み（${tastePrefs}）を献立に反映させる
+   - 好ましい味付けの料理を優先的に提案する
+   - 避けたい味付けの料理は避ける
+
+5. **ライフスタイル設定を考慮すること**
+   ${lifestyle.timePriority === "fast" ? "- 時短レシピを優先的に提案する（調理時間15分以内）" : ""}
+   ${lifestyle.dishwashingAvoid ? "- 洗い物が少ないレシピを優先する（ワンパン調理、少ない調理器具）" : ""}
+   ${lifestyle.singlePan ? "- 一つの鍋やフライパンで作れるレシピを優先する" : ""}
 
 # 提案する献立パターン（必ず3パターン、各3品構成）
 
@@ -398,9 +415,7 @@ ${warningList}
       // JSON修復を試行
       try {
         const repairedContent = attemptJSONRepair(content);
-        console.log("[AI] Attempting to repair JSON...");
         result = JSON.parse(repairedContent) as MenuGenerationResult;
-        console.log("[AI] JSON repair successful");
       } catch (repairError) {
         console.error("[AI] JSON repair failed:", repairError);
         throw new Error("AIの応答を解析できませんでした");

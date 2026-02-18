@@ -214,25 +214,42 @@ export default function MenuGeneratePage() {
     };
   }, [loading, currentGenerationId]);
 
-  // ESCキーでモーダルが閉じるのを防止
+  // アプリ内操作制限 - レシピモーダル表示中はアプリ内の操作のみ無効化
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // ESCキーでモーダルが閉じるのを防止
+    const handleKeyDown = (e: KeyboardEvent): boolean => {
+      // ESCキーでモーダルが閉じるのを防止（レシピ取得中も含む）
       if (e.key === "Escape") {
         const currentSelectedMenuType = selectedMenuType;
-        if (currentSelectedMenuType) {
+        const currentLoadingRecipe = loadingRecipe;
+        if (currentSelectedMenuType || currentLoadingRecipe) {
           e.preventDefault();
           e.stopPropagation();
+          e.stopImmediatePropagation();
+          return false;
         }
       }
+      
+      // F5（リロード）とCtrl+Rのみ防止（ブラウザ操作は許可）
+      if ((selectedMenuType || loadingRecipe) && (
+        e.key === "F5" || 
+        (e.ctrlKey && e.key === "r")
+      )) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return false;
+      }
+      
+      return true;
     };
 
-    document.addEventListener("keydown", handleKeyDown);
+    // イベントリスナー登録（キャプチャフェーズで優先的に処理）
+    document.addEventListener("keydown", handleKeyDown, true);
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [selectedMenuType]);
+  }, [selectedMenuType, loadingRecipe]);
 
   // Fetch user plan and inventory summary
   useEffect(() => {
@@ -401,7 +418,7 @@ export default function MenuGeneratePage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               title: dish.name,
-              servings: 2,
+              servings: servings,
             }),
           });
 
@@ -422,13 +439,13 @@ export default function MenuGeneratePage() {
           details.push({
             title: dish.name,
             description: dish.description || "",
-            servings: 2,
+            servings: servings,
             time_minutes: dish.cookingTime || 20,
             difficulty: "中",
             ingredients:
               dish.ingredients?.map((ing: any) => ({
                 name: ing.name,
-                quantity_per_serving: ing.amount / 2,
+                quantity_per_serving: ing.amount / servings,
                 unit: ing.unit,
                 total_quantity: ing.amount,
                 optional: false,
@@ -901,8 +918,16 @@ export default function MenuGeneratePage() {
             exit={{ opacity: 0 }}
             onClick={(e) => e.stopPropagation()} // 背景クリックを無効化
           >
+            {/* アプリ内の操作のみ無効化するオーバーレイ */}
+            <div 
+              className="fixed inset-0 z-10" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            />
             <motion.div
-              className="fixed inset-x-0 bottom-0 max-h-[90vh] bg-[var(--card-bg)] border border-[var(--surface-border)] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col"
+              className="fixed inset-x-0 bottom-0 max-h-[90vh] bg-[var(--card-bg)] border border-[var(--surface-border)] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col relative z-30"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
@@ -926,8 +951,8 @@ export default function MenuGeneratePage() {
                   </div>
                 ) : recipeDetails.length > 0 ? (
                   <>
-                    {/* Dish Tabs */}
-                    {recipeDetails.length > 1 && (
+                    {/* Dish Tabs - レシピ取得中は非表示 */}
+                    {recipeDetails.length > 1 && !loadingRecipe && (
                       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
                         {recipeDetails.map((r, idx) => (
                           <button
@@ -1054,7 +1079,7 @@ export default function MenuGeneratePage() {
                 )}
               </div>
 
-              <div className="sticky bottom-0 bg-[var(--card-bg)] border-t border-[var(--surface-border)] p-4">
+              <div className="sticky bottom-0 bg-[var(--card-bg)] border-t border-[var(--surface-border)] p-4 relative z-20">
                 <button
                   onClick={handleConfirmCook}
                   disabled={loadingCook}
