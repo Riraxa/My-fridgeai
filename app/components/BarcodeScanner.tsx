@@ -95,11 +95,11 @@ export default function BarcodeScanner({
                   // 賞味期限計算
                   const expirationDate = product.expirationDays
                     ? new Date(
-                        Date.now() +
-                          product.expirationDays * 24 * 60 * 60 * 1000,
-                      )
-                        .toISOString()
-                        .split("T")[0]
+                      Date.now() +
+                      product.expirationDays * 24 * 60 * 60 * 1000,
+                    )
+                      .toISOString()
+                      .split("T")[0]
                     : null;
 
                   // AddItemModalをプリフィルで開く
@@ -109,6 +109,7 @@ export default function BarcodeScanner({
                     expirationDate,
                     barcode: code,
                     source: product.source,
+                    ingredientType: product.ingredientType || "raw",
                   });
 
                   stopScanner();
@@ -118,7 +119,7 @@ export default function BarcodeScanner({
                   // Not found -> Do NOT add automatically. Just warn user.
                   alert(
                     data.error ||
-                      "商品情報が見つかりませんでした。手動で入力してください。",
+                    "商品情報が見つかりませんでした。手動で入力してください。",
                   );
                   setLoading(false);
                 }

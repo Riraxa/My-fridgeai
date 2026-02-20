@@ -36,6 +36,8 @@ export async function PUT(
           ? new Date(body.expirationDate || body.expiry)
           : null,
       category: body.category || "その他",
+      ingredientType: body.ingredientType,
+      productId: body.productId,
     },
   });
 

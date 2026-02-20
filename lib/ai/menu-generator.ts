@@ -5,6 +5,18 @@ import { differenceInDays } from "date-fns";
 import { checkAllergens } from "./allergen-checker";
 import { prisma } from "@/lib/prisma";
 
+type IngredientWithProduct = Ingredient & {
+  product?: {
+    id: string;
+    name: string;
+    brandName: string | null;
+    ingredientType: string;
+    requiresAdditionalIngredients: any;
+    instructionTemplate: string | null;
+    nutritionEstimate: any;
+  } | null;
+};
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -91,7 +103,7 @@ export interface MenuGenerationResult {
  * Generate 3 menu patterns using OpenAI
  */
 export async function generateMenus(
-  ingredients: Ingredient[],
+  ingredients: IngredientWithProduct[],
   userId: string,
   options?: { servings?: number; budget?: number | null },
 ): Promise<MenuGenerationResult> {
@@ -108,7 +120,7 @@ export async function generateMenus(
   const taste = (preferences?.tasteJson as any) || {};
   const dayOfWeek = new Date().getDay(); // 0=Sunday, 6=Saturday
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-  const lifestyle = isWeekend 
+  const lifestyle = isWeekend
     ? (taste.lifestyle?.weekendMode || taste.lifestyle?.defaultMode || {})
     : (taste.lifestyle?.weekdayMode || taste.lifestyle?.defaultMode || {});
   const servings = options?.servings || 1;
@@ -200,7 +212,7 @@ ${taste.freeText}`;
     return days > criticalThreshold && days <= warningThreshold;
   });
 
-  // Format ingredients (general list)
+  // Format ingredients (general list) - 加工食品対応
   const ingredientList = ingredients
     .map((i) => {
       let quantity = "";
@@ -212,9 +224,62 @@ ${taste.freeText}`;
         const days = differenceInDays(i.expirationDate, new Date());
         expiry = ` [期限まで${days}日]`;
       }
-      return `- ${i.name}${quantity}${expiry}`;
+
+      // 加工食品タイプ表示
+      const ingType = (i as any).ingredientType || "raw";
+      let typeLabel = "";
+      if (ingType === "processed_base") {
+        typeLabel = " 【加工:調理ベース】";
+      } else if (ingType === "instant_complete") {
+        typeLabel = " 【加工:そのまま完成】";
+      }
+
+      // 必要追加食材情報
+      let additionalInfo = "";
+      if (ingType === "processed_base" && i.product?.requiresAdditionalIngredients) {
+        const reqIngredients = Array.isArray(i.product.requiresAdditionalIngredients)
+          ? i.product.requiresAdditionalIngredients
+          : [];
+        if (reqIngredients.length > 0) {
+          const reqNames = reqIngredients.map((r: any) => r.name).join(",");
+          // 必要食材が冷蔵庫内にあるかチェック
+          const availableReqs = reqIngredients.filter((r: any) =>
+            ingredients.some((inv) =>
+              inv.name.includes(r.name) || r.name.includes(inv.name)
+            )
+          );
+          const allAvailable = availableReqs.length === reqIngredients.length;
+          additionalInfo = allAvailable
+            ? ` (必要食材全て揃っている: ${reqNames})`
+            : ` (必要食材: ${reqNames} - 一部不足)`;
+        }
+      }
+
+      return `- ${i.name}${quantity}${expiry}${typeLabel}${additionalInfo}`;
     })
     .join("\n");
+
+  // 加工食品の分類リスト
+  const processedBaseItems = ingredients.filter(
+    (i) => (i as any).ingredientType === "processed_base"
+  );
+  const instantCompleteItems = ingredients.filter(
+    (i) => (i as any).ingredientType === "instant_complete"
+  );
+
+  const processedBaseList = processedBaseItems.length > 0
+    ? processedBaseItems.map((i) => {
+      const reqIngredients = i.product?.requiresAdditionalIngredients;
+      const reqList = Array.isArray(reqIngredients)
+        ? reqIngredients.map((r: any) => `${r.name}(${r.amount}${r.unit})`).join(", ")
+        : "なし";
+      return `- ${i.name}${i.product?.brandName ? ` (ブランド: ${i.product.brandName})` : ""} / 必要食材: ${reqList}`;
+    }).join("\n")
+    : "なし";
+
+  const instantCompleteList = instantCompleteItems.length > 0
+    ? instantCompleteItems.map((i) => `- ${i.name}`).join("\n")
+    : "なし";
 
   // Build Priority Lists
   const criticalList =
@@ -256,8 +321,14 @@ ${taste.freeText}`;
   const systemPrompt = `あなたはプロの献立プランナーです。
 冷蔵庫にある食材を使って、実用的で美味しい家庭料理の献立を提案してください。
 
-# 手持ち食材
+# 手持ち食材（通常食材＋加工食品すべて含む）
 ${ingredientList}
+
+# 加工食品（調理ベース） - 他の食材と組み合わせて使う商品
+${processedBaseList}
+
+# 加工食品（そのまま完成） - 単体で完成する商品
+${instantCompleteList}
 
 # ⚠️ 最優先で使うべき食材（${criticalThreshold}日以内）
 ${criticalList}
@@ -300,19 +371,44 @@ ${warningList}
    ${lifestyle.dishwashingAvoid ? "- 洗い物が少ないレシピを優先する（ワンパン調理、少ない調理器具）" : ""}
    ${lifestyle.singlePan ? "- 一つの鍋やフライパンで作れるレシピを優先する" : ""}
 
-# 提案する献立パターン（必ず3パターン、各3品構成）
+6. **加工食品の取り扱いルール（重要）**
+   - **加工食品は通常食材と同等に扱うこと**
+   - ingredient_typeを必ず考慮する
+   - 「調理ベース」の商品は、必要追加食材が冷蔵庫内にある場合のみ優先候補とする
+   - 「そのまま完成」の商品は副菜・汁物として活用できる
+   - 加工食品のみで完結する献立も許可する（例：レトルトカレー＋即席スープ）
+   - 主菜・副菜・汁物の分類はAI判定とする（固定ロジックではない）
+   - 献立は必ず冷蔵庫内の食材で完結すること
+
+7. **レシピ手順の加工食品ルール**
+   - **通常食材（raw）**: 通常通り工程を記述（例：キャベツを洗う→切る→炒める）
+   - **調理ベース（processed_base）**: 工程内に「商品操作手順に従い、○○を仕上げる」を含める
+     例： ["野菜を炒める", "商品操作手順に従いカレーを仕上げる"]
+   - **そのまま完成（instant_complete）**: 工程は1つのみ「商品操作手順に従い準備する」
+     例： ["商品操作手順に従い準備する"]
+
+8. **生成優先順位**
+   1）消費期限
+   2）包丁不要条件（該当時）
+   3）processed_base 活用可能性
+   4）instant_complete 活用可能性
+   5）味の好み
+   6）栄養バランス
+
+# 提案する献立パターン（必ず3パターン、各構成はAI判定）
 
 **1. メイン提案**
 - 最も栄養バランスが良く、賞味期限の近い食材を優先。
-- 定食スタイル（主菜・副菜・汁物）。
+- 加工食品があれば積極的に活用。
 - 全料理に nutrition 要。
+- ※栄養値はAI推定値です。
 
 **2. 代替案A**
-- 別ジャンル。3品構成。
+- 別ジャンル。加工食品も活用可能。
 - 全料理に nutrition 要。
 
 **3. 代替案B**
-- 15分以内の時短献立。
+- 15分以内の時短献立。instant_completeを優先的に活用。
 - 全料理に nutrition 要。
 
 # 出力形式（必ずこのJSON形式で。各 dishes に nutrition を含めること）

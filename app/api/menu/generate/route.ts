@@ -42,6 +42,7 @@ export async function POST(req: Request) {
         Ingredient: {
           include: {
             alerts: true,
+            product: true, // 加工食品の商品情報をinclude
           },
         },
         preferences: true,

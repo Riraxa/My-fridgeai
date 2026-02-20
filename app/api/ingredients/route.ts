@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
       name: escapeHtml(item.name || ""),
       unit: escapeHtml(item.unit || ""),
       category: escapeHtml(item.category || ""),
+      ingredientType: item.ingredientType || "raw",
     }));
 
     return addApiSecurityHeaders(NextResponse.json({ items: sanitizedList }));
@@ -124,6 +125,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ingredientType validation
+    const validTypes = ["raw", "processed_base", "instant_complete"];
+    const ingredientType = validTypes.includes(body.ingredientType)
+      ? body.ingredientType
+      : "raw";
+    const productId = body.productId || null;
+
     const created = await prisma.ingredient.create({
       data: {
         userId,
@@ -134,6 +142,8 @@ export async function POST(req: NextRequest) {
         unit: unit || "個",
         expirationDate,
         category: category || "その他",
+        ingredientType,
+        productId,
       },
     });
 

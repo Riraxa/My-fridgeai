@@ -3,7 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -59,6 +61,7 @@ model User {
   Menu              Menu[]
   passkeys          Passkey[]
   PasswordReset     PasswordReset[]
+  products          Product[]
   sessions          Session[]
   TrustedDevice     TrustedDevice[]
   UsageHistory      UsageHistory[]
@@ -77,6 +80,12 @@ model User {
 enum PlanType {
   FREE
   PRO
+}
+
+enum IngredientType {
+  raw                // 通常食材
+  processed_base     // 他食材と組み合わせる前提の商品（カレールー等）
+  instant_complete   // 単体で完成する商品（即席味噌汁等）
 }
 
 model Household {
@@ -260,6 +269,11 @@ model Ingredient {
 
   category String?
 
+  // 加工食品統合: ingredient_type
+  ingredientType IngredientType @default(raw)
+  productId      String?        // 加工食品の場合、Productに紐づく
+  product        Product?       @relation(fields: [productId], references: [id])
+
   // Purchase info
   purchasedAt DateTime?
   barcode     String?
@@ -274,6 +288,42 @@ model Ingredient {
   @@index([userId, createdAt])
   @@index([userId, category])
   @@index([barcode])
+  @@index([ingredientType])
+}
+
+/// 加工食品マスター（ルー、即席食品、混合調味料など）
+model Product {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String   // 商品名（例：バーモントカレー中辛）
+  brandName String?  // ブランド名（例：ハウス食品）
+
+  ingredientType IngredientType @default(processed_base)
+
+  /// 必要追加食材（JSON）
+  /// 例: [{"name":"玉ねぎ","amount":2,"unit":"個"},{"name":"じゃがいも","amount":2,"unit":"個"}]
+  requiresAdditionalIngredients Json? @default("[]")
+
+  /// 調理手順テンプレート
+  /// processed_base: "商品操作手順に従い、◯◯を仕上げる"
+  /// instant_complete: "商品操作手順に従い準備する"
+  instructionTemplate String?
+
+  /// 栄養推定値（任意）
+  nutritionEstimate Json? // { calories, protein, fat, carbs }
+
+  barcode   String?  // バーコード番号
+  category  String?  // 商品カテゴリ（カレー、スープ等）
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients Ingredient[]
+
+  @@index([userId])
+  @@index([barcode])
+  @@index([ingredientType])
 }
 
 model Menu {

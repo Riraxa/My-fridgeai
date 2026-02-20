@@ -1,5 +1,7 @@
 //lib/barcode.ts
 
+export type IngredientType = "raw" | "processed_base" | "instant_complete";
+
 export type BarcodeProduct = {
   found: boolean;
   name: string | null;
@@ -8,6 +10,8 @@ export type BarcodeProduct = {
   image: string | null;
   expirationDays: number | null; // 推定日数
   source: "openfoodfacts" | "none";
+  ingredientType: IngredientType;
+  requiresAdditionalIngredients: { name: string; amount: number; unit: string }[];
 };
 
 /**
@@ -33,6 +37,8 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
         image: null,
         expirationDays: null,
         source: "none",
+        ingredientType: "raw",
+        requiresAdditionalIngredients: [],
       };
     }
 
@@ -48,6 +54,8 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
         image: null,
         expirationDays: null,
         source: "none",
+        ingredientType: "raw",
+        requiresAdditionalIngredients: [],
       };
     }
 
@@ -70,6 +78,10 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
       product.categories_tags || [],
     );
 
+    // 加工食品タイプの判定
+    const { ingredientType, requiresAdditionalIngredients } =
+      detectIngredientType(name, product.categories_tags || [], category);
+
     return {
       found: true,
       name,
@@ -78,6 +90,8 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
       image: product.image_url || product.image_small_url || null,
       expirationDays,
       source: "openfoodfacts",
+      ingredientType,
+      requiresAdditionalIngredients,
     };
   } catch (error) {
     console.error("Open Food Facts lookup error:", error);
@@ -89,6 +103,8 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
       image: null,
       expirationDays: null,
       source: "none",
+      ingredientType: "raw",
+      requiresAdditionalIngredients: [],
     };
   }
 }
@@ -165,4 +181,146 @@ function estimateExpirationDays(
   }
 
   return 14; // デフォルト2週間
+}
+
+/**
+ * 商品名・カテゴリタグから加工食品タイプを判定
+ */
+function detectIngredientType(
+  name: string,
+  tags: string[],
+  category: string,
+): {
+  ingredientType: IngredientType;
+  requiresAdditionalIngredients: { name: string; amount: number; unit: string }[];
+} {
+  const nameLower = name.toLowerCase();
+  const tagsStr = tags.join(" ").toLowerCase();
+
+  // instant_complete: 単体で完成する商品
+  const instantPatterns = [
+    "即席", "インスタント", "カップ麺", "カップヌードル",
+    "レトルト", "缶詰", "缶スープ", "味噌汁", "みそ汁",
+    "スープ", "お茶漬け", "ふりかけ", "佃煮",
+    "冷凍食品", "冷凍餃子", "冷凍ピザ", "レンジ",
+    "instant", "ready-to-eat", "microwave",
+  ];
+
+  for (const pattern of instantPatterns) {
+    if (nameLower.includes(pattern)) {
+      return {
+        ingredientType: "instant_complete",
+        requiresAdditionalIngredients: [],
+      };
+    }
+  }
+
+  // processed_base: 他食材と調合する商品
+  const processedBasePatterns: {
+    pattern: string;
+    additionalIngredients: { name: string; amount: number; unit: string }[];
+  }[] = [
+      {
+        pattern: "カレールー",
+        additionalIngredients: [
+          { name: "玉ねぎ", amount: 2, unit: "個" },
+          { name: "じゃがいも", amount: 2, unit: "個" },
+          { name: "にんじん", amount: 1, unit: "本" },
+          { name: "肉", amount: 200, unit: "g" },
+        ],
+      },
+      {
+        pattern: "カレー",
+        additionalIngredients: [
+          { name: "玉ねぎ", amount: 2, unit: "個" },
+          { name: "肉", amount: 200, unit: "g" },
+        ],
+      },
+      {
+        pattern: "シチュー",
+        additionalIngredients: [
+          { name: "玉ねぎ", amount: 1, unit: "個" },
+          { name: "じゃがいも", amount: 2, unit: "個" },
+          { name: "にんじん", amount: 1, unit: "本" },
+          { name: "肉", amount: 200, unit: "g" },
+        ],
+      },
+      {
+        pattern: "麻婆豆腐",
+        additionalIngredients: [
+          { name: "豆腐", amount: 1, unit: "丁" },
+          { name: "ひき肉", amount: 100, unit: "g" },
+        ],
+      },
+      {
+        pattern: "ルー",
+        additionalIngredients: [
+          { name: "玉ねぎ", amount: 1, unit: "個" },
+          { name: "肉", amount: 200, unit: "g" },
+        ],
+      },
+      {
+        pattern: "の素",
+        additionalIngredients: [],
+      },
+      {
+        pattern: "たれ",
+        additionalIngredients: [],
+      },
+      {
+        pattern: "ソース",
+        additionalIngredients: [],
+      },
+      {
+        pattern: "ペースト",
+        additionalIngredients: [],
+      },
+      {
+        pattern: "ミックス",
+        additionalIngredients: [],
+      },
+      {
+        pattern: "mix",
+        additionalIngredients: [],
+      },
+    ];
+
+  for (const { pattern, additionalIngredients } of processedBasePatterns) {
+    if (nameLower.includes(pattern)) {
+      return {
+        ingredientType: "processed_base",
+        requiresAdditionalIngredients: additionalIngredients,
+      };
+    }
+  }
+
+  // タグベースのチェック
+  if (
+    tagsStr.includes("en:sauces") ||
+    tagsStr.includes("en:condiments") ||
+    tagsStr.includes("en:cooking-helpers") ||
+    tagsStr.includes("en:meal-kits")
+  ) {
+    return {
+      ingredientType: "processed_base",
+      requiresAdditionalIngredients: [],
+    };
+  }
+
+  if (
+    tagsStr.includes("en:meals") ||
+    tagsStr.includes("en:prepared-meals") ||
+    tagsStr.includes("en:instant")
+  ) {
+    return {
+      ingredientType: "instant_complete",
+      requiresAdditionalIngredients: [],
+    };
+  }
+
+  // デフォルト: 通常食材
+  return {
+    ingredientType: "raw",
+    requiresAdditionalIngredients: [],
+  };
 }

@@ -5,7 +5,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { registerLocale } from "react-datepicker";
 import { ja } from "date-fns/locale";
-import { Ingredient } from "@/types";
+import { Ingredient, IngredientType } from "@/types";
 import { useNativeSelect } from "@/app/hooks/useNativeSelect";
 registerLocale("ja", ja);
 
@@ -34,6 +34,9 @@ export default function AddEditModal({
   );
   const [noExpiry, setNoExpiry] = useState<boolean>(!item?.expirationDate);
   const [category, setCategory] = useState(item?.category ?? "その他");
+  const [ingredientType, setIngredientType] = useState<IngredientType>(
+    item?.ingredientType ?? "raw",
+  );
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // AI Estimation state
@@ -59,6 +62,7 @@ export default function AddEditModal({
     setExpiry(date);
     setNoExpiry(!date);
     setCategory(item?.category ?? "その他");
+    setIngredientType(item?.ingredientType ?? "raw");
     setEstimatedExpiry(null);
     setEstimatedCategory(null);
     setEstimatedAmount(null);
@@ -126,8 +130,37 @@ export default function AddEditModal({
   return (
     <div className="space-y-3 text-[var(--color-text-primary)]">
       <div className="text-lg font-semibold">
-        {item ? "編集" : "追加"} - 食材
+        {item ? "編集" : "追加"} - {ingredientType === "raw" ? "食材" : "加工食品"}
       </div>
+
+      {/* 食材タイプ選択 */}
+      <div className="flex gap-1 p-1 bg-[var(--surface-bg)] rounded-xl border border-[var(--surface-border)]">
+        <button
+          onClick={() => setIngredientType("raw")}
+          className={`flex-1 py-1.5 text-xs rounded-lg transition ${ingredientType === "raw" ? "bg-[var(--accent)] text-white shadow-sm" : "text-[var(--color-text-secondary)] hover:bg-gray-100"}`}
+        >
+          🥬 通常食材
+        </button>
+        <button
+          onClick={() => setIngredientType("processed_base")}
+          className={`flex-1 py-1.5 text-xs rounded-lg transition ${ingredientType === "processed_base" ? "bg-orange-500 text-white shadow-sm" : "text-[var(--color-text-secondary)] hover:bg-gray-100"}`}
+        >
+          🍲 調理ベース
+        </button>
+        <button
+          onClick={() => setIngredientType("instant_complete")}
+          className={`flex-1 py-1.5 text-xs rounded-lg transition ${ingredientType === "instant_complete" ? "bg-blue-500 text-white shadow-sm" : "text-[var(--color-text-secondary)] hover:bg-gray-100"}`}
+        >
+          ⚡ そのまま
+        </button>
+      </div>
+
+      {/* 加工食品ヒント */}
+      {ingredientType !== "raw" && (
+        <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1.5 rounded-lg">
+          ※詳細な商品名を入力するとAIの精度が向上します
+        </div>
+      )}
 
       {/* 食材名 */}
       <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
@@ -243,6 +276,7 @@ export default function AddEditModal({
             <option>冷凍</option>
             <option>野菜</option>
             <option>調味料</option>
+            <option>加工食品</option>
             <option>その他</option>
           </select>
         </div>
@@ -320,6 +354,7 @@ export default function AddEditModal({
                 amount: amountMode === "precise" ? Number(amount || 0) : null,
                 amountLevel: amountMode === "rough" ? amountLevel : null,
                 unit: amountMode === "precise" ? unit : null,
+                ingredientType,
                 quantity:
                   amountMode === "precise"
                     ? Number(amount || 0)
@@ -335,8 +370,8 @@ export default function AddEditModal({
           }}
           disabled={isSaving}
           className={`flex-1 ml-2 rounded-full py-2.5 text-sm font-medium shadow-sm transition ${isSaving
-              ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-              : "bg-[var(--accent)] hover:brightness-110 text-white"
+            ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+            : "bg-[var(--accent)] hover:brightness-110 text-white"
             }`}
         >
           {isSaving ? (

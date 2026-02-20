@@ -196,6 +196,17 @@ export default function IngredientList({
                   >
                     {it.name}
                   </div>
+                  {/* 加工食品タイプバッジ */}
+                  {it.ingredientType === "processed_base" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
+                      🍲 調理ベース
+                    </span>
+                  )}
+                  {it.ingredientType === "instant_complete" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                      ⚡ そのまま
+                    </span>
+                  )}
                   {getExpiryBadge(it.expirationDate)}
                 </div>
 
@@ -242,8 +253,8 @@ export default function IngredientList({
                       onClick={() => it.id && handleDelete(it.id)}
                       disabled={it.id ? deletingIds.has(it.id) : false}
                       className={`flex items-center gap-1.5 px-3 py-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium shadow-sm transition min-h-[44px] ${it.id && deletingIds.has(it.id)
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
                         }`}
                       style={{
                         background: "var(--surface-bg)",

@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
         image: product.image,
         expirationDays: product.expirationDays,
         source: product.source,
+        ingredientType: product.ingredientType,
+        requiresAdditionalIngredients: product.requiresAdditionalIngredients,
       },
       remaining: limitCheck.remaining,
     });

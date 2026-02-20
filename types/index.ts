@@ -1,4 +1,26 @@
 //types/index.ts
+export type IngredientType = "raw" | "processed_base" | "instant_complete";
+
+export interface Product {
+  id: string;
+  userId: string;
+  name: string;
+  brandName: string | null;
+  ingredientType: IngredientType;
+  requiresAdditionalIngredients: { name: string; amount: number; unit: string }[];
+  instructionTemplate: string | null;
+  nutritionEstimate: {
+    calories?: number;
+    protein?: number;
+    fat?: number;
+    carbs?: number;
+  } | null;
+  barcode: string | null;
+  category: string | null;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
 export interface Ingredient {
   id?: string;
   userId?: string;
@@ -9,6 +31,9 @@ export interface Ingredient {
   unit: string | null;
   expirationDate: string | Date | null;
   quantity?: number; // Legacy
+  ingredientType?: IngredientType;
+  productId?: string | null;
+  product?: Product | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
@@ -59,3 +84,4 @@ export interface ShoppingItem {
   unit?: string;
   note?: string;
 }
+

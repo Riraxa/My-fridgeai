@@ -104,11 +104,10 @@ export default function MenuCard({
 
   return (
     <div
-      className={`border rounded-lg p-6 shadow-sm transition-all duration-300 ${
-        isBest
+      className={`border rounded-lg p-6 shadow-sm transition-all duration-300 ${isBest
           ? "border-[var(--accent)] ring-1 ring-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]"
           : "border-[var(--surface-border)] bg-[var(--card-bg)]"
-      }`}
+        }`}
     >
       <div className="flex justify-between items-start mb-4">
         <div>
@@ -140,13 +139,12 @@ export default function MenuCard({
         {menu.dishes.map((dish, idx) => (
           <div key={idx} className="flex items-start text-sm">
             <span
-              className={`flex-shrink-0 w-10 px-1.5 py-0.5 rounded text-xs text-center mr-2 ${
-                dish.type === "主菜"
+              className={`flex-shrink-0 w-10 px-1.5 py-0.5 rounded text-xs text-center mr-2 ${dish.type === "主菜"
                   ? "bg-[color-mix(in_srgb,#ff914d_20%,transparent)] text-[#ff914d]"
                   : dish.type === "汁物"
                     ? "bg-[color-mix(in_srgb,#3b82f6_20%,transparent)] text-[#3b82f6]"
                     : "bg-[color-mix(in_srgb,#10b981_20%,transparent)] text-[#10b981]"
-              }`}
+                }`}
             >
               {dish.type}
             </span>
@@ -278,16 +276,18 @@ export default function MenuCard({
               <span>{nutrition.evaluation}</span>
             </div>
           )}
+          <div className="mt-2 text-[10px] text-blue-600/70 dark:text-blue-400/70 text-right">
+            ※栄養値はAIによる推定値です
+          </div>
         </div>
       )}
 
       <button
         onClick={onSelect}
-        className={`w-full py-2 px-4 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${
-          isBest
+        className={`w-full py-2 px-4 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${isBest
             ? "bg-[var(--accent)] text-white hover:bg-[color-mix(in_srgb,var(--accent)_90%,#000)] focus:ring-[var(--accent)] shadow-md"
             : "bg-[var(--surface-bg)] text-[var(--color-text-primary)] border border-[var(--surface-border)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] focus:ring-[var(--accent)]"
-        }`}
+          }`}
       >
         この献立にする
       </button>

@@ -1,7 +1,7 @@
 //app/api/support/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import nodemailer from "nodemailer";
+import { resend, EMAIL_FROM } from "@/lib/mail/resend";
 
 export const runtime = "nodejs";
 
@@ -58,34 +58,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Check email configuration
-    if (
-      !process.env.EMAIL_HOST ||
-      !process.env.EMAIL_PORT ||
-      !process.env.EMAIL_USER ||
-      !process.env.EMAIL_PASSWORD ||
-      !process.env.SUPPORT_EMAIL
-    ) {
+    if (!process.env.SUPPORT_EMAIL) {
       return NextResponse.json(
         {
-          error:
-            "メール設定が構成されていません。管理者にお問い合わせください。",
+          error: "サポート用メールアドレスが設定されていません。",
         },
         { status: 500 },
       );
     }
 
-    // Send Email
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: Number(process.env.EMAIL_PORT),
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_FROM,
+    // Send Email via Resend
+    const { error: sendError } = await resend.emails.send({
+      from: EMAIL_FROM,
       to: process.env.SUPPORT_EMAIL,
       subject: `[Support/${type}] ${subject}`,
       text: `🎫 サポートチケット受付
@@ -110,20 +94,22 @@ User-Agent: ${req.headers.get("user-agent") || "Unknown"}
 Referer: ${req.headers.get("referer") || "None"}
 
 ---
-このメールは My-fridgeai サポートシステムから自動送信されました。
+このメールは My-fridgeai サポートシステムから Resend を通じて自動送信されました。
 `,
       attachments: screenshotBase64
         ? [
-            {
-              filename: "screenshot.png",
-              content: screenshotBase64.split("base64,")[1],
-              encoding: "base64",
-            },
-          ]
+          {
+            filename: "screenshot.png",
+            content: screenshotBase64.split("base64,")[1],
+          },
+        ]
         : [],
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
+    if (sendError) {
+      console.error("resend support email error:", sendError);
+      throw new Error("メールの送信に失敗しました");
+    }
 
     console.info("support ticket created", { userId: token?.sub, ip, type });
 
