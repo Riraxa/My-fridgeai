@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { AI_LIMIT_FREE, AI_LIMIT_PRO } from "@/lib/aiLimit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const limits = user.plan === "PRO" ? 5 : 1;
+    const limits = user.plan === "PRO" ? AI_LIMIT_PRO : AI_LIMIT_FREE;
 
     return NextResponse.json({
       user,

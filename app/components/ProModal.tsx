@@ -41,7 +41,7 @@ export default function ProModal({ open, onClose }: ProModalProps) {
         console.error("No URL returned from checkout session creation:", data);
         alert(
           data.error ||
-            "エラーが発生しました。しばらくしてから再度お試しください。",
+          "エラーが発生しました。しばらくしてから再度お試しください。",
         );
       }
     } catch (error) {
@@ -85,7 +85,7 @@ export default function ProModal({ open, onClose }: ProModalProps) {
               <li>
                 AI献立生成が{" "}
                 <span className="font-bold" style={{ color: "var(--accent)" }}>
-                  1日5回
+                  1日3回
                 </span>{" "}
                 まで使える
               </li>

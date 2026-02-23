@@ -2,7 +2,7 @@
 import { prisma } from "./prisma";
 
 export const AI_LIMIT_FREE = 1;
-export const AI_LIMIT_PRO = 5;
+export const AI_LIMIT_PRO = 3;
 export const BARCODE_LIMIT_FREE = 5;
 export const INGREDIENT_LIMIT_FREE = 100;
 

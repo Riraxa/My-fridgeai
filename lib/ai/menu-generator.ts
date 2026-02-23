@@ -219,13 +219,14 @@ ${taste.freeText}`;
       if (i.amount) quantity = ` (${i.amount}${i.unit || ""})`;
       else if (i.amountLevel) quantity = ` (${i.amountLevel})`;
 
+      // Expiration
       let expiry = "";
       if (i.expirationDate) {
         const days = differenceInDays(i.expirationDate, new Date());
         expiry = ` [期限まで${days}日]`;
       }
 
-      // 加工食品タイプ表示
+      // 加工食品タイプ表示 (自動推論されたもの)
       const ingType = (i as any).ingredientType || "raw";
       let typeLabel = "";
       if (ingType === "processed_base") {
@@ -234,52 +235,10 @@ ${taste.freeText}`;
         typeLabel = " 【加工:そのまま完成】";
       }
 
-      // 必要追加食材情報
-      let additionalInfo = "";
-      if (ingType === "processed_base" && i.product?.requiresAdditionalIngredients) {
-        const reqIngredients = Array.isArray(i.product.requiresAdditionalIngredients)
-          ? i.product.requiresAdditionalIngredients
-          : [];
-        if (reqIngredients.length > 0) {
-          const reqNames = reqIngredients.map((r: any) => r.name).join(",");
-          // 必要食材が冷蔵庫内にあるかチェック
-          const availableReqs = reqIngredients.filter((r: any) =>
-            ingredients.some((inv) =>
-              inv.name.includes(r.name) || r.name.includes(inv.name)
-            )
-          );
-          const allAvailable = availableReqs.length === reqIngredients.length;
-          additionalInfo = allAvailable
-            ? ` (必要食材全て揃っている: ${reqNames})`
-            : ` (必要食材: ${reqNames} - 一部不足)`;
-        }
-      }
-
-      return `- ${i.name}${quantity}${expiry}${typeLabel}${additionalInfo}`;
+      return `- ${i.name}${quantity}${expiry}${typeLabel}`;
     })
     .join("\n");
 
-  // 加工食品の分類リスト
-  const processedBaseItems = ingredients.filter(
-    (i) => (i as any).ingredientType === "processed_base"
-  );
-  const instantCompleteItems = ingredients.filter(
-    (i) => (i as any).ingredientType === "instant_complete"
-  );
-
-  const processedBaseList = processedBaseItems.length > 0
-    ? processedBaseItems.map((i) => {
-      const reqIngredients = i.product?.requiresAdditionalIngredients;
-      const reqList = Array.isArray(reqIngredients)
-        ? reqIngredients.map((r: any) => `${r.name}(${r.amount}${r.unit})`).join(", ")
-        : "なし";
-      return `- ${i.name}${i.product?.brandName ? ` (ブランド: ${i.product.brandName})` : ""} / 必要食材: ${reqList}`;
-    }).join("\n")
-    : "なし";
-
-  const instantCompleteList = instantCompleteItems.length > 0
-    ? instantCompleteItems.map((i) => `- ${i.name}`).join("\n")
-    : "なし";
 
   // Build Priority Lists
   const criticalList =
@@ -321,14 +280,17 @@ ${taste.freeText}`;
   const systemPrompt = `あなたはプロの献立プランナーです。
 冷蔵庫にある食材を使って、実用的で美味しい家庭料理の献立を提案してください。
 
-# 手持ち食材（通常食材＋加工食品すべて含む）
+# 手持ち食材
 ${ingredientList}
 
-# 加工食品（調理ベース） - 他の食材と組み合わせて使う商品
-${processedBaseList}
+# 加工食品の取り扱いルール（重要）
+1. **通常食材（raw）**: 通常通り工程を記述（例：キャベツを洗う→切る→炒める）
+2. **調理ベース（processed_base）**: 商品名から推測される一般的な調理手順に従う。工程内に必ず「商品操作手順に従い、○○を仕上げる」というニュアンスを含めること。
+   例： ["野菜を炒める", "商品操作手順に従いカレーを仕上げる"]
+3. **そのまま完成（instant_complete）**: 単体で完成する商品（レトルト、即席スープ等）。工程は1つのみ「商品操作手順に従い準備する」とする。
+   例： ["商品操作手順に従い準備する"]
 
-# 加工食品（そのまま完成） - 単体で完成する商品
-${instantCompleteList}
+これらの区分はシステムによって自動推定されています。食材名から明らかに不自然な場合は、AIの判断で最適な調理法を優先してください。
 
 # ⚠️ 最優先で使うべき食材（${criticalThreshold}日以内）
 ${criticalList}
@@ -371,25 +333,9 @@ ${warningList}
    ${lifestyle.dishwashingAvoid ? "- 洗い物が少ないレシピを優先する（ワンパン調理、少ない調理器具）" : ""}
    ${lifestyle.singlePan ? "- 一つの鍋やフライパンで作れるレシピを優先する" : ""}
 
-6. **加工食品の取り扱いルール（重要）**
-   - **加工食品は通常食材と同等に扱うこと**
-   - ingredient_typeを必ず考慮する
-   - 「調理ベース」の商品は、必要追加食材が冷蔵庫内にある場合のみ優先候補とする
-   - 「そのまま完成」の商品は副菜・汁物として活用できる
-   - 加工食品のみで完結する献立も許可する（例：レトルトカレー＋即席スープ）
-   - 主菜・副菜・汁物の分類はAI判定とする（固定ロジックではない）
-   - 献立は必ず冷蔵庫内の食材で完結すること
-
-7. **レシピ手順の加工食品ルール**
-   - **通常食材（raw）**: 通常通り工程を記述（例：キャベツを洗う→切る→炒める）
-   - **調理ベース（processed_base）**: 工程内に「商品操作手順に従い、○○を仕上げる」を含める
-     例： ["野菜を炒める", "商品操作手順に従いカレーを仕上げる"]
-   - **そのまま完成（instant_complete）**: 工程は1つのみ「商品操作手順に従い準備する」
-     例： ["商品操作手順に従い準備する"]
-
-8. **生成優先順位**
+6. **生成優先順位**
    1）消費期限
-   2）包丁不要条件（該当時）
+   2）包刀不要条件（該当時）
    3）processed_base 活用可能性
    4）instant_complete 活用可能性
    5）味の好み
@@ -399,7 +345,7 @@ ${warningList}
 
 **1. メイン提案**
 - 最も栄養バランスが良く、賞味期限の近い食材を優先。
-- 加工食品があれば積極的に活用。
+- 加工食品（調理ベース/そのまま完成）があれば積極的に活用。
 - 全料理に nutrition 要。
 - ※栄養値はAI推定値です。
 
@@ -408,7 +354,7 @@ ${warningList}
 - 全料理に nutrition 要。
 
 **3. 代替案B**
-- 15分以内の時短献立。instant_completeを優先的に活用。
+- 15分以内の時短献立。そのまま完成（instant_complete）タイプを優先的に活用。
 - 全料理に nutrition 要。
 
 # 出力形式（必ずこのJSON形式で。各 dishes に nutrition を含めること）

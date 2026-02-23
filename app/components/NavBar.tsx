@@ -32,22 +32,22 @@ export default function NavBar() {
     () => [
       {
         to: "/home",
-        icon: <Home size={20} />,
+        icon: <Home size={24} />,
         label: "ホーム",
       },
       {
         to: "/menu/generate",
-        icon: <ChefHat size={20} />,
+        icon: <ChefHat size={24} />,
         label: "献立",
       },
       {
         to: "/shopping-list",
-        icon: <ShoppingCart size={20} />,
+        icon: <ShoppingCart size={24} />,
         label: "買い物",
       },
       {
         to: "/settings",
-        icon: <Settings size={20} />,
+        icon: <Settings size={24} />,
         label: "設定",
       },
     ],
@@ -73,7 +73,8 @@ export default function NavBar() {
 
   // OSに応じたクラス名を決定 - useMemoで最適化
   const navBarClass = useMemo(() => {
-    const baseClass = "fixed inset-x-0 bottom-0 z-50 nav-fixed-optimized";
+    // スクリーン全体に広がるのをやめ、GPU加速(nav-fixed-optimized)のみをベースに
+    const baseClass = "fixed z-50 nav-fixed-optimized transition-all duration-300";
     if (isIOS) {
       return `${baseClass} ios-tab-bar-modern`;
     } else if (isAndroid) {
@@ -90,16 +91,23 @@ export default function NavBar() {
       className={navBarClass}
       style={{
         background: "var(--nav-bg)",
-        borderTop: "1px solid var(--nav-border)",
-        borderTopLeftRadius: "28px",
-        borderTopRightRadius: "28px",
-        boxShadow: "0 -8px 32px rgba(0,0,0,0.06)",
-        paddingBottom: "env(safe-area-inset-bottom, 20px)"
+        border: "1px solid var(--nav-border)",
+        borderRadius: "40px", // 完全に丸いドック形状
+        boxShadow: "0 12px 40px rgba(0,0,0,0.18)", // 浮遊感を出す深めの影
+        left: "16px", // 左右に余白を持って浮かせる
+        right: "16px",
+        bottom: "calc(env(safe-area-inset-bottom, 16px) + 12px)", // iPhoneのホームインジケーターを避けて浮かせる
+        maxWidth: "500px",
+        margin: "0 auto",
+        height: "68px", // 高さを固定して安定感を
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden"
       }}
     >
-      <div className="max-w-md mx-auto px-6 pt-3">
-        {/* 丸みを生かした不動のプレミアム・フッター */}
-        <div className="flex items-center justify-between py-2 relative">
+      <div className="w-full px-4">
+        <div className="flex items-center justify-between relative">
           {navItems.map((item, index) => (
             <Link
               key={item.to}
@@ -133,7 +141,7 @@ export default function NavBar() {
 
                 {/* ラベル */}
                 <span
-                  className={`text-[10px] sm:text-xs font-bold transition-all duration-300 mt-1 whitespace-nowrap ${currentActiveIndex === index
+                  className={`text-[11px] sm:text-[13px] font-bold transition-all duration-300 mt-0.5 whitespace-nowrap ${currentActiveIndex === index
                     ? "text-[var(--nav-active-text)]"
                     : "nav-inactive"
                     }`}

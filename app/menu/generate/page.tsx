@@ -68,7 +68,8 @@ interface RecipeDetail {
 export default function MenuGeneratePage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { setShopping, setToast } = useFridge();
+  const { setShopping, setToast, isNavBarVisible, setIsNavBarVisible } =
+    useFridge();
 
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState<any>(null);
@@ -96,6 +97,7 @@ export default function MenuGeneratePage() {
   const [selectedMenuData, setSelectedMenuData] = useState<any>(null);
   const [recipeDetails, setRecipeDetails] = useState<RecipeDetail[]>([]);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
+  const [errorRecipe, setErrorRecipe] = useState<string | null>(null);
   const [currentDishIndex, setCurrentDishIndex] = useState(0);
 
   // 買い物リストに材料を追加する関数
@@ -214,6 +216,23 @@ export default function MenuGeneratePage() {
     };
   }, [loading, currentGenerationId]);
 
+  // ブラウザの戻る操作をブロック
+  useEffect(() => {
+    if (isNavBarVisible) return;
+
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+      toast("調理を中断する場合は、戻るボタン等でキャンセルしてください。", {
+        id: "nav-block-toast",
+      });
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isNavBarVisible]);
+
   // アプリ内操作制限 - レシピモーダル表示中はアプリ内の操作のみ無効化
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): boolean => {
@@ -228,10 +247,10 @@ export default function MenuGeneratePage() {
           return false;
         }
       }
-      
+
       // F5（リロード）とCtrl+Rのみ防止（ブラウザ操作は許可）
       if ((selectedMenuType || loadingRecipe) && (
-        e.key === "F5" || 
+        e.key === "F5" ||
         (e.ctrlKey && e.key === "r")
       )) {
         e.preventDefault();
@@ -239,7 +258,7 @@ export default function MenuGeneratePage() {
         e.stopImmediatePropagation();
         return false;
       }
-      
+
       return true;
     };
 
@@ -394,7 +413,7 @@ export default function MenuGeneratePage() {
   };
 
   const handleSelectMenu = async (type: string) => {
-    if (!generated?.menuGenerationId) return;
+    if (!generated?.menuGenerationId || loadingRecipe) return;
 
     // Get the selected menu data
     let menuData;
@@ -405,8 +424,10 @@ export default function MenuGeneratePage() {
     setSelectedMenuType(type);
     setSelectedMenuData(menuData);
     setLoadingRecipe(true);
+    setErrorRecipe(null); // 新しく追加するエラー状態
     setRecipeDetails([]);
     setCurrentDishIndex(0);
+    setIsNavBarVisible(false);
 
     // Fetch recipe details for each dish
     try {
@@ -458,6 +479,7 @@ export default function MenuGeneratePage() {
       setRecipeDetails(details);
     } catch (e) {
       console.error("Failed to fetch recipe details", e);
+      setErrorRecipe("レシピの取得に失敗しました。再試行してください。");
     } finally {
       setLoadingRecipe(false);
     }
@@ -494,6 +516,7 @@ export default function MenuGeneratePage() {
       setSelectedMenuData(null);
       setRecipeDetails([]);
       setCurrentDishIndex(0);
+      setIsNavBarVisible(true);
     } catch (e: any) {
       alert(`エラーが発生しました: ${e.message}`);
     } finally {
@@ -506,13 +529,18 @@ export default function MenuGeneratePage() {
     setSelectedMenuData(null);
     setRecipeDetails([]);
     setCurrentDishIndex(0);
+    setErrorRecipe(null);
+    setIsNavBarVisible(true);
   };
 
   const currentRecipe = recipeDetails[currentDishIndex];
 
   return (
     <ErrorBoundary>
-      <PageTransition className="max-w-4xl mx-auto px-4 py-8 pb-32">
+      <PageTransition
+        className="max-w-4xl mx-auto px-4 py-8 pb-32"
+        aria-hidden={!isNavBarVisible}
+      >
         <HeaderTransition className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
@@ -595,7 +623,7 @@ export default function MenuGeneratePage() {
                     color: "var(--color-text-muted)",
                   }}
                 >
-                  1日5回
+                  1日3回
                 </div>
               )}
               <div className="mb-6">
@@ -919,8 +947,8 @@ export default function MenuGeneratePage() {
             onClick={(e) => e.stopPropagation()} // 背景クリックを無効化
           >
             {/* アプリ内の操作のみ無効化するオーバーレイ */}
-            <div 
-              className="fixed inset-0 z-10" 
+            <div
+              className="fixed inset-0 z-10"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -932,10 +960,13 @@ export default function MenuGeneratePage() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="recipe-modal-title"
             >
               {/* Header */}
               <div className="sticky top-0 bg-[var(--card-bg)] border-b border-[var(--surface-border)] px-4 py-3 flex items-center justify-center z-10">
-                <h2 className="font-bold text-lg text-[var(--color-text-primary)]">
+                <h2 id="recipe-modal-title" className="font-bold text-lg text-[var(--color-text-primary)]">
                   {selectedMenuData?.title || "レシピ詳細"}
                 </h2>
               </div>
@@ -1072,6 +1103,27 @@ export default function MenuGeneratePage() {
                       </div>
                     )}
                   </>
+                ) : errorRecipe ? (
+                  <div className="text-center py-20 px-6">
+                    <AlertTriangle size={40} className="mx-auto mb-4 text-red-500" />
+                    <p className="text-[var(--color-text-primary)] font-medium mb-4">
+                      {errorRecipe}
+                    </p>
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={() => handleSelectMenu(selectedMenuType!)}
+                        className="w-full py-3 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:opacity-90 transition"
+                      >
+                        再取得する
+                      </button>
+                      <button
+                        onClick={closeRecipeModal}
+                        className="w-full py-3 bg-[var(--surface-bg)] text-[var(--color-text-secondary)] rounded-xl font-bold border border-[var(--surface-border)] hover:bg-[var(--surface-border)] transition"
+                      >
+                        戻る
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-center py-20 text-[var(--color-text-secondary)]">
                     レシピを取得できませんでした
@@ -1079,26 +1131,29 @@ export default function MenuGeneratePage() {
                 )}
               </div>
 
-              <div className="sticky bottom-0 bg-[var(--card-bg)] border-t border-[var(--surface-border)] p-4 relative z-20">
-                <button
-                  onClick={handleConfirmCook}
-                  disabled={loadingCook}
-                  className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 ${loadingCook
-                    ? "bg-[var(--surface-bg)] cursor-not-allowed text-[var(--color-text-muted)]"
-                    : "bg-green-600 text-white hover:bg-green-700"
-                    }`}
-                >
-                  {loadingCook ? (
-                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                  ) : (
-                    <CheckCircle size={20} />
-                  )}
-                  {loadingCook ? "処理中..." : "調理完了！完成"}
-                </button>
-                <p className="text-center text-xs text-[var(--color-text-muted)] mt-2">
-                  使用した食材が在庫から差し引かれます
-                </p>
-              </div>
+              {!loadingRecipe && !errorRecipe && recipeDetails.length > 0 && (
+                <div className="sticky bottom-0 bg-[var(--card-bg)] border-t border-[var(--surface-border)] p-4 pb-safe relative z-20">
+                  <button
+                    onClick={handleConfirmCook}
+                    disabled={loadingCook}
+                    aria-label="調理完了。完成ボタン"
+                    className={`w-full py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 ${loadingCook
+                      ? "bg-[var(--surface-bg)] cursor-not-allowed text-[var(--color-text-muted)]"
+                      : "bg-green-600 text-white hover:bg-green-700"
+                      }`}
+                  >
+                    {loadingCook ? (
+                      <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                    ) : (
+                      <CheckCircle size={20} />
+                    )}
+                    {loadingCook ? "処理中..." : "調理完了！完成"}
+                  </button>
+                  <p className="text-center text-[10px] text-[var(--color-text-muted)] mt-2">
+                    使用した食材が在庫から差し引かれます
+                  </p>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

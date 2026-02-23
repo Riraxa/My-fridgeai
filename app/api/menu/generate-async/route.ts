@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { generateMenus } from "@/lib/ai/menu-generator";
 import { checkIngredientAvailability } from "@/lib/inventory";
+import { AI_LIMIT_FREE, AI_LIMIT_PRO } from "@/lib/aiLimit";
 
 export async function POST(req: Request) {
   try {
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     });
 
     const isPro = user?.plan === "PRO";
-    const limit = isPro ? 10 : 2;
+    const limit = isPro ? AI_LIMIT_PRO : AI_LIMIT_FREE;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);

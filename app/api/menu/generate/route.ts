@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { generateMenus } from "@/lib/ai/menu-generator";
 import { checkIngredientAvailability } from "@/lib/inventory";
-import { checkUserLimit } from "@/lib/aiLimit";
+import { checkUserLimit, AI_LIMIT_FREE, AI_LIMIT_PRO } from "@/lib/aiLimit";
 
 export async function POST(req: Request) {
   try {
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
         select: { plan: true },
       });
       const isPro = user?.plan === "PRO";
-      const limitText = isPro ? "1日5回" : "1日1回";
+      const limitText = isPro ? `1日${AI_LIMIT_PRO}回` : `1日${AI_LIMIT_FREE}回`;
 
       return NextResponse.json(
         {

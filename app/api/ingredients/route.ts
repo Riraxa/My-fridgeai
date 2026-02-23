@@ -125,11 +125,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ingredientType validation
-    const validTypes = ["raw", "processed_base", "instant_complete"];
-    const ingredientType = validTypes.includes(body.ingredientType)
-      ? body.ingredientType
-      : "raw";
+    // ingredientType is automatically inferred
+    const { inferIngredientType } = await import("@/lib/ingredient-inference");
+    const { ingredientType } = inferIngredientType(name);
     const productId = body.productId || null;
 
     const created = await prisma.ingredient.create({

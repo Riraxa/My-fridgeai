@@ -43,6 +43,8 @@ export type FridgeContextType = {
   openAddModal: (detail?: any) => void; // <-- detail optional
   fetchIngredients: () => Promise<void>;
   isLoading: boolean;
+  isNavBarVisible: boolean;
+  setIsNavBarVisible: (v: boolean) => void;
 };
 
 const FridgeContext = createContext<FridgeContextType | undefined>(undefined);
@@ -123,6 +125,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
   const [barcodeOpen, setBarcodeOpen] = useState<boolean>(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isNavBarVisible, setIsNavBarVisible] = useState<boolean>(true);
 
   // persist to localStorage when these change (client-only)
   useEffect(() => {
@@ -408,6 +411,8 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       openAddModal,
       fetchIngredients,
       isLoading,
+      isNavBarVisible,
+      setIsNavBarVisible,
     }),
     [
       items,
@@ -434,6 +439,8 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       openAddModal,
       fetchIngredients,
       isLoading,
+      isNavBarVisible,
+      setIsNavBarVisible,
     ],
   );
 
@@ -480,6 +487,8 @@ export function useFridge(): FridgeContextType {
       openAddModal: () => { }, // default no-op
       fetchIngredients: async () => { },
       isLoading: false,
+      isNavBarVisible: true,
+      setIsNavBarVisible: () => { },
     };
   }
   return ctx;

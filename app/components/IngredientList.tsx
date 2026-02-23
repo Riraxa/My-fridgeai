@@ -196,17 +196,6 @@ export default function IngredientList({
                   >
                     {it.name}
                   </div>
-                  {/* 加工食品タイプバッジ */}
-                  {it.ingredientType === "processed_base" && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
-                      🍲 調理ベース
-                    </span>
-                  )}
-                  {it.ingredientType === "instant_complete" && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                      ⚡ そのまま
-                    </span>
-                  )}
                   {getExpiryBadge(it.expirationDate)}
                 </div>
 
