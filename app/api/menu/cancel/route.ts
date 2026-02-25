@@ -88,6 +88,9 @@ export async function POST(req: Request) {
               newAmount = used.amount; // Edge case: stock was 0, use used amount
             }
 
+            // 小数点第一位まで表示し、それ以降は四捨五入
+            newAmount = Math.round(newAmount * 10) / 10;
+
             // Ensure we don't go negative due to floating point precision
             newAmount = Math.max(0, newAmount);
 

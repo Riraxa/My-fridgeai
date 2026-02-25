@@ -229,6 +229,8 @@ export function calculateInventoryUpdates(
       let newAmount = 0;
       if (stockNormalized > 0) {
         newAmount = stock.amount * (newAmountNormalized / stockNormalized);
+        // 小数点第一位まで表示し、それ以降は四捨五入
+        newAmount = Math.round(newAmount * 10) / 10;
       } else {
         newAmount = -1; // Should be deleted
       }
