@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 const priceId = process.env.STRIPE_PRICE_ID;
@@ -13,7 +12,7 @@ if (!stripeKey) console.error("STRIPE_SECRET_KEY not set");
 if (!priceId) console.error("STRIPE_PRICE_ID not set");
 
 const stripe = stripeKey
-  ? new Stripe(stripeKey, { apiVersion: "2025-12-15.clover" })
+  ? new Stripe(stripeKey, { apiVersion: "2026-02-25.clover" as any })
   : null;
 
 export async function POST(req: NextRequest) {
@@ -39,11 +38,11 @@ export async function POST(req: NextRequest) {
     // 1) サーバーセッションから userId を取得
     let userId: string | null = null;
     try {
-      const session = await getServerSession(authOptions);
+      const session = await auth();
       if (session?.user?.id) userId = String(session.user.id);
     } catch (e: any) {
       console.error(
-        "[createCheckoutSession] getServerSession error:",
+        "[createCheckoutSession] auth error:",
         e.message,
       );
     }
@@ -76,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     // IDで見つからない場合のフォールバック（メールアドレス検索）
     if (!user) {
-      const session = await getServerSession(authOptions);
+      const session = await auth();
       if (session?.user?.email) {
         user = await prisma.user.findUnique({
           where: { email: session.user.email },

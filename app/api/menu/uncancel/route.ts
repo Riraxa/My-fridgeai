@@ -1,14 +1,12 @@
-//app/api/menu/uncancel/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { decreaseAmountLevel, normalizeAmount } from "@/lib/inventory";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const session = await auth();
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
@@ -18,7 +16,7 @@ export async function POST(req: Request) {
       where: { id: cookingHistoryId },
     });
 
-    if (history?.userId !== userId) {
+    if (!history || history.userId !== userId) {
       return NextResponse.json({ error: "History not found" }, { status: 404 });
     }
 

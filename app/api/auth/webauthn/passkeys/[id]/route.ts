@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -14,13 +14,9 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
-    if (!token?.sub) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { ok: false, message: "認証が必要です" },
         { status: 401 },
@@ -37,7 +33,7 @@ export async function PUT(
 
     // IP Check
     const user = await prisma.user.findUnique({
-      where: { id: token.sub },
+      where: { id: session.user.id },
       select: { allowedIps: true },
     });
 
@@ -54,7 +50,7 @@ export async function PUT(
     const passkey = await prisma.passkey.updateMany({
       where: {
         id: id,
-        userId: token.sub,
+        userId: session.user.id,
       },
       data: {
         name: body.name.trim().slice(0, 100),
@@ -103,13 +99,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
-    if (!token?.sub) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { ok: false, message: "認証が必要です" },
         { status: 401 },
@@ -118,7 +110,7 @@ export async function DELETE(
 
     // IP Check
     const user = await prisma.user.findUnique({
-      where: { id: token.sub },
+      where: { id: session.user.id },
       select: { allowedIps: true },
     });
 
@@ -135,7 +127,7 @@ export async function DELETE(
     const result = await prisma.passkey.deleteMany({
       where: {
         id: id,
-        userId: token.sub,
+        userId: session.user.id,
       },
     });
 

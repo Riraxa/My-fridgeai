@@ -1,15 +1,14 @@
 // app/api/menu/generate-async/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { generateMenus } from "@/lib/ai/menu-generator";
 import { checkIngredientAvailability } from "@/lib/inventory";
 import { AI_LIMIT_FREE, AI_LIMIT_PRO } from "@/lib/aiLimit";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -1,23 +1,18 @@
-//app/api/user/me/route.ts
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { AI_LIMIT_FREE, AI_LIMIT_PRO } from "@/lib/aiLimit";
 
 export async function GET(req: NextRequest) {
   try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
-    if (!token?.sub) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = token.sub;
+    const userId = session.user.id;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 

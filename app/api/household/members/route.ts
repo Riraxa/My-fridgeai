@@ -1,19 +1,14 @@
-// app/api/household/members/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production",
-  });
-  if (!token?.sub) {
+  const session = await auth();
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const userId = token.sub;
+  const userId = session.user.id;
 
   try {
     // ユーザーが所属しているグループを探す

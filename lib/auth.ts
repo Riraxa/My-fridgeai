@@ -1,23 +1,16 @@
 // lib/auth.ts
-import { type NextAuthOptions } from "next-auth";
+import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
 import { cookies } from "next/headers";
 
 const isProd = process.env.NODE_ENV === "production";
 
-// 本番環境ではNextAuth URLを明示的に設定
-export const authOptions: NextAuthOptions = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-
-  // 信頼されるホストを明示的に指定してリファラーチェックを緩和
-  ...(isProd && {
-    trustHost: true,
-  }),
-
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
@@ -27,19 +20,16 @@ export const authOptions: NextAuthOptions = {
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
-          // セキュリティ強化
-          hd: process.env.ALLOWED_DOMAIN, // 特定ドメインのみ許可（必要に応じて）
+          hd: process.env.ALLOWED_DOMAIN,
         },
       },
       allowDangerousEmailAccountLinking: false,
-      // 追加のセキュリティオプション
       profile(profile) {
         return {
           id: profile.sub,
           email: profile.email?.toLowerCase()?.trim(),
           name: profile.name,
           image: profile.picture,
-          // メールドメイン検証
           emailVerified: profile.email_verified ? new Date() : null,
           isPro: false,
         };
@@ -59,19 +49,17 @@ export const authOptions: NextAuthOptions = {
         if (credentials?.token) {
           const user = await prisma.user.findFirst({
             where: {
-              verifyToken: credentials.token,
+              verifyToken: credentials.token as string,
               status: "active",
             },
           });
 
           if (user) {
-            // verifyTokenを確実にクリア
             await prisma.user.update({
               where: { id: user.id },
               data: {
                 verifyToken: null,
                 verifyTokenCreatedAt: null,
-                // authMethodが未設定の場合はpassword_onlyに設定
                 authMethod: user.authMethod || "password_only",
               },
             });
@@ -80,7 +68,7 @@ export const authOptions: NextAuthOptions = {
               id: user.id,
               email: user.email ?? null,
               name: user.name ?? null,
-            } as any;
+            };
           }
           return null;
         }
@@ -89,7 +77,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const email = credentials.email.toLowerCase().trim();
+        const email = (credentials.email as string).toLowerCase().trim();
         const user = await prisma.user.findUnique({ where: { email } });
 
         if (!user) return null;
@@ -97,16 +85,11 @@ export const authOptions: NextAuthOptions = {
         if (!user.emailVerified) return null;
         if (!user.password) return null;
 
-        const ok = await compare(credentials.password, user.password);
+        const ok = await compare(credentials.password as string, user.password);
         if (!ok) return null;
 
-        // auth_methodチェック：passkey_enabledユーザーはパスワードログインを禁止
-        // UX改善：エラーではなく適切な案内メッセージを返す
         if ((user as any).authMethod === "passkey_enabled") {
-          console.warn(
-            `[auth] Password login attempted for passkey_enabled user: ${email}`,
-          );
-          // NextAuthがエラーとして扱う特殊な値を返す
+          console.warn(`[auth] Password login attempted for passkey_enabled user: ${email}`);
           throw new Error("PASSKEY_ONLY");
         }
 
@@ -114,12 +97,8 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email ?? null,
           name: user.name ?? null,
-        } as any;
-
-        // password_onlyユーザーにはパスキー設定誘導フラグを追加
-        if ((user as any).authMethod === "password_only") {
-          (result as any).requirePasskeySetup = true;
-        }
+          requirePasskeySetup: (user as any).authMethod === "password_only"
+        };
 
         return result;
       },
@@ -127,30 +106,15 @@ export const authOptions: NextAuthOptions = {
   ],
 
   session: {
-    strategy: "jwt", // JWTストラテジーに変更して安定性を向上
-    maxAge: 30 * 24 * 60 * 60, // 30日
-    updateAge: 24 * 60 * 60, // 1日ごとに更新
-  },
-
-  cookies: {
-    sessionToken: {
-      name: isProd
-        ? `__Secure-next-auth.session-token`
-        : `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: isProd,
-        domain: undefined,
-      },
-    },
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60,
   },
 
   pages: {
     signIn: "/login",
     verifyRequest: "/verify-request",
-    error: "/login", // エラー時もログインページに戻り、クエリパラメータでエラー種別を渡す
+    error: "/login",
   },
 
   callbacks: {
@@ -165,14 +129,14 @@ export const authOptions: NextAuthOptions = {
 
         if (!email) {
           console.log("[Google OAuth] メールアドレスを取得できませんでした");
-          return "/login?error=no_email_from_provider";
+          return false; // Auth.js では文字列または boolean を返す
         }
 
         let loginType = "login";
         try {
           const cookieStore = await cookies();
           loginType = cookieStore.get("google_auth_type")?.value ?? "login";
-        } catch (e) {
+        } catch {
           console.log("[Google OAuth] Cookie読み取りエラー、login として処理");
         }
 
@@ -191,15 +155,12 @@ export const authOptions: NextAuthOptions = {
 
         if (loginType === "login") {
           if (existingAccount) {
-            if (existingAccount.user.status !== "active")
-              return "/login?error=account_inactive";
+            if (existingAccount.user.status !== "active") return false;
             return true;
           }
           if (existingUser) {
-            if (existingUser.status !== "active")
-              return "/login?error=account_inactive";
-            if (!existingUser.emailVerified)
-              return "/login?error=email_not_verified";
+            if (existingUser.status !== "active") return false;
+            if (!existingUser.emailVerified) return false;
 
             await prisma.account.create({
               data: {
@@ -218,12 +179,11 @@ export const authOptions: NextAuthOptions = {
             });
             return true;
           }
-          return "/login?error=not_registered";
+          return false;
         }
 
         if (loginType === "signup") {
-          if (existingAccount || existingUser)
-            return "/register?error=registered_email";
+          if (existingAccount || existingUser) return false;
 
           try {
             const newUser = await prisma.user.create({
@@ -252,21 +212,20 @@ export const authOptions: NextAuthOptions = {
               },
             });
             return true;
-          } catch (err: any) {
-            return "/login?error=signup_failed";
+          } catch {
+            return false;
           }
         }
-        return "/login?error=not_registered";
+        return false;
       }
       return false;
     },
 
     async session({ session, token }) {
-      // JWTストラテジーの場合、token引数にJWTトークン情報が入ってくる
       if (session.user && token?.sub) {
         session.user.id = token.sub;
+        (session as any).authTime = token.iat;
 
-        // 追加のユーザー情報をDBから確実に取得
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.sub },
@@ -277,6 +236,9 @@ export const authOptions: NextAuthOptions = {
               passkeySetupCompleted: true,
               name: true,
               image: true,
+              accounts: {
+                select: { provider: true }
+              }
             },
           });
 
@@ -285,54 +247,41 @@ export const authOptions: NextAuthOptions = {
             (session.user as any).plan = plan;
             (session.user as any).isPro = plan === "PRO";
             (session.user as any).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
-            (session.user as any).stripeCurrentPeriodEnd =
-              dbUser.stripeCurrentPeriodEnd;
-            (session.user as any).passkeySetupCompleted =
-              dbUser.passkeySetupCompleted ?? false;
+            (session.user as any).stripeCurrentPeriodEnd = dbUser.stripeCurrentPeriodEnd;
+            (session.user as any).passkeySetupCompleted = dbUser.passkeySetupCompleted ?? false;
+            (session.user as any).accounts = dbUser.accounts;
 
-            // 名前と画像をDBから最新のもので上書き
             if (dbUser.name) session.user.name = dbUser.name;
             if (dbUser.image) session.user.image = dbUser.image;
           }
-        } catch (e) {
-          console.error(
-            "Failed to fetch extended user data in session callback",
-            e,
-          );
+        } catch {
+          console.error("Failed to fetch extended user data in session callback");
         }
-
-        (session.user as any).accounts = [];
       }
       return session;
     },
 
-    async jwt({ token, user, account }) {
-      // JWTコールバックで追加情報をトークンに保存
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        if ((user as any).requirePasskeySetup) {
+          token.requirePasskeySetup = true;
+        }
       }
-
-      // パスキー設定が必要なユーザーのフラグを追加
-      if (user && (user as any).requirePasskeySetup) {
-        token.requirePasskeySetup = true;
-      }
-
       return token;
     },
 
     async redirect({ url, baseUrl }) {
-      // 常に絶対URLを返すように徹底
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       try {
         const urlObj = new URL(url);
         if (urlObj.origin === baseUrl) return url;
-      } catch (e) {
-        // urlが相対パス等の場合にここに来る
-      }
+      } catch { }
       return `${baseUrl}/home`;
     },
   },
 
   debug: false,
   secret: process.env.NEXTAUTH_SECRET,
-};
+});
+

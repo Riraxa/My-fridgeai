@@ -1,14 +1,12 @@
-//app/api/menu/cook/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { calculateInventoryUpdates } from "@/lib/inventory";
 import { addHours } from "date-fns";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -34,6 +32,10 @@ export async function POST(req: Request) {
 
       // 2. Identify Selected Menu and Ingredients
       let menuData: any;
+      if (!generation) {
+        return NextResponse.json({ error: "Menu not found" }, { status: 404 });
+      }
+
       if (selectedMenu === "main") menuData = generation.mainMenu;
       else if (selectedMenu === "altA") menuData = generation.alternativeA;
       else if (selectedMenu === "altB") menuData = generation.alternativeB;

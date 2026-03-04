@@ -1,8 +1,6 @@
-// app/api/menu/status/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 
 export async function GET(
   req: Request,
@@ -10,15 +8,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const session = await auth();
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user?.id;
-    if (!userId) {
-      return NextResponse.json({ error: "User ID not found" }, { status: 401 });
-    }
+    const userId = session.user.id;
 
     const generation = await prisma.menuGeneration.findUnique({
       where: {
@@ -51,31 +46,31 @@ export async function GET(
       data:
         generation.status === "completed"
           ? {
-              menuGenerationId: generation.id,
-              menus: {
-                main: generation.mainMenu,
-                alternativeA: generation.alternativeA,
-                alternativeB: generation.alternativeB,
-              },
-              // Reconstruct availability for frontend
-              availability: {
-                main: reconstructAvailability(
-                  (generation.usedIngredients as any)?.main,
-                  (generation.shoppingList as any)?.main,
-                ),
-                altA: reconstructAvailability(
-                  (generation.usedIngredients as any)?.altA,
-                  (generation.shoppingList as any)?.altA,
-                ),
-                altB: reconstructAvailability(
-                  (generation.usedIngredients as any)?.altB,
-                  (generation.shoppingList as any)?.altB,
-                ),
-              },
-              usedIngredients: generation.usedIngredients,
-              shoppingList: generation.shoppingList,
-              nutrition: generation.nutritionInfo,
-            }
+            menuGenerationId: generation.id,
+            menus: {
+              main: generation.mainMenu,
+              alternativeA: generation.alternativeA,
+              alternativeB: generation.alternativeB,
+            },
+            // Reconstruct availability for frontend
+            availability: {
+              main: reconstructAvailability(
+                (generation.usedIngredients as any)?.main,
+                (generation.shoppingList as any)?.main,
+              ),
+              altA: reconstructAvailability(
+                (generation.usedIngredients as any)?.altA,
+                (generation.shoppingList as any)?.altA,
+              ),
+              altB: reconstructAvailability(
+                (generation.usedIngredients as any)?.altB,
+                (generation.shoppingList as any)?.altB,
+              ),
+            },
+            usedIngredients: generation.usedIngredients,
+            shoppingList: generation.shoppingList,
+            nutrition: generation.nutritionInfo,
+          }
           : null,
     });
   } catch (error: any) {

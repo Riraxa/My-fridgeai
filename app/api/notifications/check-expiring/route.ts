@@ -1,13 +1,11 @@
-// app/api/notifications/check-expiring/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { differenceInHours } from "date-fns";
 
 export async function POST() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -30,7 +28,7 @@ export async function POST() {
       // デフォルト値を使用
       preferences = { alertDaysBefore: 3 };
     }
-    
+
     const alertDaysBefore = preferences?.alertDaysBefore || 3;
 
     // 賞味期限が近い食材を取得

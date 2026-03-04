@@ -1,22 +1,18 @@
 // app/api/household/invite/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSecureRandomString } from "@/lib/security";
 
 const INVITE_BASE_URL = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/household/join`;
 
 export async function GET(req: NextRequest) {
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production",
-  });
-  if (!token?.sub) {
+  const session = await auth();
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const userId = token.sub;
+  const userId = session.user.id;
 
   const household = await prisma.household.findFirst({
     where: { ownerId: userId },
@@ -49,16 +45,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production",
-  });
-  if (!token?.sub) {
+  const session = await auth();
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const userId = token.sub;
+  const userId = session.user.id;
 
   // ユーザーがHouseholdのOwnerかチェック
   const household = await prisma.household.findFirst({

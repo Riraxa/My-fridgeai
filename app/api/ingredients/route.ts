@@ -2,34 +2,21 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { validateJWTToken, sanitizeString, escapeHtml } from "@/lib/security";
+import { sanitizeString, escapeHtml } from "@/lib/security";
 import { addApiSecurityHeaders } from "@/lib/securityHeaders";
 
 // GET: 食材一覧取得
 export async function GET(req: NextRequest) {
   try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
-    if (!token) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    // JWTの追加検証
-    const tokenValidation = validateJWTToken(token);
-    if (!tokenValidation.valid) {
-      return NextResponse.json(
-        { error: "無効なトークンです" },
-        { status: 401 },
-      );
-    }
-
-    const userId = tokenValidation.userId!;
+    const userId = session.user.id;
     const list = await prisma.ingredient.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -59,26 +46,13 @@ export async function GET(req: NextRequest) {
 // POST: 新規追加
 export async function POST(req: NextRequest) {
   try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
-    if (!token) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    // JWTの追加検証
-    const tokenValidation = validateJWTToken(token);
-    if (!tokenValidation.valid) {
-      return NextResponse.json(
-        { error: "無効なトークンです" },
-        { status: 401 },
-      );
-    }
-
-    const userId = tokenValidation.userId!;
+    const userId = session.user.id;
 
     // 設計書: Freeは100件まで。制限チェック。
     const { checkUserLimit } = await import("@/lib/aiLimit");

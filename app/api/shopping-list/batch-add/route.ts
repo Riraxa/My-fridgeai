@@ -1,5 +1,4 @@
-//app/api/shopping-list/batch-add/route.ts
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rateLimiter";
@@ -7,14 +6,11 @@ import { rateLimit } from "@/lib/rateLimiter";
 export async function POST(req: NextRequest) {
   try {
     // 認証チェック
-    const token = await getToken({
-      req: req,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
-    if (!token?.sub) {
+    const session = await auth();
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
-    const userId = token.sub;
+    const userId = session.user.id;
 
     // レート制限
     const ip = req.headers.get("x-forwarded-for") || "unknown";

@@ -7,8 +7,8 @@ export const lifestyleModeSchema = z.object({
 });
 
 export const tasteJsonSchema = z.object({
-  tasteScores: z.record(z.number().min(-2).max(2)),
-  tasteLabels: z.record(z.string()),
+  tasteScores: z.record(z.string(), z.number().min(-2).max(2)),
+  tasteLabels: z.record(z.string(), z.string()),
   equipment: z.array(z.string()),
   preferredMethods: z.array(z.string()),
   avoidedMethods: z.array(z.string()),
@@ -19,7 +19,7 @@ export const tasteJsonSchema = z.object({
   }),
   goals: z.array(z.string()).optional(),
   freeText: z.string().max(300).optional(),
-  recentGenrePenalty: z.record(z.number().min(-1).max(1)).optional(),
+  recentGenrePenalty: z.record(z.string(), z.number().min(-1).max(1)).optional(),
 });
 
 export const allergySchema = z.object({
@@ -38,8 +38,8 @@ export const restrictionSchema = z.object({
 export const safetySchema = z.union([allergySchema, restrictionSchema]);
 
 export const tasteUpdateSchema = z.object({
-  tasteScores: z.record(z.number().min(-2).max(2)).optional(),
-  tasteLabels: z.record(z.string()).optional(),
+  tasteScores: z.record(z.string(), z.number().min(-2).max(2)).optional(),
+  tasteLabels: z.record(z.string(), z.string()).optional(),
   equipment: z.array(z.string()).optional(),
   lifestyle: z
     .object({

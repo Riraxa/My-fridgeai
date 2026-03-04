@@ -2,31 +2,29 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
-    if (!token?.sub) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    const userId = token.sub;
+    const userId = session.user.id;
 
     // Re-authentication Check: Ensure session is fresh (< 5 minutes)
-    // token.iat is in seconds
+    // authTime (from JWT iat) is in seconds
     const now = Math.floor(Date.now() / 1000);
-    const authAge = now - (token?.iat as number);
-    if (authAge > 5 * 60) {
+    const authTime = (session as any).authTime as number;
+    const authAge = now - (authTime || 0);
+
+    if (!authTime || authAge > 5 * 60) {
       return NextResponse.json(
         { error: "セキュリティのため、再認証が必要です" },
-        { status: 403 }, // 403 signals re-auth needed often, or 401? Spec said "4xx"
+        { status: 403 },
       );
     }
 

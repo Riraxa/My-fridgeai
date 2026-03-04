@@ -1,34 +1,19 @@
-// app/api/products/route.ts
-export const runtime = "nodejs";
-
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { validateJWTToken, sanitizeString } from "@/lib/security";
+import { sanitizeString } from "@/lib/security";
 import { addApiSecurityHeaders } from "@/lib/securityHeaders";
 
 // GET: ユーザーの加工食品商品一覧
 export async function GET(req: NextRequest) {
     try {
-        const token = await getToken({
-            req,
-            secret: process.env.NEXTAUTH_SECRET,
-            secureCookie: process.env.NODE_ENV === "production",
-        });
+        const session = await auth();
 
-        if (!token) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
         }
 
-        const tokenValidation = validateJWTToken(token);
-        if (!tokenValidation.valid) {
-            return NextResponse.json(
-                { error: "無効なトークンです" },
-                { status: 401 },
-            );
-        }
-
-        const userId = tokenValidation.userId!;
+        const userId = session.user.id;
         const products = await prisma.product.findMany({
             where: { userId },
             orderBy: { createdAt: "desc" },
@@ -49,25 +34,13 @@ export async function GET(req: NextRequest) {
 // POST: 新規加工食品商品を登録
 export async function POST(req: NextRequest) {
     try {
-        const token = await getToken({
-            req,
-            secret: process.env.NEXTAUTH_SECRET,
-            secureCookie: process.env.NODE_ENV === "production",
-        });
+        const session = await auth();
 
-        if (!token) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
         }
 
-        const tokenValidation = validateJWTToken(token);
-        if (!tokenValidation.valid) {
-            return NextResponse.json(
-                { error: "無効なトークンです" },
-                { status: 401 },
-            );
-        }
-
-        const userId = tokenValidation.userId!;
+        const userId = session.user.id;
         const body = await req.json();
 
         // バリデーション

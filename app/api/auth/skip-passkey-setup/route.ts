@@ -1,31 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
-    console.log("[SKIP-PASSKEY] Token check:", {
-      hasToken: !!token,
-      tokenSub: token?.sub,
-      tokenEmail: token?.email,
+    console.log("[SKIP-PASSKEY] Session check:", {
+      hasSession: !!session,
+      userId: session?.user?.id,
+      email: session?.user?.email,
       timestamp: new Date().toISOString(),
     });
 
-    if (!token?.sub) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
     // ユーザーの存在確認
     const user = await prisma.user.findUnique({
-      where: { id: token.sub },
+      where: { id: session.user.id },
     });
 
     if (!user) {
@@ -36,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     await prisma.user.update({
-      where: { id: token.sub },
+      where: { id: session.user.id },
       data: { passkeySetupCompleted: true },
     });
 

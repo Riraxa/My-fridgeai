@@ -1,6 +1,5 @@
-// app/api/ingredients/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function PUT(
@@ -9,16 +8,12 @@ export async function PUT(
 ) {
   const { id } = await context.params;
 
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production",
-  });
-  if (!token?.sub) {
+  const session = await auth();
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const userId = token.sub;
+  const userId = session.user.id;
   const body = await req.json();
 
   const updated = await prisma.ingredient.updateMany({
@@ -58,16 +53,12 @@ export async function DELETE(
 ) {
   const { id } = await context.params;
 
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production",
-  });
-  if (!token?.sub) {
+  const session = await auth();
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const userId = token.sub;
+  const userId = session.user.id;
 
   await prisma.ingredient.deleteMany({ where: { id, userId } });
 

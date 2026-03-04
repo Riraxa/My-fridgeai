@@ -16,11 +16,8 @@ export default [
       parser: tsParser,
       ecmaVersion: "latest",
       sourceType: "module",
-      // ← ここを追加：TypeScript の型情報を使うための設定
       parserOptions: {
-        // `project` に tsconfig を渡すと型情報を使った lint が可能になります
         project: ["./tsconfig.json"],
-        // tsconfig の解決を安定させるため、ルートディレクトリを明示
         tsconfigRootDir: process.cwd(),
       },
     },
@@ -33,28 +30,28 @@ export default [
     },
     rules: {
       // TypeScript厳密性 - 段階的導入
-      "@typescript-eslint/no-explicit-any": "warn", // anyを警告に緩和
-      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }], // 警告に緩和
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
       "@typescript-eslint/prefer-nullish-coalescing": "warn",
       "@typescript-eslint/prefer-optional-chain": "warn",
       "@typescript-eslint/no-non-null-assertion": "warn",
 
       // Next.js - 重要なものはerrorのまま
       "@next/next/no-html-link-for-pages": "error",
-      "@next/next/no-img-element": "warn", // 警告に緩和
+      "@next/next/no-img-element": "warn",
 
       // セキュリティ - 段階的導入
-      "security/detect-object-injection": "off", // 一時的に無効化
+      "security/detect-object-injection": "off",
       "security/detect-non-literal-regexp": "warn",
-      "security/detect-unsafe-regex": "warn", // 警告に緩和
+      "security/detect-unsafe-regex": "warn",
       "security/detect-eval-with-expression": "error",
 
       // アクセシビリティ - 重要なものはerrorのまま
       "jsx-a11y/role-supports-aria-props": "error",
-      "jsx-a11y/alt-text": "warn", // 警告に緩和
+      "jsx-a11y/alt-text": "warn",
 
       // React Hooks - 重要なものはerrorのまま
-      "react-hooks/exhaustive-deps": "warn", // 警告に緩和
+      "react-hooks/exhaustive-deps": "warn",
       "react-hooks/rules-of-hooks": "error",
     },
   },

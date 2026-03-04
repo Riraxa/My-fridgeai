@@ -1,42 +1,30 @@
-import { DefaultSession, DefaultUser } from "next-auth";
+import { type DefaultSession } from "next-auth";
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      email?: string | null;
-      emailVerified?: Date | null;
       isPro: boolean;
       plan?: "FREE" | "PRO" | null;
-      accounts?: Array<{
-        provider: string;
-        type: string;
-        providerAccountId: string;
-      }> | null;
+      passkeySetupCompleted: boolean;
+      stripeCurrentPeriodEnd?: Date | null;
+      cancelAtPeriodEnd?: boolean;
+      accounts?: { provider: string }[];
     } & DefaultSession["user"];
+    authTime?: number;
   }
 
-  interface User extends DefaultUser {
-    id: string;
-    emailVerified?: Date | null;
-    isPro: boolean;
-    plan?: "FREE" | "PRO" | null;
-  }
-
-  interface JWT {
+  interface User {
     id?: string;
     isPro?: boolean;
     plan?: "FREE" | "PRO" | null;
-    emailVerified?: Date | null;
+    requirePasskeySetup?: boolean;
   }
 }
 
-// より厳密な型ガード
-export function isValidSession(session: unknown): session is Session {
-  return (
-    typeof session === "object" &&
-    session !== null &&
-    "user" in session &&
-    typeof (session as any).user?.id === "string"
-  );
+declare module "next-auth/jwt" {
+  interface JWT {
+    id?: string;
+    requirePasskeySetup?: boolean;
+  }
 }

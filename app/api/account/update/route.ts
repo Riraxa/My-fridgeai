@@ -1,26 +1,19 @@
-// app/api/account/update/route.ts
-export const runtime = "nodejs";
-
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function PATCH(req: NextRequest) {
   try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
-    if (!token?.sub) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
     }
 
     const { name, email, image } = await req.json();
 
     const user = await prisma.user.update({
-      where: { id: token.sub },
+      where: { id: session.user.id },
       data: { name, email, image },
     });
 

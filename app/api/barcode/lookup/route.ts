@@ -1,25 +1,20 @@
-//app/api/barcode/lookup/route.ts
 import { NextResponse, NextRequest } from "next/server";
 import { lookupBarcode } from "@/lib/barcode";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { checkUserLimit } from "@/lib/aiLimit";
 
 export async function POST(req: NextRequest) {
   try {
     // 認証チェック
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
-    if (!token) {
+    const session = await auth();
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: "ログインが必要です" },
         { status: 401 },
       );
     }
 
-    const userId = token.sub as string;
+    const userId = session.user.id;
 
     // レート制限チェック
     const limitCheck = await checkUserLimit(userId, "BARCODE_SCAN");

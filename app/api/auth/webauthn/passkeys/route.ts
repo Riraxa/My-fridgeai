@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -10,13 +10,9 @@ export const runtime = "nodejs";
  */
 export async function GET(req: NextRequest) {
   try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
-    if (!token?.sub) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { ok: false, message: "認証が必要です" },
         { status: 401 },
@@ -25,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     // IP Check
     const user = await prisma.user.findUnique({
-      where: { id: token.sub },
+      where: { id: session.user.id },
       select: { allowedIps: true },
     });
 
@@ -40,7 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     const passkeys = await prisma.passkey.findMany({
-      where: { userId: token.sub },
+      where: { userId: session.user.id },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

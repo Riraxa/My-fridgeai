@@ -1,6 +1,5 @@
-//app/api/support/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/lib/auth";
 import { resend, EMAIL_FROM } from "@/lib/mail/resend";
 
 export const runtime = "nodejs";
@@ -10,15 +9,11 @@ const rateLimitMap = new Map<string, number[]>();
 
 export async function POST(req: NextRequest) {
   try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-    });
+    const session = await auth();
 
     // Identifier for rate limiting: userId or IP
     const ip = req.headers.get("x-forwarded-for") || "unknown";
-    const identifier = token?.sub ? `user:${token.sub}` : `ip:${ip}`;
+    const identifier = session?.user?.id ? `user:${session.user.id}` : `ip:${ip}`;
 
     // Rate Limit Check (5 requests per hour)
     const now = Date.now();
@@ -75,8 +70,8 @@ export async function POST(req: NextRequest) {
       text: `🎫 サポートチケット受付
 =====================================
 送信日時: ${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}
-ユーザー: ${token?.email || "Guest"}
-ユーザーID: ${token?.sub || "N/A"}
+ユーザー: ${session?.user?.email || "Guest"}
+ユーザーID: ${session?.user?.id || "N/A"}
 IPアドレス: ${ip}
 問い合わせ種別: ${type}
 
@@ -111,7 +106,7 @@ Referer: ${req.headers.get("referer") || "None"}
       throw new Error("メールの送信に失敗しました");
     }
 
-    console.info("support ticket created", { userId: token?.sub, ip, type });
+    console.info("support ticket created", { userId: session?.user?.id, ip, type });
 
     return NextResponse.json({
       ok: true,
