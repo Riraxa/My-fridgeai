@@ -1,10 +1,10 @@
 {
-  "name": "fridge-ai",
+  "name": "my-fridgeai",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "dev": "next dev --webpack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings 1000",
     "postinstall": "prisma generate",

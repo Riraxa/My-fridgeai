@@ -2,14 +2,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { signIn } from "next-auth/react";
 
 type Status = "pending" | "success" | "invalid" | "error";
 
 export default function VerifyEmailInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { status: authStatus } = useSession();
   const [status, setStatus] = useState<Status>("pending");
   const [message, setMessage] = useState<string | null>(null);
 

@@ -150,7 +150,7 @@ export default function ShoppingListPage() {
                 </span>
               </li>
             ) : (
-              sortedShopping.map((it: any) => (
+              sortedShopping.map((it: ShoppingItem) => (
                 <li key={it.id}>
                   <ShoppingListItem
                     item={it}

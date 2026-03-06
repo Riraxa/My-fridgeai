@@ -11,7 +11,27 @@ type CallOpts = {
   temperature?: number;
 };
 const CACHE_TTL_MS = 1000 * 60 * 3; // cache 3 minutes
-const responseCache = new Map<string, { ts: number; value: any }>();
+
+interface OpenAIResponse {
+  choices?: Array<{
+    message?: { content?: string };
+    text?: string;
+  }>;
+  output?: Array<{
+    content?: Array<{ text?: string }> | { text?: string };
+    text?: string;
+  }>;
+  output_text?: string;
+  text?: string;
+  [key: string]: unknown;
+}
+
+interface CacheEntry {
+  ts: number;
+  value: OpenAIResponse;
+}
+
+const responseCache = new Map<string, CacheEntry>();
 
 function cacheKeyFor(opts: CallOpts) {
   // We deliberately avoid including timestamps etc.
@@ -23,12 +43,17 @@ function cacheKeyFor(opts: CallOpts) {
   });
 }
 
+interface OpenAIError extends Error {
+  status?: number;
+  raw?: string;
+}
+
 export async function callOpenAIOnce(
   opts: CallOpts,
   timeoutMs = 15_000,
-): Promise<any> {
+): Promise<OpenAIResponse> {
   if (!process.env.OPENAI_API_KEY) {
-    const err: any = new Error("OPENAI_API_KEY is not set");
+    const err: OpenAIError = new Error("OPENAI_API_KEY is not set");
     err.status = 500;
     throw err;
   }
@@ -46,7 +71,7 @@ export async function callOpenAIOnce(
   const id = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const body: any = {
+    const body: Record<string, unknown> = {
       model,
       messages: [{ role: "user", content: opts.input }],
     };
@@ -70,7 +95,7 @@ export async function callOpenAIOnce(
     const rawText = await res.text().catch(() => "");
 
     if (!res.ok) {
-      const err: any = new Error(
+      const err: OpenAIError = new Error(
         `OpenAI API error: ${res.status} ${res.statusText}`,
       );
       err.status = res.status;
@@ -79,7 +104,7 @@ export async function callOpenAIOnce(
     }
 
     // parse JSON body
-    let json: any;
+    let json: OpenAIResponse;
     try {
       json = JSON.parse(rawText);
     } catch {
@@ -90,10 +115,10 @@ export async function callOpenAIOnce(
     // cache and return
     responseCache.set(key, { ts: Date.now(), value: json });
     return json;
-  } catch (e: any) {
+  } catch (e: unknown) {
     clearTimeout(id);
-    if (e.name === "AbortError") {
-      const err: any = new Error("OpenAI request timed out");
+    if (e instanceof Error && e.name === "AbortError") {
+      const err: OpenAIError = new Error("OpenAI request timed out");
       err.status = 504;
       throw err;
     }
@@ -105,7 +130,7 @@ export async function callOpenAIOnce(
  * extractTextFromResponse
  * Handles Responses API format + fallbacks
  */
-export function extractTextFromResponse(respJson: any): string {
+export function extractTextFromResponse(respJson: OpenAIResponse): string {
   if (!respJson) return "";
 
   // 1) Responses API (respJson.output is array)
@@ -135,9 +160,9 @@ export function extractTextFromResponse(respJson: any): string {
   try {
     if (Array.isArray(respJson.choices) && respJson.choices.length > 0) {
       const c = respJson.choices[0];
-      if (c.message && typeof c.message.content === "string")
+      if (c?.message && typeof c.message.content === "string")
         return c.message.content;
-      if (typeof c.text === "string") return c.text;
+      if (c?.text && typeof c.text === "string") return c.text;
     }
   } catch {
     // ignore

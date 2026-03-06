@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       where: { id: cookingHistoryId },
     });
 
-    if (!history || history.userId !== userId) {
+    if (history?.userId !== userId) {
       return NextResponse.json({ error: "History not found" }, { status: 404 });
     }
 

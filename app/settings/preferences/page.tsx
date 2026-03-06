@@ -1,10 +1,9 @@
+//app/settings/preferences/page.tsx
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft,
-  Save,
   Check,
   ShieldCheck,
   Heart,
@@ -23,11 +22,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAutoSave, SaveState } from "@/app/hooks/useAutoSave";
 
 // Simple custom debounce hook
-function useDebounce(callback: Function, delay: number) {
+function useDebounce<T extends unknown[]>(callback: (...args: T) => void, delay: number) {
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
 
   return useCallback(
-    (...args: any[]) => {
+    (...args: T) => {
       if (timer) clearTimeout(timer);
       const newTimer = setTimeout(() => callback(...args), delay);
       setTimer(newTimer);
@@ -74,8 +73,8 @@ export default function EnhancedPreferencesPage() {
   });
 
   const [safety, setSafety] = useState<{
-    allergies: any[];
-    restrictions: any[];
+    allergies: Array<{ id: string; name: string; severity: "mild" | "moderate" | "severe" }>;
+    restrictions: Array<{ id: string; name: string; type: string; note?: string }>;
   }>({
     allergies: [],
     restrictions: [],
@@ -205,7 +204,7 @@ export default function EnhancedPreferencesPage() {
     fetchData();
   }, []);
 
-  const debouncedSaveTaste = useDebounce(async (newData: any) => {
+  const _debouncedSaveTaste = useDebounce<[typeof taste]>(async (newData) => {
     await fetch("/api/preferences/taste", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -213,7 +212,7 @@ export default function EnhancedPreferencesPage() {
     });
   }, 1000);
 
-  const handleTasteChange = (updates: any) => {
+  const handleTasteChange = (updates: Partial<typeof taste>) => {
     const newTaste = { ...taste, ...updates };
     setTaste(newTaste);
     // debouncedSaveTaste is now handled by generalized auto-save
@@ -255,8 +254,8 @@ export default function EnhancedPreferencesPage() {
     });
     if (res.ok) {
       setSafety((prev) => ({
-        allergies: (prev.allergies ?? []).filter((a: any) => a.id !== id),
-        restrictions: (prev.restrictions ?? []).filter((r: any) => r.id !== id),
+        allergies: (prev.allergies ?? []).filter((a) => a.id !== id),
+        restrictions: (prev.restrictions ?? []).filter((r) => r.id !== id),
       }));
     }
   };
@@ -576,12 +575,12 @@ export default function EnhancedPreferencesPage() {
                   </p>
                 </div>
                 <div className="mb-6 flex flex-wrap gap-2">
-                  {(safety.allergies ?? []).map((a: any) => (
+                  {(safety.allergies ?? []).map((a) => (
                     <div
                       key={a.id}
                       className="bg-red-50 border border-red-100 px-3 py-1.5 rounded-full flex items-center gap-2 text-red-700 text-sm font-medium"
                     >
-                      {a.label}
+                      {a.name}
                       <button
                         onClick={() => removeSafetyItem(a.id)}
                         className="hover:bg-red-200 rounded-full p-0.5 transition"
@@ -664,7 +663,7 @@ export default function EnhancedPreferencesPage() {
                   食事制限
                 </h2>
                 <div className="space-y-2">
-                  {(safety.restrictions ?? []).map((r: any) => (
+                  {(safety.restrictions ?? []).map((r) => (
                     <div
                       key={r.id}
                       className="bg-amber-50 border border-amber-100 p-3 rounded-2xl flex justify-between items-center"
@@ -848,14 +847,13 @@ export default function EnhancedPreferencesPage() {
                                 lifestyle: {
                                   ...(taste.lifestyle ?? {}),
                                   [mode]: {
-                                    ...((taste.lifestyle as any)?.[mode] ??
-                                      {}),
+                                    ...(taste.lifestyle[mode as keyof typeof taste.lifestyle] ?? {}),
                                     timePriority: p,
                                   },
                                 },
                               })
                             }
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${((taste.lifestyle as any)?.[mode] ?? {})
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${(taste.lifestyle[mode as keyof typeof taste.lifestyle] ?? {})
                               ?.timePriority === p
                               ? "bg-white text-indigo-600 shadow-sm"
                               : "text-slate-400"
@@ -883,18 +881,18 @@ export default function EnhancedPreferencesPage() {
                             lifestyle: {
                               ...(taste.lifestyle ?? {}),
                               [mode]: {
-                                ...((taste.lifestyle as any)?.[mode] ?? {}),
+                                ...(taste.lifestyle[mode as keyof typeof taste.lifestyle] ?? {}),
                                 dishwashingAvoid: !(
-                                  (taste.lifestyle as any)?.[mode] ?? {}
+                                  (taste.lifestyle[mode as keyof typeof taste.lifestyle] ?? {})
                                 ).dishwashingAvoid,
                               },
                             },
                           })
                         }
-                        className={`w-12 h-6 rounded-full transition relative ${((taste.lifestyle as any)?.[mode] ?? {}).dishwashingAvoid ? "bg-indigo-600" : "bg-slate-300"}`}
+                        className={`w-12 h-6 rounded-full transition relative ${(taste.lifestyle[mode as keyof typeof taste.lifestyle] ?? {}).dishwashingAvoid ? "bg-indigo-600" : "bg-slate-300"}`}
                       >
                         <div
-                          className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${((taste.lifestyle as any)?.[mode] ?? {}).dishwashingAvoid ? "translate-x-6" : ""}`}
+                          className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${(taste.lifestyle[mode as keyof typeof taste.lifestyle] ?? {}).dishwashingAvoid ? "translate-x-6" : ""}`}
                         />
                       </button>
                     </div>

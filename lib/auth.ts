@@ -7,7 +7,13 @@ import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
 import { cookies } from "next/headers";
 
-const isProd = process.env.NODE_ENV === "production";
+interface ExtendedUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+  password: string;
+  authMethod?: "password_only" | "passkey_enabled";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -88,7 +94,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ok = await compare(credentials.password as string, user.password);
         if (!ok) return null;
 
-        if ((user as any).authMethod === "passkey_enabled") {
+        if ((user as ExtendedUser).authMethod === "passkey_enabled") {
           console.warn(`[auth] Password login attempted for passkey_enabled user: ${email}`);
           throw new Error("PASSKEY_ONLY");
         }
@@ -97,7 +103,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: user.id,
           email: user.email ?? null,
           name: user.name ?? null,
-          requirePasskeySetup: (user as any).authMethod === "password_only"
+          requirePasskeySetup: (user as ExtendedUser).authMethod === "password_only"
         };
 
         return result;
@@ -125,7 +131,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (account?.provider === "google") {
-        const email = (profile as any)?.email?.toLowerCase()?.trim();
+        const email = (profile as { email?: string })?.email?.toLowerCase()?.trim();
 
         if (!email) {
           console.log("[Google OAuth] メールアドレスを取得できませんでした");
@@ -189,8 +195,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             const newUser = await prisma.user.create({
               data: {
                 email: email,
-                name: (profile as any)?.name ?? null,
-                image: (profile as any)?.picture ?? null,
+                name: (profile as { name?: string })?.name ?? null,
+                image: (profile as { picture?: string })?.picture ?? null,
                 emailVerified: new Date(),
                 status: "active",
               },
@@ -224,7 +230,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user && token?.sub) {
         session.user.id = token.sub;
-        (session as any).authTime = token.iat;
+        (session as { authTime?: number }).authTime = token.iat;
 
         try {
           const dbUser = await prisma.user.findUnique({
@@ -244,12 +250,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           if (dbUser) {
             const plan = dbUser.plan || "FREE";
-            (session.user as any).plan = plan;
-            (session.user as any).isPro = plan === "PRO";
-            (session.user as any).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
-            (session.user as any).stripeCurrentPeriodEnd = dbUser.stripeCurrentPeriodEnd;
-            (session.user as any).passkeySetupCompleted = dbUser.passkeySetupCompleted ?? false;
-            (session.user as any).accounts = dbUser.accounts;
+            (session.user as { plan?: string }).plan = plan;
+            (session.user as { isPro?: boolean }).isPro = plan === "PRO";
+            (session.user as { cancelAtPeriodEnd?: boolean }).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
+            (session.user as { stripeCurrentPeriodEnd?: Date | null }).stripeCurrentPeriodEnd = dbUser.stripeCurrentPeriodEnd;
+            (session.user as { passkeySetupCompleted?: boolean }).passkeySetupCompleted = dbUser.passkeySetupCompleted ?? false;
+            (session.user as { accounts?: Array<{ provider: string }> }).accounts = dbUser.accounts;
 
             if (dbUser.name) session.user.name = dbUser.name;
             if (dbUser.image) session.user.image = dbUser.image;
@@ -264,7 +270,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        if ((user as any).requirePasskeySetup) {
+        if ((user as { requirePasskeySetup?: boolean }).requirePasskeySetup) {
           token.requirePasskeySetup = true;
         }
       }
@@ -283,5 +289,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   debug: false,
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
 });
 

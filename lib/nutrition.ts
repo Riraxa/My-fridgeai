@@ -9,7 +9,7 @@ export interface NutritionInfo {
 export interface DishWithNutrition {
   name: string;
   nutrition?: NutritionInfo;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface NutritionEvaluation {

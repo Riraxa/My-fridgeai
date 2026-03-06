@@ -33,6 +33,10 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Turbopack設定
+  turbopack: {
+    // Turbopackのカスタム設定が必要な場合はここに追加
+  },
 };
 
 const withPWA = require("@ducanh2912/next-pwa").default({

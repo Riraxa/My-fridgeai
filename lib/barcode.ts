@@ -63,19 +63,19 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
 
     // 商品名の取得（日本語優先）
     const name =
-      product.product_name_ja ||
-      product.product_name ||
-      product.generic_name_ja ||
-      product.generic_name ||
+      product.product_name_ja ??
+      product.product_name ??
+      product.generic_name_ja ??
+      product.generic_name ??
       "不明な商品";
 
     // カテゴリの推定
-    const category = extractCategory(product.categories_tags || []);
+    const category = extractCategory(product.categories_tags ?? []);
 
     // 賞味期限の推定
     const expirationDays = estimateExpirationDays(
       category,
-      product.categories_tags || [],
+      product.categories_tags ?? [],
     );
 
     // 自動推論
@@ -86,8 +86,8 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct> {
       found: true,
       name,
       category,
-      brand: product.brands || null,
-      image: product.image_url || product.image_small_url || null,
+      brand: product.brands ?? null,
+      image: product.image_url ?? product.image_small_url ?? null,
       expirationDays,
       source: "openfoodfacts",
       ingredientType,

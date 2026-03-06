@@ -117,7 +117,7 @@ export function checkIngredientAvailability(
 
     // Logic for "Specific Amount" management
     if (stock.amount !== null && stock.amount > 0) {
-      const stockNormalized = normalizeAmount(stock.amount, stock.unit || "");
+      const stockNormalized = normalizeAmount(stock.amount, stock.unit ?? "");
       const requiredNormalized = normalizeAmount(
         required.amount,
         required.unit,
@@ -127,7 +127,7 @@ export function checkIngredientAvailability(
         available.push({
           name: required.name,
           required: { amount: required.amount, unit: required.unit },
-          inStock: { amount: stock.amount, unit: stock.unit || "" },
+          inStock: { amount: stock.amount, unit: stock.unit ?? "" },
           status: "available",
         });
       } else {
@@ -148,7 +148,7 @@ export function checkIngredientAvailability(
         insufficient.push({
           name: required.name,
           required: { amount: required.amount, unit: required.unit },
-          inStock: { amount: stock.amount, unit: stock.unit || "" },
+          inStock: { amount: stock.amount, unit: stock.unit ?? "" },
           shortage: { amount: shortageAmount, unit: shortageUnit },
           status: "insufficient",
         });
@@ -195,8 +195,8 @@ export function checkIngredientAvailability(
 export function calculateInventoryUpdates(
   usedIngredients: UsedIngredient[],
   userInventory: Ingredient[],
-): { update: { id: string; data: any }[]; delete: { id: string }[] } {
-  const updates: { id: string; data: any }[] = [];
+): { update: { id: string; data: Partial<Ingredient> }[]; delete: { id: string }[] } {
+  const updates: { id: string; data: Partial<Ingredient> }[] = [];
   const deletes: { id: string }[] = [];
 
   for (const used of usedIngredients) {
@@ -217,7 +217,7 @@ export function calculateInventoryUpdates(
 
     if (stock.amount !== null) {
       // Numeric update with normalization
-      const stockNormalized = normalizeAmount(stock.amount, stock.unit || "");
+      const stockNormalized = normalizeAmount(stock.amount, stock.unit ?? "");
       const usedNormalized = normalizeAmount(used.amount, used.unit);
 
       const newAmountNormalized = stockNormalized - usedNormalized;

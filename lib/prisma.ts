@@ -7,7 +7,19 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// DATABASE_URLの検証
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is not set in environment variables");
+}
+
+const pool = new Pool({ 
+  connectionString: databaseUrl,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+
 const adapter = new PrismaPg(pool);
 
 export const prisma =
@@ -18,10 +30,27 @@ export const prisma =
       process.env.NODE_ENV === "development"
         ? ["query", "error", "warn"]
         : ["error"],
+    errorFormat: "pretty",
   });
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
+}
+
+// DB接続テスト
+async function testConnection() {
+  try {
+    await prisma.$connect();
+    console.log("✅ Database connected successfully");
+  } catch (error) {
+    console.error("❌ Database connection failed:", error);
+    throw error;
+  }
+}
+
+// 開発環境でのみ接続テストを実行
+if (process.env.NODE_ENV === "development") {
+  testConnection().catch(console.error);
 }
 
 export default prisma;

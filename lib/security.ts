@@ -2,18 +2,14 @@
 
 // Edge Runtime対応のためのフォールバック
 const getRandomValues = (length: number) => {
-  if (
-    typeof window !== "undefined" &&
-    window.crypto &&
-    window.crypto.getRandomValues
-  ) {
+  if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
     return window.crypto.getRandomValues(new Uint8Array(length));
   }
 
   // Node.js環境
   if (typeof require !== "undefined") {
     try {
-      const crypto = require("crypto") as any;
+      const crypto = require("crypto");
       return crypto.randomBytes(length);
     } catch {
       // フォールバック
@@ -112,7 +108,7 @@ export function sanitizePromptInput(input: string): string {
 /**
  * JWTトークンの追加検証
  */
-export function validateJWTToken(token: any): {
+export function validateJWTToken(token: unknown): {
   valid: boolean;
   userId?: string;
   error?: string;
@@ -122,15 +118,16 @@ export function validateJWTToken(token: any): {
   }
 
   // 必須フィールドのチェック
-  const userId = token.sub || token.userId;
+  const userId = (token as { sub?: string; userId?: string }).sub ?? (token as { userId?: string }).userId;
   if (!userId || typeof userId !== "string") {
     return { valid: false, error: "Invalid user ID in token" };
   }
 
   // トークン有効期限のチェック
-  if (token.exp && typeof token.exp === "number") {
+  const exp = (token as { exp?: number }).exp;
+  if (exp && typeof exp === "number") {
     const now = Math.floor(Date.now() / 1000);
-    if (token.exp < now) {
+    if (exp < now) {
       return { valid: false, error: "Token has expired" };
     }
   }
@@ -217,7 +214,7 @@ export function validateAndNormalizeIP(ip: string | null): string {
 
   // 不明な形式の場合はハッシュ化して保存
   const crypto = require("crypto");
-  return (crypto as any)
+  return crypto
     .createHash("sha256")
     .update(clientIP)
     .digest("hex")
@@ -233,7 +230,7 @@ export function generateRateLimitKey(
 ): string {
   const timestamp = Math.floor(Date.now() / (60 * 1000)); // 1分単位
   const data = `${identifier}:${action}:${timestamp}`;
-  const crypto = require("crypto") as any;
+  const crypto = require("crypto");
   return crypto.createHash("sha256").update(data).digest("hex");
 }
 

@@ -4,13 +4,22 @@ import { generateWeeklyPlanAI } from "./ai/menu-generator";
 import { checkIngredientAvailability } from "./inventory";
 import { Ingredient, UserPreferences } from "@prisma/client";
 
+export interface GeneratedMenu {
+  title: string;
+  dishes: Array<{
+    name: string;
+    ingredients?: Array<{ name: string; amount: number; unit: string }>;
+  }>;
+  [key: string]: unknown;
+}
+
 export interface DailyMenuPlan {
   date: Date;
   dayOfWeek: string;
   menu: {
-    main: any; // Using any to match GeneratedMenu structure flexibly
-    alternativeA?: any;
-    alternativeB?: any;
+    main: GeneratedMenu;
+    alternativeA?: GeneratedMenu;
+    alternativeB?: GeneratedMenu;
   };
   expiringItems: string[];
 }
@@ -46,8 +55,8 @@ export async function generateWeeklyMenus(
   }
 
   // 3. Map to Weekly Structure
-  const weeklyMenus: DailyMenuPlan[] = aiResults.map(
-    (dayPlan: any, index: number) => {
+  const weeklyMenus: DailyMenuPlan[] = (aiResults as GeneratedMenu[]).map(
+    (dayPlan: GeneratedMenu, index: number) => {
       const date = addDays(startDate, index);
 
       // Find expiring items relevant to this day (simple heuristic)
@@ -78,7 +87,7 @@ export async function generateWeeklyMenus(
   // We assume the AI tried to use inventory.
   // We verify what is actually missing based on the plan.
   const allDishes = weeklyMenus.flatMap((d) => d.menu.main.dishes);
-  const allRequired = allDishes.flatMap((d: any) => d.ingredients || []);
+  const allRequired = allDishes.flatMap((d: { name: string; ingredients?: Array<{ name: string; amount: number; unit: string }> }) => d.ingredients ?? []);
 
   const { missing, insufficient } = checkIngredientAvailability(
     allRequired,

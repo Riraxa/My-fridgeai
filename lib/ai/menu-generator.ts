@@ -11,9 +11,9 @@ type IngredientWithProduct = Ingredient & {
     name: string;
     brandName: string | null;
     ingredientType: string;
-    requiresAdditionalIngredients: any;
+    requiresAdditionalIngredients: unknown;
     instructionTemplate: string | null;
-    nutritionEstimate: any;
+    nutritionEstimate: unknown;
   } | null;
 };
 
@@ -26,8 +26,8 @@ function attemptJSONRepair(content: string): string {
   let repaired = content.trim();
 
   // 1. 最後の}が欠けている場合の修復
-  const openBraces = (repaired.match(/\{/g) || []).length;
-  const closeBraces = (repaired.match(/\}/g) || []).length;
+  const openBraces = (repaired.match(/\{/g) ?? []).length;
+  const closeBraces = (repaired.match(/\}/g) ?? []).length;
   const missingBraces = openBraces - closeBraces;
 
   if (missingBraces > 0) {
@@ -35,8 +35,8 @@ function attemptJSONRepair(content: string): string {
   }
 
   // 2. 最後の"]"が欠けている場合の修復
-  const openBrackets = (repaired.match(/\[/g) || []).length;
-  const closeBrackets = (repaired.match(/\]/g) || []).length;
+  const openBrackets = (repaired.match(/\[/g) ?? []).length;
+  const closeBrackets = (repaired.match(/\]/g) ?? []).length;
   const missingBrackets = openBrackets - closeBrackets;
 
   if (missingBrackets > 0) {
@@ -54,7 +54,7 @@ function attemptJSONRepair(content: string): string {
     !lastLine.trim().endsWith("]")
   ) {
     // 最後の " が欠けている場合
-    const quotes = (lastLine.match(/"/g) || []).length;
+    const quotes = (lastLine.match(/"/g) ?? []).length;
     if (quotes % 2 === 1) {
       repaired += '"';
     }
@@ -99,6 +99,25 @@ export interface MenuGenerationResult {
   alternativeB: GeneratedMenu;
 }
 
+type TasteLifestyleMode = {
+  timePriority?: string;
+  dishwashingAvoid?: boolean;
+  singlePan?: boolean;
+};
+
+type TasteJson = {
+  tasteScores?: Record<string, number>;
+  lifestyle?: {
+    weekdayMode?: TasteLifestyleMode;
+    weekendMode?: TasteLifestyleMode;
+    defaultMode?: TasteLifestyleMode;
+  };
+  freeText?: string;
+  equipment?: string[];
+  preferredMethods?: string[];
+  recentGenrePenalty?: Record<string, number>;
+};
+
 /**
  * Generate 3 menu patterns using OpenAI
  */
@@ -110,31 +129,34 @@ export async function generateMenus(
   // Fetch detailed preferences and safety info
   const [preferences, allergies, restrictions] = await Promise.all([
     // Workaround for Prisma bug with String[] fields: Use $queryRaw for UserPreferences
-    prisma.$queryRaw`SELECT * FROM "UserPreferences" WHERE "userId" = ${userId} LIMIT 1`.then(
-      (rows: any) => (rows && rows.length > 0 ? rows[0] : null),
-    ),
+    prisma
+      .$queryRaw<UserPreferences[]>`SELECT * FROM "UserPreferences" WHERE "userId" = ${userId} LIMIT 1`
+      .then((rows) => (rows.length > 0 ? rows[0] : null)),
     prisma.userAllergy.findMany({ where: { userId } }),
     prisma.userRestriction.findMany({ where: { userId } }),
   ]);
 
-  const taste = (preferences?.tasteJson as any) || {};
+  const taste = (preferences?.tasteJson as TasteJson | null | undefined) ?? {};
   const dayOfWeek = new Date().getDay(); // 0=Sunday, 6=Saturday
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
   const lifestyle = isWeekend
-    ? (taste.lifestyle?.weekendMode || taste.lifestyle?.defaultMode || {})
-    : (taste.lifestyle?.weekdayMode || taste.lifestyle?.defaultMode || {});
-  const servings = options?.servings || 1;
+    ? (taste.lifestyle?.weekendMode ?? taste.lifestyle?.defaultMode ?? {})
+    : (taste.lifestyle?.weekdayMode ?? taste.lifestyle?.defaultMode ?? {});
+  const servings = options?.servings ?? 1;
   const budget = options?.budget;
 
   // 1. Safety Layer (System Message - Immutable)
-  const allergenList = allergies.map((a) => a.label || a.allergen).join(", ");
+  const allergenList = allergies
+    .map((a) => a.label ?? a.allergen)
+    .filter((s): s is string => typeof s === "string")
+    .join(", ");
   const restrictionNote = restrictions
     .map((r) => `${r.type}${r.note ? `: ${r.note}` : ""}`)
     .join("; ");
 
   let safetyInstructions = `You are a professional cooking assistant.
 # CRITICAL SAFETY RULES
-1. NEVER suggest recipes containing these allergens: ${allergenList || "None"}.
+1. NEVER suggest recipes containing these allergens: ${allergenList.length > 0 ? allergenList : "None"}.
 2. Adhere to these dietary restrictions: ${restrictionNote || "None"}.
 3. If ANY suggested recipe contains an allergen, response MUST include "error": "ALLERGEN_DETECTED".
 4. EXTERNAL FOOD EXCLUSION: Do not suggest takeout, delivery, or prepared store-bought meals. Only suggest home-cooked recipes.`;
@@ -168,14 +190,10 @@ ${taste.freeText}`;
       : "None";
 
   const equipment = (
-    taste.equipment ||
-    preferences?.kitchenEquipment ||
-    []
+    taste.equipment ?? preferences?.kitchenEquipment ?? []
   ).join(", ");
   const methods = (
-    taste.preferredMethods ||
-    preferences?.comfortableMethods ||
-    []
+    taste.preferredMethods ?? preferences?.comfortableMethods ?? []
   ).join(", ");
   const genrePrefsEntries = taste.recentGenrePenalty
     ? Object.entries(taste.recentGenrePenalty)
@@ -189,34 +207,41 @@ ${taste.freeText}`;
 - Favorite/Avoid Tastes: ${tastePrefs}
 - Equipment: ${equipment}
 - Preferred Methods: ${methods}
-- Lifestyle Priority: ${lifestyle.timePriority || "normal"}
+- Lifestyle Priority: ${lifestyle.timePriority ?? "normal"}
 - Genre Preferences: ${genrePrefs}
 - Target Servings: ${servings}`;
 
   // Extract preferences with proper type handling
   // Note: key casting to any to bypass stale Prisma types in editor
-  const criticalThreshold = (preferences as any)?.expirationCriticalDays ?? 2;
-  const warningThreshold = (preferences as any)?.expirationWarningDays ?? 5;
-  const priorityWeight = (preferences as any)?.expirationPriorityWeight ?? 0.7;
+  const prefsWithExpiry = preferences as
+    | (UserPreferences & {
+        expirationCriticalDays?: number;
+        expirationWarningDays?: number;
+        expirationPriorityWeight?: number;
+      })
+    | null;
+  const _criticalThreshold = prefsWithExpiry?.expirationCriticalDays ?? 2;
+  const _warningThreshold = prefsWithExpiry?.expirationWarningDays ?? 5;
+  const priorityWeight = prefsWithExpiry?.expirationPriorityWeight ?? 0.7;
 
   // Filter ingredients by custom thresholds
   const critical = ingredients.filter((i) => {
     if (!i.expirationDate) return false;
     const days = differenceInDays(i.expirationDate, new Date());
-    return days >= -2 && days <= criticalThreshold; // -2 to include slightly expired
+    return days >= -2 && days <= _criticalThreshold; // -2 to include slightly expired
   });
 
   const warning = ingredients.filter((i) => {
     if (!i.expirationDate) return false;
     const days = differenceInDays(i.expirationDate, new Date());
-    return days > criticalThreshold && days <= warningThreshold;
+    return days > _criticalThreshold && days <= _warningThreshold;
   });
 
   // Format ingredients (general list) - 加工食品対応
   const ingredientList = ingredients
     .map((i) => {
       let quantity = "";
-      if (i.amount) quantity = ` (${i.amount}${i.unit || ""})`;
+      if (i.amount) quantity = ` (${i.amount}${i.unit ?? ""})`;
       else if (i.amountLevel) quantity = ` (${i.amountLevel})`;
 
       // Expiration
@@ -227,7 +252,7 @@ ${taste.freeText}`;
       }
 
       // 加工食品タイプ表示 (自動推論されたもの)
-      const ingType = (i as any).ingredientType || "raw";
+      const ingType = (i as { ingredientType?: string }).ingredientType ?? "raw";
       let typeLabel = "";
       if (ingType === "processed_base") {
         typeLabel = " 【加工:調理ベース】";
@@ -266,7 +291,7 @@ ${taste.freeText}`;
       : "なし";
 
   // Extract preferences with proper type handling
-  const cookingSkill = preferences?.cookingSkill || "intermediate";
+  const cookingSkill = preferences?.cookingSkill ?? "intermediate";
   const comfortableMethods = Array.isArray(preferences?.comfortableMethods)
     ? (preferences.comfortableMethods as string[]).join(", ")
     : "なし";
@@ -292,10 +317,10 @@ ${ingredientList}
 
 これらの区分はシステムによって自動推定されています。食材名から明らかに不自然な場合は、AIの判断で最適な調理法を優先してください。
 
-# ⚠️ 最優先で使うべき食材（${criticalThreshold}日以内）
+# ⚠️ 最優先で使うべき食材（${_criticalThreshold}日以内）
 ${criticalList}
 
-# 優先的に使うべき食材（${warningThreshold}日以内）
+# 優先的に使うべき食材（${_warningThreshold}日以内）
 ${warningList}
 
 優先度: ${Math.round(priorityWeight * 100)}% の確率でこれらの食材を使用してください。
@@ -307,7 +332,7 @@ ${warningList}
 - 利用可能な設備: ${equipmentOld}
 - 味の好み: ${tastePrefs}
 - ジャンルの好み: ${genrePrefs}
-- ライフスタイル優先度: ${lifestyle.timePriority || "normal"}
+- ライフスタイル優先度: ${lifestyle.timePriority ?? "normal"}
 - 時短優先: ${lifestyle.timePriority === "fast" ? "はい" : "いいえ"}
 - 洗い物回避: ${lifestyle.dishwashingAvoid ? "はい" : "いいえ"}
 - 一つの鍋で調理: ${lifestyle.singlePan ? "はい" : "いいえ"}
@@ -443,7 +468,7 @@ ${warningList}
     try {
       // まず通常のパースを試行
       result = JSON.parse(content) as MenuGenerationResult;
-      if ((result as any).error === "ALLERGEN_DETECTED") {
+      if ((result as { error?: string }).error === "ALLERGEN_DETECTED") {
         throw new Error(
           "アレルギー物質が含まれる可能性があるため、生成を中断しました。設定を確認してください。",
         );
@@ -484,28 +509,49 @@ ${warningList}
     }
 
     // Convert legacy format to new structure if needed
-    const convertLegacyFormat = (legacy: any): GeneratedMenu => {
+    const convertLegacyFormat = (legacy: unknown): GeneratedMenu => {
       // If already in correct format, return as-is
-      if (legacy.title && Array.isArray(legacy.dishes)) {
+      if (
+        legacy &&
+        typeof legacy === "object" &&
+        "title" in legacy &&
+        "dishes" in legacy &&
+        typeof (legacy as { title?: unknown }).title === "string" &&
+        Array.isArray((legacy as { dishes?: unknown }).dishes)
+      ) {
         return legacy as GeneratedMenu;
       }
 
       // Convert from {主菜: {...}, 副菜: {...}, 汁物: {...}} format
-      const dishes: any[] = [];
+      const dishes: GeneratedMenu["dishes"] = [];
       const types = ["主菜", "副菜", "汁物"];
 
+      const legacyObj = legacy as Record<string, unknown> | null;
+
       types.forEach((type) => {
-        if (legacy[type]) {
-          const dish = legacy[type];
+        if (legacyObj && typeof legacyObj === "object" && legacyObj[type]) {
+          const dish = legacyObj[type] as Record<string, unknown>;
           dishes.push({
             type,
-            name: dish.name || "",
-            cookingTime: dish.cookingTime || 20,
-            difficulty: dish.difficulty || 2,
-            ingredients: dish.ingredients || [],
-            steps: dish.method ? [dish.method] : dish.steps || [],
-            tips: dish.tips || "",
-            nutrition: dish.nutrition || {
+            name: typeof dish.name === "string" ? dish.name : "",
+            cookingTime:
+              typeof dish.cookingTime === "number" ? dish.cookingTime : 20,
+            difficulty:
+              typeof dish.difficulty === "number" ? dish.difficulty : 2,
+            ingredients: Array.isArray(dish.ingredients)
+              ? (dish.ingredients as GeneratedMenu["dishes"][number]["ingredients"])
+              : [],
+            steps:
+              typeof dish.method === "string"
+                ? [dish.method]
+                : Array.isArray(dish.steps)
+                  ? (dish.steps as string[])
+                  : [],
+            tips: typeof dish.tips === "string" ? dish.tips : "",
+            nutrition:
+              dish.nutrition && typeof dish.nutrition === "object"
+                ? (dish.nutrition as GeneratedMenu["dishes"][number]["nutrition"])
+                : {
               calories: 0,
               protein: 0,
               fat: 0,
@@ -516,9 +562,18 @@ ${warningList}
       });
 
       return {
-        title: legacy.title || "献立提案",
-        reason: legacy.reason || "手持ち食材を使った献立です",
-        tags: legacy.tags || ["和食"],
+        title:
+          legacyObj && typeof legacyObj.title === "string"
+            ? legacyObj.title
+            : "献立提案",
+        reason:
+          legacyObj && typeof legacyObj.reason === "string"
+            ? legacyObj.reason
+            : "手持ち食材を使った献立です",
+        tags:
+          legacyObj && Array.isArray(legacyObj.tags)
+            ? (legacyObj.tags as string[])
+            : ["和食"],
         dishes,
       };
     };
@@ -529,12 +584,15 @@ ${warningList}
     result.alternativeB = convertLegacyFormat(result.alternativeB);
 
     // Validation
-    const isValid = (menu: any) =>
-      menu &&
-      typeof menu === "object" &&
-      menu.title &&
-      Array.isArray(menu.dishes) &&
-      menu.dishes.length > 0;
+    const isValid = (menu: unknown): menu is GeneratedMenu => {
+      if (!menu || typeof menu !== "object") return false;
+      const m = menu as { title?: unknown; dishes?: unknown };
+      return (
+        typeof m.title === "string" &&
+        Array.isArray(m.dishes) &&
+        m.dishes.length > 0
+      );
+    };
 
     if (!isValid(result.main)) {
       console.error("[AI] Invalid main menu:", result.main);
@@ -555,9 +613,7 @@ ${warningList}
     const normalize = (menu: GeneratedMenu) => {
       if (!menu.dishes) menu.dishes = [];
       menu.dishes.forEach((dish) => {
-        if (!dish.nutrition) {
-          dish.nutrition = { calories: 0, protein: 0, fat: 0, carbs: 0 };
-        }
+        dish.nutrition ??= { calories: 0, protein: 0, fat: 0, carbs: 0 };
         // Ensure numbers
         if (typeof dish.cookingTime === "string")
           dish.cookingTime = parseInt(dish.cookingTime) || 20;
@@ -570,9 +626,13 @@ ${warningList}
     normalize(result.alternativeB);
 
     return result;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AI Generation Process Error:", error);
-    throw new Error(error.message || "献立の生成中にエラーが発生しました。");
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "献立の生成中にエラーが発生しました。",
+    );
   }
 }
 
@@ -582,20 +642,25 @@ ${warningList}
 export async function generateWeeklyPlanAI(
   ingredients: Ingredient[],
   preferences: UserPreferences | null,
-  expiringSoon: Ingredient[],
-): Promise<any[]> {
+  _expiringSoon: Ingredient[],
+): Promise<unknown[]> {
   // Returning an array of "Main" menus for 7 days
 
   // Extract preferences
-  const criticalThreshold = (preferences as any)?.expirationCriticalDays ?? 2;
-  const warningThreshold = (preferences as any)?.expirationWarningDays ?? 5;
-  const priorityWeight = (preferences as any)?.expirationPriorityWeight ?? 0.7;
+  const prefsWithExpiry = preferences as
+    | (UserPreferences & {
+        expirationCriticalDays?: number;
+        expirationWarningDays?: number;
+        expirationPriorityWeight?: number;
+      })
+    | null;
+  const priorityWeight = prefsWithExpiry?.expirationPriorityWeight ?? 0.7;
 
   // Build Ingredient Lists (Same logic as above, reused)
   const ingredientList = ingredients
     .map((i) => {
       let quantity = "";
-      if (i.amount) quantity = ` (${i.amount}${i.unit || ""})`;
+      if (i.amount) quantity = ` (${i.amount}${i.unit ?? ""})`;
       else if (i.amountLevel) quantity = ` (${i.amountLevel})`;
 
       let expiry = "";
@@ -614,7 +679,7 @@ export async function generateWeeklyPlanAI(
 ${ingredientList}
 
 # ユーザー情報
-- 料理スキル: ${preferences?.cookingSkill || "intermediate"}
+- 料理スキル: ${preferences?.cookingSkill ?? "intermediate"}
 - 期限切れ間近の食材優先度: ${Math.round(priorityWeight * 100)}%
 
 # 目標
@@ -665,7 +730,7 @@ ${ingredientList}
     let parsed;
     try {
       parsed = JSON.parse(content);
-    } catch (e) {
+    } catch {
       // retry logic or fallback
       throw new Error("Failed to parse AI response");
     }
@@ -678,10 +743,10 @@ ${ingredientList}
     // Fallback check: maybe it put it in "menus"
     const values = Object.values(parsed);
     const arrayVal = values.find((v) => Array.isArray(v) && v.length >= 7);
-    if (arrayVal) return arrayVal as any[];
+    if (arrayVal) return arrayVal as unknown[];
 
     throw new Error("AI response format invalid (not 7 days)");
-  } catch (e) {
+  } catch (e: unknown) {
     console.error("Weekly AI Error", e);
     throw new Error("週間献立の生成に失敗しました");
   }
