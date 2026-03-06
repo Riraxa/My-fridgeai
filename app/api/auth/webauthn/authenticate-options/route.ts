@@ -77,7 +77,7 @@ export async function POST(req: Request) {
         // ignore parse error
       }
       return {
-        id: pk.credentialId, // stored as base64url in DB
+        id: Buffer.from(pk.credentialId, 'base64url'), // Convert to Buffer for v9
         type: "public-key" as const,
         transports: transports as AuthenticatorTransport[],
       };

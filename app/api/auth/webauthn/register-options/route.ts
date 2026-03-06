@@ -112,14 +112,14 @@ export async function POST(req: Request) {
       }
 
       return {
-        id: passkey.credentialId,
+        id: Buffer.from(passkey.credentialId, 'base64url'), // Convert to Buffer for v9
         type: "public-key" as const,
         transports: transports as AuthenticatorTransport[],
       };
     });
 
     const { rpID } = getWebAuthnRP();
-    const userIDBuf = Buffer.from(String(user.id), "utf8");
+    const userID = String(user.id); // Convert to string for v9
 
     const authenticatorSelection = {
       residentKey: "preferred" as const,
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
     const opts = await generateRegistrationOptions({
       rpName: "My-fridgeai",
       rpID,
-      userID: userIDBuf,
+      userID, // String for v9
       userName: user.email ?? emailLower,
       userDisplayName: user.name ?? user.email ?? emailLower,
       timeout: 60000,
@@ -175,7 +175,7 @@ export async function POST(req: Request) {
 
     // Normalize user object
     basePublicOptions.user = {
-      id: bufferToBase64url(userIDBuf),
+      id: userID, // Use string userID for v9
       name: user.email,
       displayName: user.name ?? user.email,
     };

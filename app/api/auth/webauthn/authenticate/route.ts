@@ -156,9 +156,9 @@ export async function POST(req: Request) {
     // 5. Verify Signature
     const { origin, rpID } = getWebAuthnRP();
 
-    const credential = {
-      id: normalizeBase64url(pk.credentialId),
-      publicKey: parsePublicKeyFromStored(pk.publicKey),
+    const authenticator = {
+      credentialID: Buffer.from(pk.credentialId, 'base64url'),
+      credentialPublicKey: parsePublicKeyFromStored(pk.publicKey),
       counter: Number(pk.signCount ?? 0),
     };
 
@@ -195,7 +195,7 @@ export async function POST(req: Request) {
         expectedChallenge,
         expectedOrigin: origin,
         expectedRPID: rpID,
-        credential,
+        authenticator,
       });
     } catch (e: any) {
       console.error(

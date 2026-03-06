@@ -147,23 +147,24 @@ export async function POST(req: Request) {
     }
 
     const registrationInfo = verification.registrationInfo;
-    if (!registrationInfo?.credential) {
+    if (!registrationInfo?.credentialID) {
       return NextResponse.json(
         { ok: false, message: "登録情報が不足しています" },
         { status: 500 },
       );
     }
 
-    const credential = registrationInfo.credential;
+    const credentialID = registrationInfo.credentialID;
+    const credentialPublicKey = registrationInfo.credentialPublicKey;
+    const counter = registrationInfo.counter ?? 0;
 
-    const credentialIdBase64url = credential.id;
+    const credentialIdBase64url = Buffer.from(credentialID).toString('base64url');
 
-    const publicKeyBase64 = Buffer.from(credential.publicKey).toString(
+    const publicKeyBase64 = Buffer.from(credentialPublicKey).toString(
       "base64",
     );
 
-    const signCount = credential.counter ?? 0;
-    const transports = credential.transports ?? [];
+    const signCount = counter;
 
     // Get userAgent from headers for auto-naming (reuse headersList from line 18)
     const userAgent = headersList.get("user-agent") ?? undefined;
@@ -180,7 +181,7 @@ export async function POST(req: Request) {
         credentialId: credentialIdBase64url,
         publicKey: publicKeyBase64,
         signCount,
-        transports: JSON.stringify(transports),
+        transports: JSON.stringify([]), // Empty array for v9
         name: passkeyName,
         userAgent,
       },
