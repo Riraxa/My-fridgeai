@@ -2,26 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-02-25.clover",
-});
+import { stripe } from "@/lib/stripe";
 
 const getPlanByStatus = (status: Stripe.Subscription.Status) => {
-  // 安全性：有効なステータスのみ明示的にPROに設定、不明時はFREEでfail-safe
   switch (status) {
     case "active":
     case "trialing":
       return "PRO" as const;
-    case "canceled":
-    case "incomplete_expired":
-    case "past_due":
-    case "unpaid":
-    case "incomplete":
-      return "FREE" as const;
     default:
-      console.warn(`[billing-sync] Unexpected subscription status: ${status}`);
-      return "FREE" as const; // fail-safe: 未知ステータスは無料プラン扱い
+      return "FREE" as const;
   }
 };
 
@@ -32,6 +21,11 @@ export async function POST(_req: NextRequest) {
   }
 
   try {
+    if (!stripe) {
+      console.error("[billing-sync] Stripe client is not initialized.");
+      return NextResponse.json({ error: "決済機能が未設定です" }, { status: 500 });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
@@ -42,17 +36,12 @@ export async function POST(_req: NextRequest) {
     });
 
     if (!user || (!user.stripeCustomerId && !user.stripeSubscriptionId)) {
-      return NextResponse.json(
-        { error: "定期購読情報が見つかりません" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "購読情報なし" }, { status: 404 });
     }
 
     let subscription: Stripe.Subscription | null = null;
     if (user.stripeSubscriptionId) {
-      subscription = await stripe.subscriptions.retrieve(
-        user.stripeSubscriptionId,
-      );
+      subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
     } else if (user.stripeCustomerId) {
       const list = await stripe.subscriptions.list({
         customer: user.stripeCustomerId,
@@ -63,96 +52,39 @@ export async function POST(_req: NextRequest) {
     }
 
     if (!subscription) {
-      if (user.stripeSubscriptionId) {
-        await prisma.subscription.deleteMany({
-          where: { stripeSubscriptionId: user.stripeSubscriptionId },
-        });
-      }
       await prisma.user.update({
         where: { id: user.id },
         data: {
           plan: "FREE",
-          cancelAtPeriodEnd: false,
-          stripeCurrentPeriodEnd: null,
           billingStatus: "canceled",
           stripeSubscriptionId: null,
-          stripePriceId: null,
         },
       });
       return NextResponse.json({ status: "no_subscription" });
     }
 
-    const cancelAt = (subscription as any).cancel_at ?? null;
-    const rawPeriodEnd = cancelAt ?? (subscription as any).current_period_end;
-    let currentPeriodEnd: Date | null =
-      typeof rawPeriodEnd === "number" ? new Date(rawPeriodEnd * 1000) : null;
-
-    if (currentPeriodEnd && isNaN(currentPeriodEnd.getTime())) {
-      currentPeriodEnd = null;
-    }
-
-    const cancelAtPeriodEnd =
-      ((subscription as any).cancel_at_period_end ?? false) || !!cancelAt;
-    const billingStatus = subscription.status;
-    const plan = getPlanByStatus(subscription.status);
-    const stripeCustomerId = String((subscription as any).customer);
-    const stripePriceId =
-      (subscription as any)?.items?.data?.[0]?.price?.id ?? null;
+    const cancelAt = (subscription as any).cancel_at;
+    const currentPeriodEnd = new Date(((subscription as any).current_period_end ?? 0) * 1000);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        plan,
-        cancelAtPeriodEnd,
+        plan: getPlanByStatus(subscription.status),
+        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end || !!cancelAt,
         stripeCurrentPeriodEnd: currentPeriodEnd,
-        billingStatus,
+        billingStatus: subscription.status,
         stripeSubscriptionId: subscription.id,
-        stripeCustomerId,
-        stripePriceId,
+        stripeCustomerId: String(subscription.customer),
+        stripePriceId: (subscription as any)?.items?.data?.[0]?.price?.id ?? null,
       },
     });
 
-    if (stripeCustomerId && stripePriceId) {
-      await prisma.subscription.upsert({
-        where: { stripeSubscriptionId: subscription.id },
-        update: {
-          status: subscription.status,
-          currentPeriodEnd: currentPeriodEnd ?? new Date(), // Fallback if null, to avoid DB error if required
-          cancelAtPeriodEnd: cancelAtPeriodEnd,
-          stripeCustomerId: stripeCustomerId,
-          stripePriceId: stripePriceId,
-        },
-        create: {
-          userId: user.id,
-          stripeCustomerId: stripeCustomerId,
-          stripeSubscriptionId: subscription.id,
-          stripePriceId: stripePriceId,
-          status: subscription.status,
-          currentPeriodEnd: currentPeriodEnd ?? new Date(), // Fallback
-          cancelAtPeriodEnd: cancelAtPeriodEnd,
-        },
-      });
-    }
-
-    return NextResponse.json({
-      status: "ok",
-      stripe: {
-        subscriptionId: subscription.id,
-        status: subscription.status,
-        cancel_at_period_end:
-          (subscription as any).cancel_at_period_end ?? null,
-        cancel_at: (subscription as any).cancel_at ?? null,
-        current_period_end: (subscription as any).current_period_end ?? null,
-      },
-      computed: {
-        cancelAtPeriodEnd,
-        stripeCurrentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
-      },
-    });
+    return NextResponse.json({ status: "ok" });
   } catch (err: any) {
-    if (process.env.NODE_ENV === "development") {
-      console.error("Billing sync error:", err);
+    console.error("[billing-sync] ERROR:", err);
+    if (err.raw?.code === "resource_missing") {
+      return NextResponse.json({ error: "Stripe情報不整合" }, { status: 400 });
     }
-    return NextResponse.json({ error: "同期に失敗しました" }, { status: 500 });
+    return NextResponse.json({ error: "同期失敗" }, { status: 500 });
   }
 }
