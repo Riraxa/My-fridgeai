@@ -104,7 +104,13 @@ function getErrorMessage(errorCode: string | null): string | null {
     case "signup_failed":
       return "登録に失敗しました。もう一度お試しください。";
     case "PASSKEY_ONLY":
-      return "PASSKEY_PROTECTED"; // 特別なケース - コンポーネント内で処理
+      return "PASSKEY_PROTECTED";
+    case "CredentialsSignin":
+      // 基底のエラーコードだが、Authorize内で投げられた場合これが返ることがある
+      // ただし通常のログイン失敗もこれなので、基本はデフォルトメッセージに任せる
+      return null;
+    case "CallbackRouteError":
+      return "認証中にエラーが発生しました。もう一度お試しください。";
     case "passkey_registration_cancelled":
       return "パスキーの登録が完了しなかったため、ログアウトしました。この端末を使用するには、再度登録を行ってください。";
     default:
@@ -321,6 +327,20 @@ export default function LoginClient() {
 
     setLoading(true);
     try {
+      // 認証前チェック: パスキー専用ユーザーかどうかを確認
+      const checkRes = await fetch("/api/auth/check-auth-method", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const checkData = await checkRes.json();
+
+      if (checkData.authMethod === "passkey_enabled") {
+        setMsg("PASSKEY_PROTECTED");
+        setLoading(false);
+        return;
+      }
+
       const res: any = await signIn("credentials", {
         redirect: false,
         email,
@@ -336,10 +356,15 @@ export default function LoginClient() {
           router.replace("/home");
         }
       } else {
-        const errorMsg = getErrorMessage(res?.error);
-        setMsg(
-          errorMsg || "メールアドレスまたはパスワードが正しくありません。",
-        );
+        const error = res?.error || errorParam;
+        if (error === "PASSKEY_ONLY" || error?.includes?.("PASSKEY_ONLY")) {
+          setMsg("PASSKEY_PROTECTED");
+        } else {
+          const errorMsg = getErrorMessage(error);
+          setMsg(
+            errorMsg || "メールアドレスまたはパスワードが正しくありません。",
+          );
+        }
       }
     } catch (err: any) {
       console.error("[password login] error:", err);
@@ -396,20 +421,26 @@ export default function LoginClient() {
           <p className="passkey-protected__text text-xs mb-3">
             セキュリティのため、パスキーでのログインのみ対応しています。
             <br />
-            <button
-              type="button"
-              onClick={goToPasskeyLogin}
-              className="underline"
-            >
-              パスキーでログインしてください。
-            </button>
+            登録済みのパスキー（顔認証・指紋認証など）でログインしてください。
           </p>
-          <a
-            href="/auth/passkey/add-device"
-            className="inline-block text-xs text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+          <button
+            type="button"
+            onClick={goToPasskeyLogin}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-full mb-3 text-xs transition-colors"
           >
-            新しい端末でログインする場合はこちら
-          </a>
+            パスキーでログインする
+          </button>
+          <div className="flex flex-col gap-2 border-t pt-3 dark:border-gray-700">
+            <p className="text-[10px] text-secondary">
+              機種変更などでパスキーが使えない場合は：
+            </p>
+            <a
+              href="/auth/passkey/add-device"
+              className="inline-block text-xs text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+            >
+              新しい端末でログイン設定を行う（こちら）
+            </a>
+          </div>
         </div>
       );
     }

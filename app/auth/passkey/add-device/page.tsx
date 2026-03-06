@@ -274,12 +274,82 @@ export default function AddDevicePage() {
               メール内のリンクをクリックして、パスキーの登録を完了してください。
             </p>
 
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-sm text-secondary">
-              <p className="mb-2 font-medium">📧 メールが届かない場合</p>
-              <ul className="text-left space-y-1 text-xs">
-                <li>• 迷惑メールフォルダを確認してください</li>
-                <li>• メールアドレスが正しいか確認してください</li>
-                <li>• しばらく待ってから再送をお試しください</li>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="text-blue-600 dark:text-blue-400"
+                >
+                  <path
+                    d="M3 8L10.89 13.26C11.2187 13.4793 11.6049 13.5963 12 13.5963C12.3951 13.5963 12.7813 13.4793 13.11 13.26L21 8M5 19H19C19.5304 19 20.0391 18.7893 20.4142 18.4142C20.7893 18.0391 21 17.5304 21 17V7C21 6.46957 20.7893 5.96086 20.4142 5.58579C20.0391 5.21071 19.5304 5 19 5H5C4.46957 5 3.96086 5.21071 3.58579 5.58579C3.21071 5.96086 3 6.46957 3 7V17C3 17.5304 3.21071 18.0391 3.58579 18.4142C3.96086 18.7893 4.46957 19 5 19Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <h3 className="font-medium text-blue-900 dark:text-blue-100">
+                  メールが届かない場合
+                </h3>
+              </div>
+              <ul className="space-y-2 text-blue-800 dark:text-blue-200">
+                <li className="flex items-start gap-2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0"
+                  >
+                    <path
+                      d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className="text-sm">迷惑メールフォルダを確認してください</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0"
+                  >
+                    <path
+                      d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className="text-sm">メールアドレスが正しいか確認してください</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0"
+                  >
+                    <path
+                      d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className="text-sm">しばらく待ってから再送をお試しください</span>
+                </li>
               </ul>
             </div>
 

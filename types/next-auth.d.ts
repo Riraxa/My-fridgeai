@@ -10,6 +10,7 @@ declare module "next-auth" {
       stripeCurrentPeriodEnd?: Date | null;
       cancelAtPeriodEnd?: boolean;
       accounts?: { provider: string }[];
+      provider?: string;
     } & DefaultSession["user"];
     authTime?: number;
   }
@@ -26,5 +27,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     requirePasskeySetup?: boolean;
+    provider?: string;
   }
 }

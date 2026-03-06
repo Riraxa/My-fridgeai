@@ -20,14 +20,36 @@ import { fadeInUp, buttonTap, springTransition } from "@/app/components/motion";
 
 /* --- utils: base64url <-> Uint8Array --- */
 function base64urlToUint8Array(base64url: string) {
-  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+  if (!base64url || typeof base64url !== 'string') {
+    throw new Error('INVALID_INPUT');
+  }
+  
+  // Base64文字列として有効な文字のみを許可
+  const cleanBase64url = base64url.trim();
+  if (!/^[A-Za-z0-9_-]*$/.test(cleanBase64url)) {
+    throw new Error('INVALID_BASE64_CHARS');
+  }
+  
+  const base64 = cleanBase64url.replace(/-/g, "+").replace(/_/g, "/");
+  
+  // パディングを計算して追加
   const pad = base64.length % 4;
   const padded = base64 + (pad ? "=".repeat(4 - pad) : "");
-  const binary = atob(padded);
-  const len = binary.length;
-  const out = new Uint8Array(len);
-  for (let i = 0; i < len; i++) out[i] = binary.charCodeAt(i);
-  return out;
+  
+  // パディング後の文字列長が4の倍数であることを確認
+  if (padded.length % 4 !== 0) {
+    throw new Error('INVALID_LENGTH');
+  }
+  
+  try {
+    const binary = atob(padded);
+    const len = binary.length;
+    const out = new Uint8Array(len);
+    for (let i = 0; i < len; i++) out[i] = binary.charCodeAt(i);
+    return out;
+  } catch (error) {
+    throw new Error('DECODE_FAILED');
+  }
 }
 
 function uint8ArrayToBase64url(buf: ArrayBuffer | Uint8Array) {
@@ -43,19 +65,48 @@ function uint8ArrayToBase64url(buf: ArrayBuffer | Uint8Array) {
 
 /* prepare the publicKey object for navigator */
 function preformatCreateOptions(opts: any) {
+  if (!opts || !opts.publicKey) {
+    throw new Error('SERVER_ERROR');
+  }
+  
   const publicKey = opts.publicKey ? { ...opts.publicKey } : { ...opts };
 
-  if (!publicKey.challenge) throw new Error("server returned no challenge");
+  if (!publicKey.challenge) {
+    throw new Error("NO_CHALLENGE");
+  }
 
   if (typeof publicKey.challenge === "string") {
-    publicKey.challenge = base64urlToUint8Array(publicKey.challenge);
+    if (!publicKey.challenge.trim()) {
+      throw new Error("EMPTY_CHALLENGE");
+    }
+    try {
+      publicKey.challenge = base64urlToUint8Array(publicKey.challenge);
+    } catch (error: any) {
+      if (error.message === 'INVALID_INPUT') {
+        throw new Error('CHALLENGE_INVALID');
+      } else if (error.message === 'INVALID_BASE64_CHARS') {
+        throw new Error('CHALLENGE_INVALID_CHARS');
+      } else if (error.message === 'INVALID_LENGTH') {
+        throw new Error('CHALLENGE_INVALID_LENGTH');
+      } else if (error.message === 'DECODE_FAILED') {
+        throw new Error('CHALLENGE_DECODE_FAILED');
+      }
+      throw error;
+    }
   } else if (Array.isArray(publicKey.challenge)) {
     publicKey.challenge = new Uint8Array(publicKey.challenge);
   }
 
   if (publicKey.user?.id) {
     if (typeof publicKey.user.id === "string") {
-      publicKey.user.id = base64urlToUint8Array(publicKey.user.id);
+      if (!publicKey.user.id.trim()) {
+        throw new Error("EMPTY_USER_ID");
+      }
+      try {
+        publicKey.user.id = base64urlToUint8Array(publicKey.user.id);
+      } catch (error: any) {
+        throw new Error('USER_ID_INVALID');
+      }
     } else if (Array.isArray(publicKey.user.id)) {
       publicKey.user.id = new Uint8Array(publicKey.user.id);
     }
@@ -65,8 +116,18 @@ function preformatCreateOptions(opts: any) {
     publicKey.excludeCredentials = publicKey.excludeCredentials.map(
       (c: any) => {
         const out = { ...c };
-        if (typeof out.id === "string") out.id = base64urlToUint8Array(out.id);
-        else if (Array.isArray(out.id)) out.id = new Uint8Array(out.id);
+        if (typeof out.id === "string") {
+          if (!out.id.trim()) {
+            throw new Error("EMPTY_CREDENTIAL_ID");
+          }
+          try {
+            out.id = base64urlToUint8Array(out.id);
+          } catch (error: any) {
+            throw new Error('CREDENTIAL_ID_INVALID');
+          }
+        } else if (Array.isArray(out.id)) {
+          out.id = new Uint8Array(out.id);
+        }
         return out;
       },
     );
@@ -165,6 +226,10 @@ function PasskeySetupContent() {
         );
       }
 
+      if (!optsData.options) {
+        throw new Error("サーバーから無効なレスポンスを受信しました");
+      }
+
       // 2. WebAuthn API を呼び出し
       const publicKey = preformatCreateOptions(optsData.options);
       const cred: any = await navigator.credentials.create({
@@ -232,12 +297,24 @@ function PasskeySetupContent() {
         return;
       }
 
-      console.error("[passkey-setup] error:", err);
+      // ユーザーに分かりやすいエラーメッセージを表示
+      let userMessage = "パスキーの登録に失敗しました。最初からやり直してください。";
+      
+      if (err?.message === 'SERVER_ERROR') {
+        userMessage = "サーバーでエラーが発生しました。しばらくしてからやり直してください。";
+      } else if (err?.message === 'NO_CHALLENGE') {
+        userMessage = "サーバーから必要な情報が取得できませんでした。";
+      } else if (err?.message?.includes('CHALLENGE_')) {
+        userMessage = "サーバーからの認証情報が不正です。管理者にお問い合わせください。";
+      } else if (err?.message?.includes('USER_ID_INVALID')) {
+        userMessage = "ユーザー情報が不正です。再度ログインからやり直してください。";
+      } else if (err?.message?.includes('CREDENTIAL_ID_INVALID')) {
+        userMessage = "既存の認証情報に問題があります。";
+      }
+      
       setMsg({
         type: "error",
-        text:
-          err?.message ||
-          "パスキーの登録に失敗しました。最初からやり直してください。",
+        text: userMessage,
       });
     } finally {
       setLoading(false);

@@ -13,11 +13,11 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL is not set in environment variables");
 }
 
-const pool = new Pool({ 
+const pool = new Pool({
   connectionString: databaseUrl,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000,
 });
 
 const adapter = new PrismaPg(pool);

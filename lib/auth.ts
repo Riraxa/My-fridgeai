@@ -1,5 +1,5 @@
 // lib/auth.ts
-import NextAuth from "next-auth";
+import NextAuth, { AuthError, CredentialsSignin } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -13,6 +13,10 @@ interface ExtendedUser {
   name: string | null;
   password: string;
   authMethod?: "password_only" | "passkey_enabled";
+}
+
+class PasskeyOnlyError extends CredentialsSignin {
+  override code = "PASSKEY_ONLY";
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -89,15 +93,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user) return null;
         if (user.status !== "active") return null;
         if (!user.emailVerified) return null;
+
+        // パスキーが有効な場合は即座にエラー
+        if ((user as ExtendedUser).authMethod === "passkey_enabled") {
+          console.warn(`[auth] Password login attempted for passkey_enabled user: ${email}`);
+          throw new PasskeyOnlyError();
+        }
+
         if (!user.password) return null;
 
         const ok = await compare(credentials.password as string, user.password);
         if (!ok) return null;
-
-        if ((user as ExtendedUser).authMethod === "passkey_enabled") {
-          console.warn(`[auth] Password login attempted for passkey_enabled user: ${email}`);
-          throw new Error("PASSKEY_ONLY");
-        }
 
         const result = {
           id: user.id,
@@ -259,6 +265,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
             if (dbUser.name) session.user.name = dbUser.name;
             if (dbUser.image) session.user.image = dbUser.image;
+            if (token.provider && typeof token.provider === "string") {
+              session.user.provider = token.provider;
+            }
           }
         } catch {
           console.error("Failed to fetch extended user data in session callback");
@@ -267,12 +276,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
 
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
         if ((user as { requirePasskeySetup?: boolean }).requirePasskeySetup) {
           token.requirePasskeySetup = true;
         }
+      }
+      if (account) {
+        token.provider = account.provider;
       }
       return token;
     },
@@ -283,7 +295,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const urlObj = new URL(url);
         if (urlObj.origin === baseUrl) return url;
       } catch { }
-      return `${baseUrl}/home`;
+      return baseUrl;
     },
   },
 

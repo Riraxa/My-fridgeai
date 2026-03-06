@@ -86,10 +86,8 @@ export default function PasskeyManager() {
   const [newPasskeyId, setNewPasskeyId] = useState<string | null>(null);
   const [newPasskeyName, setNewPasskeyName] = useState("");
 
-  // Googleログインユーザーかチェック
-  const isGoogleUser = session?.user?.accounts?.some(
-    (account) => account.provider === "google",
-  );
+  // 今回のログイン方法がGoogleユーザーかチェック
+  const isGoogleUser = (session?.user as any)?.provider === "google";
 
   const fetchPasskeys = useCallback(async () => {
     if (!session?.user?.email) return;

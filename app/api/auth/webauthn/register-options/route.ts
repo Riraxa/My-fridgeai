@@ -175,7 +175,7 @@ export async function POST(req: Request) {
 
     // Normalize user object
     basePublicOptions.user = {
-      id: userID, // Use string userID for v9
+      id: bufferToBase64url(Buffer.from(userID, 'utf8')), // Encode userID as base64url
       name: user.email,
       displayName: user.name ?? user.email,
     };

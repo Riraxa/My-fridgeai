@@ -10,6 +10,10 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    // パスキーエラー時はログイン画面に留まる
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "PASSKEY_ONLY") return;
+
     if (status === "authenticated") {
       router.replace("/home");
     }
