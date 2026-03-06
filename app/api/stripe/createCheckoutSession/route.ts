@@ -5,14 +5,23 @@ import { auth } from "@/lib/auth";
 
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 const priceId = process.env.STRIPE_PRICE_ID;
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
+// Robust baseUrl detection
+const getBaseUrl = (req?: NextRequest) => {
+  if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
+  if (req) {
+    const url = new URL(req.url);
+    return `${url.protocol}//${url.host}`;
+  }
+  return "http://localhost:3000";
+};
 
-if (!stripeKey) console.error("STRIPE_SECRET_KEY not set");
-if (!priceId) console.error("STRIPE_PRICE_ID not set");
+if (!stripeKey) console.error("[Stripe] STRIPE_SECRET_KEY is MISSING from env");
+if (!priceId) console.error("[Stripe] STRIPE_PRICE_ID is MISSING from env");
 
 const stripe = stripeKey
-  ? new Stripe(stripeKey, { apiVersion: "2026-02-25.clover" as any })
+  ? new Stripe(stripeKey, { apiVersion: "2025-01-27.clover" as any })
   : null;
 
 export async function POST(req: NextRequest) {
@@ -126,8 +135,8 @@ export async function POST(req: NextRequest) {
         customer: customerId,
         line_items: [{ price: priceId, quantity: 1 }],
         payment_method_types: ["card"],
-        success_url: `${baseUrl}/settings?pro=success`,
-        cancel_url: `${baseUrl}/settings?pro=cancel`,
+        success_url: `${getBaseUrl(req)}/settings?pro=success`,
+        cancel_url: `${getBaseUrl(req)}/settings?pro=cancel`,
         metadata: {
           userId: user.id,
         },
@@ -168,8 +177,8 @@ export async function POST(req: NextRequest) {
           customer: customerId,
           line_items: [{ price: priceId, quantity: 1 }],
           payment_method_types: ["card"],
-          success_url: `${baseUrl}/settings?pro=success`,
-          cancel_url: `${baseUrl}/settings?pro=cancel`,
+          success_url: `${getBaseUrl(req)}/settings?pro=success`,
+          cancel_url: `${getBaseUrl(req)}/settings?pro=cancel`,
           metadata: {
             userId: user.id,
           },
