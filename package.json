@@ -84,6 +84,8 @@
     "@chevrotain/cst-dts-gen": "^11.1.1",
     "@chevrotain/gast": "^11.1.1",
     "@mrleebo/prisma-ast": "^0.13.1",
-    "@hono/node-server": "^1.19.10"
+    "@hono/node-server": "^1.19.10",
+    "@simplewebauthn/server": "^9.0.3",
+    "nodemailer": "^7.0.13"
   }
 }
