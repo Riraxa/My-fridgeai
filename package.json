@@ -6,7 +6,7 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings 1000",
+    "lint": "eslint . --max-warnings 500",
     "postinstall": "prisma generate",
     "pre-commit": "npm run check:env && npm run check:types && npm run lint",
     "fix:lint": "eslint . --fix",
@@ -83,6 +83,7 @@
     "chevrotain": "^11.1.1",
     "@chevrotain/cst-dts-gen": "^11.1.1",
     "@chevrotain/gast": "^11.1.1",
-    "@mrleebo/prisma-ast": "^0.13.1"
+    "@mrleebo/prisma-ast": "^0.13.1",
+    "@hono/node-server": "^1.19.10"
   }
 }

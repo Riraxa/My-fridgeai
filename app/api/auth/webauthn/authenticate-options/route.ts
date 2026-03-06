@@ -8,7 +8,7 @@ import { AUTH_ERROR_MESSAGES } from "@/lib/security";
 
 /** helpers */
 function bufferToBase64url(buf: Buffer | Uint8Array | ArrayBuffer) {
-  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf as any);
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf as Uint8Array);
   return b
     .toString("base64")
     .replace(/\+/g, "-")
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     // NOTE: omit 'transports' to avoid restricting authenticators (some browsers/platforms are picky).
     // Keep only id (base64url) and type. This helps platform authenticators (internal) surface.
     const allowedCredentials = passkeys.map((pk) => {
-      let transports: any[] = [];
+      let transports: string[] = [];
       try {
         if (pk.transports) {
           transports = JSON.parse(pk.transports);
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
       return {
         id: pk.credentialId, // stored as base64url in DB
         type: "public-key" as const,
-        transports,
+        transports: transports as AuthenticatorTransport[],
       };
     });
 
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
             .replace(/\+/g, "-")
             .replace(/\//g, "_")
             .replace(/=+$/, "")
-        : bufferToBase64url(opts.challenge as any);
+        : bufferToBase64url(opts.challenge as Buffer);
 
     // 6. Store challenge in User table (valid for 5 mins)
     const expires = new Date(Date.now() + 5 * 60 * 1000);

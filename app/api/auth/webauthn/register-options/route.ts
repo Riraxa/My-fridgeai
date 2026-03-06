@@ -21,7 +21,7 @@ import { validateAndNormalizeIP } from "@/lib/security";
 
 /* helpers */
 function bufferToBase64url(buf: Buffer | Uint8Array | ArrayBuffer) {
-  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf as any);
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf as Uint8Array);
   return b
     .toString("base64")
     .replace(/\+/g, "-")
@@ -37,7 +37,7 @@ function toBuffer(input: unknown): Buffer {
     return Buffer.from(b64 + pad, "base64");
   }
   if (input instanceof ArrayBuffer) return Buffer.from(new Uint8Array(input));
-  if (ArrayBuffer.isView(input)) return Buffer.from(input as any);
+  if (ArrayBuffer.isView(input)) return Buffer.from(input.buffer);
   throw new Error("Unsupported input type");
 }
 
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
 
     // Map existing passkeys to excludeCredentials to prevent re-registration on same authenticator
     const excludeCredentials = existing.map((passkey) => {
-      let transports: any[] | undefined;
+      let transports: string[] | undefined;
       try {
         if (passkey.transports) {
           const parsed = JSON.parse(passkey.transports);
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       return {
         id: passkey.credentialId,
         type: "public-key" as const,
-        transports: transports,
+        transports: transports as AuthenticatorTransport[],
       };
     });
 

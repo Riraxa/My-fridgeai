@@ -9,9 +9,9 @@ const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 256;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 const PENDING_EXP_MS = Number(
-  process.env.PENDING_EXP_MS || 1000 * 60 * 60 * 24,
+  process.env.PENDING_EXP_MS ?? 1000 * 60 * 60 * 24,
 ); // 24h
-const RESEND_COOLDOWN_MS = Number(process.env.RESEND_COOLDOWN_MS || 60 * 1000); // 60s
+const RESEND_COOLDOWN_MS = Number(process.env.RESEND_COOLDOWN_MS ?? 60 * 1000); // 60s
 
 function validateEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -253,7 +253,7 @@ export async function POST(req: Request) {
 
     // ハッシュ化
     const roundsEnv = Number(
-      process.env.BCRYPT_SALT_ROUNDS || process.env.SALT_ROUNDS || 12,
+      process.env.BCRYPT_SALT_ROUNDS ?? process.env.SALT_ROUNDS ?? 12,
     );
     const saltRounds =
       Number.isFinite(roundsEnv) && roundsEnv > 0
@@ -267,7 +267,10 @@ export async function POST(req: Request) {
     const expiresAt = new Date(Date.now() + PENDING_EXP_MS);
 
     // トランザクションで pending + verification を作成
-    let pending;
+    let pending: {
+      id: string;
+      email: string;
+    } | null = null;
     try {
       await prisma.$transaction(async (tx) => {
         const p = await tx.pendingUser.create({
@@ -343,9 +346,9 @@ export async function POST(req: Request) {
       try {
         await prisma.$transaction(async (tx) => {
           await tx.emailVerification.deleteMany({
-            where: { pendingUserId: pending!.id, used: false },
+            where: { pendingUserId: pending?.id, used: false },
           });
-          await tx.pendingUser.delete({ where: { id: pending!.id } });
+          await tx.pendingUser.delete({ where: { id: pending?.id } });
         });
       } catch (cleanupErr) {
         console.error("[set-password] cleanup failed (no secret output)", {
@@ -363,7 +366,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[set-password] unexpected error (no secret output)", {
       err: String(err),
     });

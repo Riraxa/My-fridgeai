@@ -164,7 +164,7 @@ export async function POST(req: Request) {
 
     await resend.emails.send({
       from: EMAIL_FROM,
-      to: user.email!,
+      to: user.email ?? "",
       subject: "【My-fridgeai】新しい端末でのパスキー登録確認",
       html: `
 <!DOCTYPE html>
@@ -200,8 +200,9 @@ export async function POST(req: Request) {
       message:
         "確認メールを送信しました。メールを確認してパスキー登録を完了してください。",
     });
-  } catch (err: any) {
-    console.error("[add-device/verify] error:", err);
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("[add-device/verify] error:", error);
     return NextResponse.json(
       { ok: false, message: "サーバーでエラーが発生しました。" },
       { status: 500 },

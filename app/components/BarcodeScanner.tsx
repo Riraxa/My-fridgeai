@@ -67,7 +67,7 @@ export default function BarcodeScanner({
         await reader.decodeFromConstraints(
           constraints,
           videoRef.current,
-          async (result, err) => {
+          async (result, _err) => {
             if (!active) return;
 
             if (result) {

@@ -82,8 +82,9 @@ export async function POST(req: Request) {
       ok: true,
       message: "登録が完了しました。ログインしてください。",
     });
-  } catch (err: any) {
-    console.error("register error:", err);
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("register error:", error);
     return NextResponse.json(
       { ok: false, message: "サーバーエラー" },
       { status: 500 },

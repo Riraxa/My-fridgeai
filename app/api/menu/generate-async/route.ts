@@ -137,12 +137,13 @@ export async function POST(req: Request) {
       menuGenerationId: generation.id,
       message: "献立生成を開始しました",
     });
-  } catch (error: any) {
-    console.error("Async Menu Generation Error:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Async Menu Generation Error:", err);
     return NextResponse.json(
       {
         error: "献立生成の開始に失敗しました",
-        details: error.message || "Unknown error",
+        details: err.message ?? "Unknown error",
       },
       { status: 500 },
     );
@@ -170,9 +171,10 @@ async function processMenuGeneration(
     let menus;
     try {
       menus = await generateMenus(ingredients, userId, options);
-    } catch (aiError: any) {
-      console.error(`[MenuGen] AI Generation failed:`, aiError);
-      throw aiError;
+    } catch (aiError: unknown) {
+      const err = aiError as Error;
+      console.error(`[MenuGen] AI Generation failed:`, err);
+      throw err;
     }
 
     if (!menus?.main) {
@@ -184,14 +186,14 @@ async function processMenuGeneration(
 
     // Check Availability for ALL Menus
     const mainDetails = checkIngredientAvailability(
-      (menus.main.dishes || []).flatMap((d: any) => d.ingredients || []),
+      (menus.main.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
       ingredients,
     );
 
     const altADetails = menus.alternativeA
       ? checkIngredientAvailability(
-        (menus.alternativeA.dishes || []).flatMap(
-          (d: any) => d.ingredients || [],
+        (menus.alternativeA.dishes ?? []).flatMap(
+          (d: any) => d.ingredients ?? [],
         ),
         ingredients,
       )
@@ -199,8 +201,8 @@ async function processMenuGeneration(
 
     const altBDetails = menus.alternativeB
       ? checkIngredientAvailability(
-        (menus.alternativeB.dishes || []).flatMap(
-          (d: any) => d.ingredients || [],
+        (menus.alternativeB.dishes ?? []).flatMap(
+          (d: any) => d.ingredients ?? [],
         ),
         ingredients,
       )
@@ -216,9 +218,9 @@ async function processMenuGeneration(
     try {
       const { evaluateNutrition } = await import("@/lib/nutrition");
       nutritionInfo = {
-        main: evaluateNutrition(menus.main.dishes || []),
-        altA: evaluateNutrition(menus.alternativeA?.dishes || []),
-        altB: evaluateNutrition(menus.alternativeB?.dishes || []),
+        main: evaluateNutrition(menus.main.dishes ?? []),
+        altA: evaluateNutrition(menus.alternativeA?.dishes ?? []),
+        altB: evaluateNutrition(menus.alternativeB?.dishes ?? []),
       } as any;
     } catch (e) {
       console.warn("[MenuGen] Nutrition calculation failed:", e);
@@ -248,8 +250,9 @@ async function processMenuGeneration(
       },
     });
     console.log(`[MenuGen] Successfully completed generation ${generationId}`);
-  } catch (error: any) {
-    console.error("[MenuGen] Background processing error:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[MenuGen] Background processing error:", err);
     try {
       await prisma.menuGeneration.update({
         where: { id: generationId },

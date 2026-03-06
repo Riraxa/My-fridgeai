@@ -31,9 +31,10 @@ export async function POST(req: NextRequest) {
       throw new Error("Missing stripe-signature or webhook secret");
     }
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-  } catch (err: any) {
-    console.error(`Webhook signature verification failed: ${err.message}`);
-    return NextResponse.json({ error: err.message }, { status: 400 });
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error(`Webhook signature verification failed: ${error.message}`);
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
   try {
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.metadata?.userId || session.client_reference_id;
+        const userId = session.metadata?.userId ?? session.client_reference_id;
         const subscriptionId = session.subscription;
         const customerId = session.customer;
 
@@ -56,10 +57,10 @@ export async function POST(req: NextRequest) {
         )) as Stripe.Subscription;
         const priceId = subscription.items.data[0]?.price.id;
         const currentPeriodEnd = new Date(
-          ((subscription as any).current_period_end || 0) * 1000,
+          ((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end ?? 0) * 1000,
         );
         const cancelAtPeriodEnd =
-          (subscription as any).cancel_at_period_end || false;
+          (subscription as Stripe.Subscription & { cancel_at_period_end?: boolean }).cancel_at_period_end ?? false;
 
         await prisma.$transaction(async (tx) => {
           await tx.user.update({
@@ -124,10 +125,10 @@ export async function POST(req: NextRequest) {
         if (isDeleted) {
           await prisma.$transaction(async (tx) => {
             const currentPeriodEnd = new Date(
-              ((subscription as any).current_period_end || 0) * 1000,
+              ((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end ?? 0) * 1000,
             );
-            const stripeCustomerId = String((subscription as any).customer);
-            const priceId = (subscription as any)?.items?.data?.[0]?.price?.id;
+            const stripeCustomerId = String((subscription as Stripe.Subscription).customer);
+            const priceId = (subscription as Stripe.Subscription & { items?: { data?: { price?: { id?: string }[] } } })?.items?.data?.[0]?.price?.id;
 
             const users = await tx.user.findMany({
               where: { stripeSubscriptionId },
@@ -190,14 +191,14 @@ export async function POST(req: NextRequest) {
           );
         } else {
           // updated の場合: current_period_end などを同期
-          const cancelAt = (subscription as any).cancel_at ?? null;
-          const currentPeriodEndUnix = ((subscription as any)
+          const cancelAt = (subscription as Stripe.Subscription & { cancel_at?: number | null }).cancel_at ?? null;
+          const currentPeriodEndUnix = ((subscription as Stripe.Subscription & { current_period_end?: number })
             .current_period_end ?? 0) as number;
           const currentPeriodEnd = new Date(currentPeriodEndUnix * 1000);
           const cancelAtPeriodEnd =
-            ((subscription as any).cancel_at_period_end ?? false) || !!cancelAt;
-          const stripeCustomerId = String((subscription as any).customer);
-          const priceId = (subscription as any)?.items?.data?.[0]?.price?.id;
+            ((subscription as Stripe.Subscription & { cancel_at_period_end?: boolean }).cancel_at_period_end ?? false) ?? !!cancelAt;
+          const stripeCustomerId = String((subscription as Stripe.Subscription).customer);
+          const priceId = (subscription as Stripe.Subscription & { items?: { data?: { price?: { id?: string }[] } } })?.items?.data?.[0]?.price?.id;
 
           await prisma.user.updateMany({
             where: { stripeSubscriptionId },
@@ -272,8 +273,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
-  } catch (dbErr: any) {
-    console.error(`Webhook DB Error: ${dbErr.message}`);
+  } catch (dbErr: unknown) {
+    const error = dbErr as Error;
+    console.error(`Webhook DB Error: ${error.message}`);
     return NextResponse.json({ error: "DB Error" }, { status: 500 });
   }
 }

@@ -67,7 +67,7 @@ export default function AccountSettings() {
   const { theme, setTheme } = useTheme();
   const [showProModal, setShowProModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [cachedSession, _setCachedSession] = useState<Session | null>(null);
+  const [cachedSession] = useState<Session | null>(null);
   const didSyncSession = useRef(false);
   const { confirm: nativeConfirm } = useNativeConfirm();
   const { getSelectClassName } = useNativeSelect();

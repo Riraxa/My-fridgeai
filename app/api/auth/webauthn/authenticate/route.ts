@@ -26,7 +26,7 @@ function normalizeBase64url(input: string | ArrayBuffer | Uint8Array) {
     return input.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
   // ArrayBuffer/Uint8Array -> base64url
-  const buf = Buffer.isBuffer(input) ? input : Buffer.from(input as any);
+  const buf = Buffer.isBuffer(input) ? input : Buffer.from(input as Uint8Array);
   return buf
     .toString("base64")
     .replace(/\+/g, "-")
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
     const expectedChallenge = normalizeBase64url(user.verifyToken);
 
     // 4. Find Passkey
-    const assertionIdRaw = (assertionResponse as any).id;
+    const assertionIdRaw = (assertionResponse as { id: unknown }).id;
     if (!assertionIdRaw) {
       return NextResponse.json(
         { ok: false, message: "認証情報が不正です" },
@@ -217,8 +217,7 @@ export async function POST(req: Request) {
 
     // 6. Success -> Update sign count
     const newCounter = Number(
-      (verification.authenticationInfo &&
-        verification.authenticationInfo.newCounter) ??
+      verification.authenticationInfo?.newCounter ??
         pk.signCount ??
         0,
     );

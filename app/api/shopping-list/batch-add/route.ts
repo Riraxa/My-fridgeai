@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
 
     // レート制限
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    const ip = req.headers.get("x-forwarded-for") ?? "unknown";
     const rl = await rateLimit(ip, "batch-add", 20, 60);
     if (!rl.ok) {
       return NextResponse.json(

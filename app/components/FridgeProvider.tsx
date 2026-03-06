@@ -376,7 +376,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent("fridge_open_add", { detail }));
       // also set the compat function
       (window as any).__fridge_open_add?.(detail);
-    } catch (e) {
+    } catch (_e) {
       // fallback: dispatch simple event
       try {
         window.dispatchEvent(new CustomEvent("fridge_open_add"));

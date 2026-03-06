@@ -5,9 +5,7 @@ import { useState, useEffect } from "react";
 import MenuCard from "@/app/components/menu-card";
 import ErrorBoundary from "@/app/components/error-boundary";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import {
-  X,
   Clock,
   ChefHat,
   Lightbulb,
@@ -31,7 +29,7 @@ import { toast } from "sonner";
 const calculateCookingTime = (dishes: any[]) => {
   if (!dishes) return "20分";
   const sum = dishes.reduce(
-    (acc: number, d: any) => acc + (d.cookingTime || 0),
+    (acc: number, d: any) => acc + (d.cookingTime ?? 0),
     0,
   );
   return sum > 0 ? `${sum}分` : "20分";
@@ -40,7 +38,7 @@ const calculateCookingTime = (dishes: any[]) => {
 // Helper to calculate max difficulty
 const calculateDifficulty = (dishes: any[]) => {
   if (!dishes) return "★3";
-  const nums = dishes.map((d: any) => d.difficulty || 3);
+  const nums = dishes.map((d: any) => d.difficulty ?? 3);
   const max = Math.max(...nums);
   return `★${max}`;
 };
@@ -66,10 +64,8 @@ interface RecipeDetail {
 }
 
 export default function MenuGeneratePage() {
-  const { data: session } = useSession();
   const router = useRouter();
-  const { setShopping, setToast, isNavBarVisible, setIsNavBarVisible } =
-    useFridge();
+  const { setShopping, isNavBarVisible, setIsNavBarVisible } = useFridge();
 
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState<any>(null);
@@ -103,19 +99,9 @@ export default function MenuGeneratePage() {
   // 買い物リストに材料を追加する関数
   const handleAddToShoppingList = async (ingredients: string[]) => {
     try {
-      // 各材料を買い物リストに追加
-      const newShoppingItems = ingredients.map((ingredient, index) => ({
-        id: `shopping-${Date.now()}-${index}`,
-        name: ingredient,
-        done: false,
-        quantity: "",
-        unit: "",
-        note: "",
-      }));
-
       // 既存の買い物リストに追加
       setShopping((prev) => {
-        const existing = prev || [];
+        const existing = prev ?? [];
         // 重複を避けるために既存のアイテムをチェック
         const filtered = ingredients.filter(
           (ingredient) =>
@@ -284,7 +270,7 @@ export default function MenuGeneratePage() {
         const res = await fetch("/api/ingredients");
         if (res.ok) {
           const data = await res.json();
-          const ingredients = data.items || [];
+          const ingredients = data.items ?? [];
           setInventoryCount(ingredients.length);
 
           const now = new Date();
@@ -321,7 +307,7 @@ export default function MenuGeneratePage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || "生成の開始に失敗しました");
+        throw new Error(errorData.error ?? "生成の開始に失敗しました");
       }
 
       const data = await res.json();
@@ -459,9 +445,9 @@ export default function MenuGeneratePage() {
           // Add a fallback recipe from dish data
           details.push({
             title: dish.name,
-            description: dish.description || "",
+            description: dish.description ?? "",
             servings: servings,
-            time_minutes: dish.cookingTime || 20,
+            time_minutes: dish.cookingTime ?? 20,
             difficulty: "中",
             ingredients:
               dish.ingredients?.map((ing: any) => ({
@@ -470,8 +456,8 @@ export default function MenuGeneratePage() {
                 unit: ing.unit,
                 total_quantity: ing.amount,
                 optional: false,
-              })) || [],
-            steps: dish.steps || ["材料を準備する", "調理する", "盛り付ける"],
+              })) ?? [],
+            steps: dish.steps ?? ["材料を準備する", "調理する", "盛り付ける"],
             tips: dish.tips ? [dish.tips] : [],
           });
         }
@@ -504,7 +490,7 @@ export default function MenuGeneratePage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "調理記録に失敗しました");
+        throw new Error(data.error ?? "調理記録に失敗しました");
       }
 
       alert("調理完了！在庫から食材が差し引かれました。");
@@ -846,21 +832,21 @@ export default function MenuGeneratePage() {
                 <MenuCard
                   type="main"
                   menu={{
-                    name: generated.menus.main?.title || "献立",
-                    description: generated.menus.main?.reason || "",
+                    name: generated.menus.main?.title ?? "献立",
+                    description: generated.menus.main?.reason ?? "",
                     cookingTime: calculateCookingTime(
-                      generated.menus.main?.dishes || [],
+                      generated.menus.main?.dishes ?? [],
                     ),
                     difficulty: calculateDifficulty(
-                      generated.menus.main?.dishes || [],
+                      generated.menus.main?.dishes ?? [],
                     ),
                     calories: generated.nutrition?.main?.total?.calories
                       ? `${Math.round(generated.nutrition.main.total.calories)} kcal`
                       : "N/A",
-                    dishes: generated.menus.main?.dishes || [],
+                    dishes: generated.menus.main?.dishes ?? [],
                   }}
                   availability={
-                    generated.availability?.main || {
+                    generated.availability?.main ?? {
                       available: [],
                       missing: [],
                       insufficient: [],
@@ -876,21 +862,21 @@ export default function MenuGeneratePage() {
                 <MenuCard
                   type="altA"
                   menu={{
-                    name: generated.menus.alternativeA?.title || "代替案A",
-                    description: generated.menus.alternativeA?.reason || "",
+                    name: generated.menus.alternativeA?.title ?? "代替案A",
+                    description: generated.menus.alternativeA?.reason ?? "",
                     cookingTime: calculateCookingTime(
-                      generated.menus.alternativeA?.dishes || [],
+                      generated.menus.alternativeA?.dishes ?? [],
                     ),
                     difficulty: calculateDifficulty(
-                      generated.menus.alternativeA?.dishes || [],
+                      generated.menus.alternativeA?.dishes ?? [],
                     ),
                     calories: generated.nutrition?.altA?.total?.calories
                       ? `${Math.round(generated.nutrition.altA.total.calories)} kcal`
                       : "N/A",
-                    dishes: generated.menus.alternativeA?.dishes || [],
+                    dishes: generated.menus.alternativeA?.dishes ?? [],
                   }}
                   availability={
-                    generated.availability?.altA || {
+                    generated.availability?.altA ?? {
                       available: [],
                       missing: [],
                       insufficient: [],
@@ -905,21 +891,21 @@ export default function MenuGeneratePage() {
                 <MenuCard
                   type="altB"
                   menu={{
-                    name: generated.menus.alternativeB?.title || "代替案B",
-                    description: generated.menus.alternativeB?.reason || "",
+                    name: generated.menus.alternativeB?.title ?? "代替案B",
+                    description: generated.menus.alternativeB?.reason ?? "",
                     cookingTime: calculateCookingTime(
-                      generated.menus.alternativeB?.dishes || [],
+                      generated.menus.alternativeB?.dishes ?? [],
                     ),
                     difficulty: calculateDifficulty(
-                      generated.menus.alternativeB?.dishes || [],
+                      generated.menus.alternativeB?.dishes ?? [],
                     ),
                     calories: generated.nutrition?.altB?.total?.calories
                       ? `${Math.round(generated.nutrition.altB.total.calories)} kcal`
                       : "N/A",
-                    dishes: generated.menus.alternativeB?.dishes || [],
+                    dishes: generated.menus.alternativeB?.dishes ?? [],
                   }}
                   availability={
-                    generated.availability?.altB || {
+                    generated.availability?.altB ?? {
                       available: [],
                       missing: [],
                       insufficient: [],
@@ -967,7 +953,7 @@ export default function MenuGeneratePage() {
               {/* Header */}
               <div className="sticky top-0 bg-[var(--card-bg)] border-b border-[var(--surface-border)] px-4 py-3 flex items-center justify-center z-10">
                 <h2 id="recipe-modal-title" className="font-bold text-lg text-[var(--color-text-primary)]">
-                  {selectedMenuData?.title || "レシピ詳細"}
+                  {selectedMenuData?.title ?? "レシピ詳細"}
                 </h2>
               </div>
 
@@ -1111,7 +1097,7 @@ export default function MenuGeneratePage() {
                     </p>
                     <div className="flex flex-col gap-3">
                       <button
-                        onClick={() => handleSelectMenu(selectedMenuType!)}
+                        onClick={() => handleSelectMenu(selectedMenuType as string)}
                         className="w-full py-3 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:opacity-90 transition"
                       >
                         再取得する

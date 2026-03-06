@@ -122,11 +122,12 @@ export async function POST(req: Request) {
         expectedOrigin: origin,
         expectedRPID: rpID,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as Error;
       console.error("[webauthn][register] verify error:", {
-        message: err.message,
-        name: err.name,
-        stack: err.stack,
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
         expectedOrigin: origin,
         expectedRPID: rpID,
         challengePreview: expectedChallenge?.substring(0, 20) + "...",
@@ -195,7 +196,7 @@ export async function POST(req: Request) {
         verifyToken: isSetupToken ? user.verifyToken : null,
         verifyTokenCreatedAt: isSetupToken ? user.verifyTokenCreatedAt : null,
         passkeySetupCompleted: true,
-        authMethod: "passkey_enabled" as any,
+        authMethod: "passkey_enabled",
       },
     });
 
