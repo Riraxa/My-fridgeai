@@ -40,9 +40,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await prisma.user.delete({
-      where: { id: userId },
-    });
+    const result = await prisma.$queryRaw`SELECT delete_user_completely(${userId})`;
+
+    if (!result || !Array.isArray(result) || result.length === 0 || !result[0].delete_user_completely) {
+      throw new Error("アカウント削除に失敗しました");
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
