@@ -58,23 +58,12 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          await tx.subscription.upsert({
-            where: { stripeSubscriptionId: String(subscriptionId) },
-            update: {
-              status: subscription.status,
-              currentPeriodEnd,
-              cancelAtPeriodEnd: subscription.cancel_at_period_end,
-              stripeCustomerId: String(customerId),
-              stripePriceId: priceId,
-            },
-            create: {
+          // 課金イベントを記録
+          await tx.billingEvent.create({
+            data: {
               userId: String(userId),
-              stripeCustomerId: String(customerId),
-              stripeSubscriptionId: String(subscriptionId),
-              stripePriceId: priceId as string,
-              status: subscription.status,
-              currentPeriodEnd,
-              cancelAtPeriodEnd: subscription.cancel_at_period_end,
+              eventType: "SUBSCRIPTION_CREATED",
+              payload: session as any,
             },
           });
         });
@@ -101,6 +90,15 @@ export async function POST(req: NextRequest) {
                 stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
                 cancelAtPeriodEnd: subscription.cancel_at_period_end,
                 billingStatus: subscription.status,
+              },
+            });
+
+            // 課金イベントを記録
+            await tx.billingEvent.create({
+              data: {
+                userId: user.id,
+                eventType: isDeleted ? "SUBSCRIPTION_DELETED" : "SUBSCRIPTION_UPDATED",
+                payload: subscription as any,
               },
             });
           }

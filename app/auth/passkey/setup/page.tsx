@@ -65,7 +65,7 @@ function uint8ArrayToBase64url(buf: ArrayBuffer | Uint8Array) {
 
 /* prepare the publicKey object for navigator */
 function preformatCreateOptions(opts: any) {
-  if (!opts || !opts.publicKey) {
+  if (!opts?.publicKey) {
     throw new Error('SERVER_ERROR');
   }
   

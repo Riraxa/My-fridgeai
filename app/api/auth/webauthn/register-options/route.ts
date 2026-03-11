@@ -157,11 +157,11 @@ export async function POST(req: Request) {
         : bufferToBase64url(toBuffer(opts.challenge));
 
     // Persist a verifyToken (challenge) for short-lived verification (e.g. 5 min)
-    await prisma.user.update({
-      where: { id: user.id },
+    await prisma.authChallenge.create({
       data: {
-        verifyToken: challengeStr,
-        verifyTokenCreatedAt: new Date(),
+        userId: user.id,
+        challenge: challengeStr,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       },
     });
 

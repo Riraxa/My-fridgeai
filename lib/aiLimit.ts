@@ -3,10 +3,9 @@ import { prisma } from "./prisma";
 
 export const AI_LIMIT_FREE = 1;
 export const AI_LIMIT_PRO = 3;
-export const BARCODE_LIMIT_FREE = 5;
 export const INGREDIENT_LIMIT_FREE = 100;
 
-export type LimitType = "AI_MENU" | "BARCODE_SCAN" | "INGREDIENT_COUNT";
+export type LimitType = "AI_MENU" | "INGREDIENT_COUNT";
 
 /**
  * ユーザーの各機能利用制限をチェックし、必要に応じてカウントを更新・リセットする
@@ -22,7 +21,6 @@ export async function checkUserLimit(
         id: true,
         plan: true,
         aiDailyCount: true,
-        dailyBarcodeCount: true,
         dailyResetAt: true,
       },
     });
@@ -38,17 +36,14 @@ export async function checkUserLimit(
     );
 
     let currentAiCount = user.aiDailyCount;
-    let currentBarcodeCount = user.dailyBarcodeCount;
 
     // 日次リセットが必要かチェック
     if (!user.dailyResetAt || user.dailyResetAt < todayStart) {
       currentAiCount = 0;
-      currentBarcodeCount = 0;
       await tx.user.update({
         where: { id: userId },
         data: {
           aiDailyCount: 0,
-          dailyBarcodeCount: 0,
           dailyResetAt: now,
         },
       });
@@ -68,22 +63,6 @@ export async function checkUserLimit(
         data: { aiDailyCount: { increment: 1 } },
       });
       return { ok: true, remaining: limit - (currentAiCount + 1) };
-    }
-
-    if (type === "BARCODE_SCAN") {
-      if (isPro) return { ok: true, remaining: 999 };
-
-      if (currentBarcodeCount >= BARCODE_LIMIT_FREE) {
-        return { ok: false, remaining: 0, resetAt: todayStart };
-      }
-      await tx.user.update({
-        where: { id: userId },
-        data: { dailyBarcodeCount: { increment: 1 } },
-      });
-      return {
-        ok: true,
-        remaining: BARCODE_LIMIT_FREE - (currentBarcodeCount + 1),
-      };
     }
 
     if (type === "INGREDIENT_COUNT") {

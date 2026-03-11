@@ -33,13 +33,13 @@ export type FridgeContextType = {
   setToast: (m: string | null) => void;
   shopping: any[];
   setShopping: React.Dispatch<React.SetStateAction<any[]>>;
-  barcodeOpen: boolean;
-  setBarcodeOpen: (v: boolean) => void;
+  receiptScanOpen: boolean;
+  setReceiptScanOpen: (v: boolean) => void;
   deletingIds: Set<string>;
   setDeletingIds: (ids: Set<string>) => void;
   recognizedLabels: string[];
   setRecognizedLabels: (v: string[]) => void;
-  openBarcode: () => void;
+  openReceiptScan: () => void;
   openAddModal: (detail?: any) => void; // <-- detail optional
   fetchIngredients: () => Promise<void>;
   isLoading: boolean;
@@ -122,7 +122,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
   const [recognizedLabels, setRecognizedLabels] = useState<string[]>(() =>
     initRecognized(),
   );
-  const [barcodeOpen, setBarcodeOpen] = useState<boolean>(false);
+  const [receiptScanOpen, setReceiptScanOpen] = useState<boolean>(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isNavBarVisible, setIsNavBarVisible] = useState<boolean>(true);
@@ -358,18 +358,18 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
 
   /* ---------- global helpers / events ---------- */
   useEffect(() => {
-    const openBarcode = () => setBarcodeOpen(true);
+    const openReceiptScan = () => setReceiptScanOpen(true);
     const openAddModalEvent = (detail?: any) =>
       window.dispatchEvent(new CustomEvent("fridge_open_add", { detail }));
-    (window as any).__fridge_open_barcode = openBarcode;
+    (window as any).__fridge_open_receipt_scan = openReceiptScan;
     (window as any).__fridge_open_add = openAddModalEvent;
     return () => {
-      delete (window as any).__fridge_open_barcode;
+      delete (window as any).__fridge_open_receipt_scan;
       delete (window as any).__fridge_open_add;
     };
   }, []);
 
-  const openBarcode = useCallback(() => setBarcodeOpen(true), []);
+  const openReceiptScan = useCallback(() => setReceiptScanOpen(true), []);
   // openAddModal now accepts optional detail (for prefill)
   const openAddModal = useCallback((detail?: any) => {
     try {
@@ -401,13 +401,13 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       setToast,
       shopping,
       setShopping,
-      barcodeOpen,
-      setBarcodeOpen,
+      receiptScanOpen,
+      setReceiptScanOpen,
       deletingIds,
       setDeletingIds,
       recognizedLabels,
       setRecognizedLabels,
-      openBarcode,
+      openReceiptScan,
       openAddModal,
       fetchIngredients,
       isLoading,
@@ -429,13 +429,13 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
       setToast,
       shopping,
       setShopping,
-      barcodeOpen,
-      setBarcodeOpen,
+      receiptScanOpen,
+      setReceiptScanOpen,
       deletingIds,
       setDeletingIds,
       recognizedLabels,
       setRecognizedLabels,
-      openBarcode,
+      openReceiptScan,
       openAddModal,
       fetchIngredients,
       isLoading,
@@ -477,13 +477,13 @@ export function useFridge(): FridgeContextType {
       setToast: () => { },
       shopping: [],
       setShopping: () => { },
-      barcodeOpen: false,
-      setBarcodeOpen: () => { },
+      receiptScanOpen: false,
+      setReceiptScanOpen: () => { },
       deletingIds: new Set(),
       setDeletingIds: () => { },
       recognizedLabels: [],
       setRecognizedLabels: () => { },
-      openBarcode: () => { },
+      openReceiptScan: () => { },
       openAddModal: () => { }, // default no-op
       fetchIngredients: async () => { },
       isLoading: false,

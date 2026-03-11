@@ -92,25 +92,21 @@ export async function POST(req: Request) {
     }
 
     // 3. Challenge Verification
-    if (!user.verifyToken) {
+    const authChallenge = await prisma.authChallenge.findFirst({
+      where: { userId: user.id, used: false, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!authChallenge) {
       return NextResponse.json(
         {
           ok: false,
-          message: "認証チャレンジが見つかりません。再度お試しください。",
+          message: "認証チャレンジが見つかりません、または期限切れです。再度お試しください。",
         },
         { status: 400 },
       );
     }
-    if (user.verifyExpires && new Date() > new Date(user.verifyExpires)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "認証チャレンジが期限切れです。再度お試しください。",
-        },
-        { status: 400 },
-      );
-    }
-    const expectedChallenge = normalizeBase64url(user.verifyToken);
+    const expectedChallenge = normalizeBase64url(authChallenge.challenge);
 
     // 4. Find Passkey
     const assertionIdRaw = (assertionResponse as { id: unknown }).id;
@@ -227,18 +223,18 @@ export async function POST(req: Request) {
     });
 
     // 7. Cleanup challenge & Issue One-Time Token
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { verifyToken: null, verifyExpires: null },
+    await prisma.authChallenge.update({
+      where: { id: authChallenge.id },
+      data: { used: true },
     });
 
     const oneTime = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-    await prisma.user.update({
-      where: { id: user.id },
+    await prisma.authChallenge.create({
       data: {
-        verifyToken: oneTime,
-        verifyExpires: expiresAt,
+        userId: user.id,
+        challenge: `auto_login:${oneTime}`,
+        expiresAt,
       },
     });
 

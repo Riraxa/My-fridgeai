@@ -110,11 +110,10 @@ export async function POST(req: Request) {
             .replace(/=+$/, "")
         : bufferToBase64url(opts.challenge as Buffer);
 
-    // 6. Store challenge in User table (valid for 5 mins)
+    // 6. Store challenge in AuthChallenge table (valid for 5 mins)
     const expires = new Date(Date.now() + 5 * 60 * 1000);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { verifyToken: challengeStr, verifyExpires: expires },
+    await prisma.authChallenge.create({
+      data: { userId: user.id, challenge: challengeStr, expiresAt: expires },
     });
 
     // 7. Prepare response (JSON-safe options)

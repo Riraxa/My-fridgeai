@@ -269,5 +269,23 @@ export async function POST(req: Request) {
       },
       { status: 500 },
     );
+  } finally {
+    // 非同期で利用履歴を記録（成功・失敗に関わらず）
+    // userIdが取得できている場合のみ記録
+    const userId = (await auth())?.user?.id;
+    if (userId) {
+      // ここではbodyのパースに失敗している可能性もあるため、
+      // 必要な変数がスコープ外の場合はデフォルト値を使用
+      void prisma.usageHistory.create({
+        data: {
+          userId,
+          action: "GENERATE_MENU",
+          meta: {
+            generatedAt: new Date().toISOString(),
+            // これらの変数は本来 try 内にあるが、ようやくここまで来た
+          } as any,
+        },
+      }).catch(err => console.error("Failed to log usage history:", err));
+    }
   }
 }

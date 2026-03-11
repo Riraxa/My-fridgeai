@@ -15,22 +15,12 @@ model User {
   password             String?
   createdAt            DateTime  @default(now())
   status               String?   @default("active")
-  verifyToken          String?
-  verifyTokenCreatedAt DateTime?
-  verifyCode           String?
-  verifyExpires        DateTime?
   allowedIps           String[]
   aiMenuCount          Int       @default(0) @map("ai_menu_count")
   aiMenuLastReset      DateTime? @map("ai_menu_last_reset")
   aiDailyCount         Int       @default(0)
-  dailyBarcodeCount    Int       @default(0)
   dailyResetAt         DateTime?
   authMethod           String    @default("password_only") @map("auth_method")
-
-  @@index([email, status])
-  @@index([createdAt])
-  @@index([plan])
-  @@index([stripeCustomerId])
 
   shoppingListItems ShoppingListItem[]
 
@@ -44,7 +34,6 @@ model User {
   stripePriceId          String?
   stripeCurrentPeriodEnd DateTime?
   cancelAtPeriodEnd      Boolean        @default(false)
-  subscriptions          Subscription[]
 
   // Household 関連
   householdsOwned     Household[]       @relation("Owner")
@@ -64,6 +53,7 @@ model User {
   TrustedDevice     TrustedDevice[]
   UsageHistory      UsageHistory[]
   BillingEvents     BillingEvent[]
+  receipts          Receipt[]
 
   // New Relations for Menu Generation
   menuGenerations       MenuGeneration[]
@@ -73,6 +63,11 @@ model User {
   preferences           UserPreferences?
   allergies             UserAllergy[]
   restrictions          UserRestriction[]
+
+  @@index([email, status])
+  @@index([createdAt])
+  @@index([plan])
+  @@index([stripeCustomerId])
 }
 
 enum PlanType {
@@ -81,9 +76,9 @@ enum PlanType {
 }
 
 enum IngredientType {
-  raw                // 通常食材
-  processed_base     // 他食材と組み合わせる前提の商品（カレールー等）
-  instant_complete   // 単体で完成する商品（即席味噌汁等）
+  raw // 通常食材
+  processed_base // 他食材と組み合わせる前提の商品（カレールー等）
+  instant_complete // 単体で完成する商品（即席味噌汁等）
 }
 
 model Household {
@@ -92,6 +87,7 @@ model Household {
   owner     User              @relation("Owner", fields: [ownerId], references: [id])
   members   HouseholdMember[]
   invites   HouseholdInvite[]
+  receipts  Receipt[]
   createdAt DateTime          @default(now())
 }
 
@@ -186,13 +182,7 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
 
-  @@unique([identifier, token])
-}
 
 /// Short-lived stored challenges for webauthn (authenticate without email flow)
 model AuthChallenge {
@@ -252,9 +242,8 @@ model Favorite {
 
 model Ingredient {
   id       String @id @default(cuid())
-  userId   String
-  name     String
-  quantity Float  @default(0) // Keep for backward compatibility, but prefer 'amount'
+  userId String
+  name   String
 
   // New standardized fields
   amount      Float? // 数値（500）
@@ -262,39 +251,38 @@ model Ingredient {
   unit        String? // 単位（ml, g, 個）
 
   // Expiration fields
-  expirationDate      DateTime? @map("expiry") // Map to existing 'expiry' column if possible or start new. Existing schema has expiry DateTime?
+  expirationDate      DateTime? @map("expiry")
   expirationEstimated Boolean   @default(false)
 
   category String?
 
   // 加工食品統合: ingredient_type
   ingredientType IngredientType @default(raw)
-  productId      String?        // 加工食品の場合、Productに紐づく
+  productId      String? // 加工食品の場合、Productに紐づく
   product        Product?       @relation(fields: [productId], references: [id])
 
   // Purchase info
   purchasedAt DateTime?
-  barcode     String?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  version   Int      @default(1)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  alerts InventoryAlert[]
+  alerts       InventoryAlert[]
+  receiptItems ReceiptItem[]
 
   @@index([userId, expirationDate])
   @@index([userId, createdAt])
   @@index([userId, category])
-  @@index([barcode])
   @@index([ingredientType])
 }
 
 /// 加工食品マスター（ルー、即席食品、混合調味料など）
 model Product {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   userId    String
-  name      String   // 商品名（例：バーモントカレー中辛）
-  brandName String?  // ブランド名（例：ハウス食品）
+  name      String // 商品名（例：バーモントカレー中辛）
+  brandName String? // ブランド名（例：ハウス食品）
 
   ingredientType IngredientType @default(processed_base)
 
@@ -310,8 +298,7 @@ model Product {
   /// 栄養推定値（任意）
   nutritionEstimate Json? // { calories, protein, fat, carbs }
 
-  barcode   String?  // バーコード番号
-  category  String?  // 商品カテゴリ（カレー、スープ等）
+  category String? // 商品カテゴリ（カレー、スープ等）
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -320,7 +307,6 @@ model Product {
   ingredients Ingredient[]
 
   @@index([userId])
-  @@index([barcode])
   @@index([ingredientType])
 }
 
@@ -345,22 +331,7 @@ model UsageHistory {
   user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Subscription {
-  id                   String   @id @default(cuid())
-  userId               String
-  stripeCustomerId     String
-  stripeSubscriptionId String   @unique
-  stripePriceId        String
-  status               String
-  currentPeriodEnd     DateTime
-  cancelAtPeriodEnd    Boolean  @default(false)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
 
 model ShoppingListItem {
   id        String   @id @default(cuid())
@@ -388,9 +359,9 @@ model UserPreferences {
   userId String @unique
 
   cookingSkill       String   @default("intermediate") // beginner | intermediate | advanced
-  comfortableMethods String[] @default([])            // ["炒め物", "煮物", "焼き物"]
-  avoidMethods       String[] @default([])            // ["揚げ物"]
-  kitchenEquipment   String[] @default([])            // ["電子レンジ", "オーブン"]
+  comfortableMethods String[] @default([]) // ["炒め物", "煮物", "焼き物"]
+  avoidMethods       String[] @default([]) // ["揚げ物"]
+  kitchenEquipment   String[] @default([]) // ["電子レンジ", "オーブン"]
 
   // Alert Settings
   enableExpirationAlert Boolean @default(true)
@@ -476,9 +447,9 @@ model MenuGeneration {
   nutritionInfo Json? // { calories, protein, carbs, fat }
 
   // New Fields for Generation Conditions
-  servings      Int      @default(1)
-  budget        Int?     // 1食あたりの予算（nullの場合は指定なし）
-  requestHash   String?  // Cache用の入力ハッシュ
+  servings    Int     @default(1)
+  budget      Int? // 1食あたりの予算（nullの場合は指定なし）
+  requestHash String? // Cache用の入力ハッシュ
 
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   cookingHistory CookingHistory[]
@@ -526,4 +497,52 @@ model InventoryAlert {
   ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
 
   @@unique([userId, ingredientId, alertType])
+}
+
+// ==========================================
+// Receipt Scanning Models
+// ==========================================
+
+model Receipt {
+  id            String        @id @default(cuid())
+  householdId   String
+  uploadedBy    String
+  status        String        @default("uploaded") // uploaded | processing | parsed | confirmed | cancelled
+  rawText       String?
+  parsedAt      DateTime?
+  confirmedAt   DateTime?
+  idempotencyKey String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  household     Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+  items         ReceiptItem[]
+
+  @@index([householdId])
+  @@index([uploadedBy])
+  @@index([status])
+  @@index([idempotencyKey])
+}
+
+model ReceiptItem {
+  id                 String   @id @default(cuid())
+  receiptId          String
+  lineText           String
+  productName        String?
+  normalizedName     String?
+  mappedIngredientId String?
+  quantityValue      Float?
+  quantityUnit       String?
+  inferredLevel      String?
+  processedCategory  String?  // "ingredient" | "processedFood"
+  confidenceScore    Float?
+  userModified       Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  receipt            Receipt    @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  mappedIngredient   Ingredient? @relation(fields: [mappedIngredientId], references: [id])
+
+  @@index([receiptId])
+  @@index([mappedIngredientId])
 }

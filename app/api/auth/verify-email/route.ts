@@ -93,11 +93,11 @@ export async function GET(req: Request) {
 
       // 認証用の一時トークン（verifyToken）を生成・保存
       const authToken = crypto.randomBytes(32).toString("hex");
-      await prisma.user.update({
-        where: { id: userId },
+      await prisma.authChallenge.create({
         data: {
-          verifyToken: authToken,
-          verifyTokenCreatedAt: new Date(),
+          userId,
+          challenge: `auto_login:${authToken}`,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5分間有効
         },
       });
 
@@ -125,11 +125,11 @@ export async function GET(req: Request) {
       });
 
       const authToken = crypto.randomBytes(32).toString("hex");
-      await prisma.user.update({
-        where: { id: ev.userId as string },
+      await prisma.authChallenge.create({
         data: {
-          verifyToken: authToken,
-          verifyTokenCreatedAt: new Date(),
+          userId: ev.userId as string,
+          challenge: `auto_login:${authToken}`,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5分間有効
         },
       });
 

@@ -14,11 +14,11 @@ const SITE_URL =
 export const metadata: Metadata = {
   title: "冷蔵庫の在庫管理｜ My-fridgeai",
   description:
-    "バーコードスキャンで簡単食材登録！数値管理と感覚的なレベル管理に対応。賞味期限自動通知で食品ロスを削減。冷蔵庫の在庫管理を効率化する無料アプリ。",
+    "レシート読み取りで簡単食材登録！数値管理と感覚的なレベル管理に対応。賞味期限自動通知で食品ロスを削減。冷蔵庫の在庫管理を効率化する無料アプリ。",
   openGraph: {
     title: "冷蔵庫の在庫管理｜ My-fridgeai",
     description:
-      "数値管理／ざっくり管理に対応。バーコードで簡単登録、賞味期限アラートで食材ロスを削減。",
+      "数値管理／ざっくり管理に対応。レシート読み取りで簡単登録、賞味期限アラートで食材ロスを削減。",
     url: `${SITE_URL}/features/fridge-management`,
     images: [`${SITE_URL}/og-images/og-top.png`],
   },
@@ -101,10 +101,10 @@ export default function FridgeManagementPage() {
                 1
               </div>
               <h2 className="text-2xl font-bold dark:text-white">
-                バーコードで瞬時に登録
+                レシートで一括登録
               </h2>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                スマートフォンのカメラでバーコードをスキャン。商品データベースから情報を自動取得し、在庫への追加が数秒で完了します。
+                レシートを撮影するだけで、AIが複数の食材をまとめて読み取り。内容を確認してボタン一つで在庫に追加できます。
               </p>
             </div>
             <div className="p-10 bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] space-y-6 border border-slate-100 dark:border-slate-800">
@@ -128,8 +128,8 @@ export default function FridgeManagementPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[
                 {
-                  title: "バーコードスキャン",
-                  desc: "高速読み取りで商品を追加",
+                  title: "レシートAI読み取り",
+                  desc: "複数の食材を自動抽出して追加",
                 },
                 {
                   title: "単位付き数値管理",

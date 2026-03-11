@@ -84,10 +84,6 @@ export async function POST(req: NextRequest) {
             ? sanitizeString(body.category, 50)
             : "加工食品";
 
-        const barcode = body.barcode
-            ? sanitizeString(body.barcode, 50)
-            : null;
-
         const product = await prisma.product.create({
             data: {
                 userId,
@@ -97,7 +93,6 @@ export async function POST(req: NextRequest) {
                 requiresAdditionalIngredients,
                 instructionTemplate,
                 nutritionEstimate: body.nutritionEstimate || null,
-                barcode,
                 category,
             },
         });

@@ -3,12 +3,12 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import NotificationModal from "@/app/components/NotificationModal";
-import { Plus, Search, Bell, ScanLine } from "lucide-react";
+import { Plus, Search, Bell, Receipt } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useFridge } from "@/app/components/FridgeProvider";
 import IngredientList from "@/app/components/IngredientList";
-import BarcodeScanner from "@/app/components/BarcodeScanner";
+import ReceiptScanner from "@/app/components/ReceiptScanner";
 import Toast from "@/app/components/Toast";
 import AddEditModal from "@/app/components/AddEditModal";
 import PageTransition, {
@@ -34,8 +34,8 @@ export default function HomePage() {
     toast,
     setToast,
     addOrUpdateItem,
-    barcodeOpen,
-    setBarcodeOpen,
+    receiptScanOpen,
+    setReceiptScanOpen,
   } = useFridge();
 
   useEffect(() => {
@@ -234,15 +234,16 @@ export default function HomePage() {
               )}
             </button>
             <button
-              onClick={() => setBarcodeOpen(true)}
+              onClick={() => setReceiptScanOpen(true)}
               className="p-2 rounded-full transition"
               style={{
                 background: "var(--surface-bg)",
                 border: "1px solid var(--surface-border)",
                 color: "var(--color-text-secondary)",
               }}
+              title="レシート読み取り"
             >
-              <ScanLine size={20} />
+              <Receipt size={20} />
             </button>
             <button
               onClick={() => setAddOpen(true)}
@@ -349,11 +350,11 @@ export default function HomePage() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {barcodeOpen && (
+        {receiptScanOpen && (
           <div>
-            <BarcodeScanner
-              visible={barcodeOpen}
-              onClose={() => setBarcodeOpen(false)}
+            <ReceiptScanner
+              visible={receiptScanOpen}
+              onClose={() => setReceiptScanOpen(false)}
             />
           </div>
         )}

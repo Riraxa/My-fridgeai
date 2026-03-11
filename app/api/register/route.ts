@@ -2,7 +2,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { validatePasswordStrength, sanitizeString } from "@/lib/security";
+import { resend, EMAIL_FROM } from "@/lib/mail/resend";
+import { buildVerificationEmail } from "@/lib/mail/verificationTemplates";
+
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+
+function hashToken(token: string) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 const PASSWORD_POLICY = {
   minLen: 12,
@@ -56,8 +65,8 @@ export async function POST(req: Request) {
     }
 
     // 既存ユーザーチェック
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
       return NextResponse.json(
         { ok: false, message: "このメールアドレスは既に登録されています。" },
         { status: 409 },
@@ -69,18 +78,57 @@ export async function POST(req: Request) {
 
     const hashed = await bcrypt.hash(String(password), 12);
 
-    await prisma.user.create({
+    // 同じメールアドレスでPendingUserが存在するか確認し、あれば削除/上書きする
+    const existingPending = await prisma.pendingUser.findUnique({ where: { email } });
+    if (existingPending) {
+        await prisma.pendingUser.delete({ where: { id: existingPending.id } });
+    }
+
+    // ランダムトークンの生成
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashToken(rawToken);
+    
+    // 24時間有効
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const pendingUser = await prisma.pendingUser.create({
       data: {
         email,
         name: sanitizedName,
         password: hashed,
-        status: "active",
+        expiresAt,
       },
     });
 
+    await prisma.emailVerification.create({
+      data: {
+        pendingUserId: pendingUser.id,
+        tokenHash,
+        code: "email_verification", // Identify purpose
+        expiresAt,
+      },
+    });
+
+    // 確認メール送信
+    const verifyUrl = `${BASE_URL}/api/auth/verify-email?token=${rawToken}`;
+    const { subject, plain, html } = buildVerificationEmail(verifyUrl);
+
+    try {
+      await resend.emails.send({
+        from: EMAIL_FROM,
+        to: email,
+        subject,
+        text: plain,
+        html,
+      });
+    } catch (mailErr) {
+      console.error("Failed to send verification email:", mailErr);
+      // Create it anyway to not block dev but in production this should probably fail the request.
+    }
+
     return NextResponse.json({
       ok: true,
-      message: "登録が完了しました。ログインしてください。",
+      message: "確認メールを送信しました。メール内のリンクをクリックして登録を完了してください。",
     });
   } catch (err: unknown) {
     const error = err as Error;

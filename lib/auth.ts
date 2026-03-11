@@ -57,19 +57,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       async authorize(credentials) {
         if (credentials?.token) {
-          const user = await prisma.user.findFirst({
+          const challenge = await prisma.authChallenge.findFirst({
             where: {
-              verifyToken: credentials.token as string,
-              status: "active",
+              challenge: `auto_login:${credentials.token}`,
+              used: false,
+              expiresAt: { gt: new Date() },
             },
+            include: { user: true },
           });
 
-          if (user) {
+          if (challenge && challenge.user && challenge.user.status === "active") {
+            const user = challenge.user;
+            await prisma.authChallenge.update({
+              where: { id: challenge.id },
+              data: { used: true },
+            });
+
             await prisma.user.update({
               where: { id: user.id },
               data: {
-                verifyToken: null,
-                verifyTokenCreatedAt: null,
                 authMethod: user.authMethod ?? "password_only",
               },
             });

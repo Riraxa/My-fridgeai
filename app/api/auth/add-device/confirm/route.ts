@@ -82,12 +82,12 @@ export async function POST(req: Request) {
     // これはパスキー登録完了時にのみセッションを発行するために使用
     const passkeySetupToken = crypto.randomBytes(32).toString("hex");
 
-    // ユーザーのverifyTokenに保存（5分間有効）
-    await prisma.user.update({
-      where: { id: verification.user.id },
+    // AuthChallengeに登録用の一時トークンを保存（5分間有効）
+    await prisma.authChallenge.create({
       data: {
-        verifyToken: `passkey_setup:${passkeySetupToken}`,
-        verifyTokenCreatedAt: new Date(),
+        userId: verification.user.id,
+        challenge: `passkey_setup:${passkeySetupToken}`,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5分間有効
       },
     });
 

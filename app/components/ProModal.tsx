@@ -103,12 +103,6 @@ export default function ProModal({ open, onClose }: ProModalProps) {
                 </span>{" "}
                 できる
               </li>
-              <li>
-                バーコードスキャン{" "}
-                <span className="font-bold" style={{ color: "var(--accent)" }}>
-                  使い放題
-                </span>
-              </li>
               <li>期限優先・栄養バランス重視の献立提案</li>
             </ul>
           </div>

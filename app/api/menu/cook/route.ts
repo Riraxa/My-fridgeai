@@ -116,6 +116,20 @@ export async function POST(req: Request) {
           data: { selectedMenu: selectedMenu ?? "main" },
         });
       }
+
+      // 利用履歴を記録
+      await tx.usageHistory.create({
+        data: {
+          userId,
+          action: "COMPLETE_COOKING",
+          meta: {
+            menuGenerationId,
+            selectedMenu,
+            cookedDishes: _cookedDishesList,
+            completedAt: new Date().toISOString(),
+          } as any,
+        },
+      });
     });
 
     return NextResponse.json({

@@ -15,7 +15,6 @@ export interface Product {
     fat?: number;
     carbs?: number;
   } | null;
-  barcode: string | null;
   category: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;

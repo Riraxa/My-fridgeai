@@ -211,7 +211,7 @@ export default function Page() {
                 簡単在庫管理
               </h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                バーコードスキャンや手入力で素早く登録。ミリ単位の正確な管理から直感的な管理まで対応。
+                レシート読み取りや手入力で素早く登録。AIがレシートから食材を自動抽出し、在庫管理を劇的に効率化。
               </p>
               <Link
                 href="/features/fridge-management"

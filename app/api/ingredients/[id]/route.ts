@@ -20,9 +20,6 @@ export async function PUT(
     where: { id, userId },
     data: {
       name: body.name,
-      quantity: Number(
-        body.amount !== undefined ? body.amount : body.quantity || 0,
-      ), // Legacy: amountをコピーして後方互換性を維持
       amount: body.amount !== undefined ? Number(body.amount) : undefined,
       amountLevel: body.amountLevel,
       unit: body.unit ?? "個",

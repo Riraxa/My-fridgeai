@@ -69,7 +69,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const isValidToken = user.verifyToken === `passkey_setup:${setupToken}`;
+    const challenge = await prisma.authChallenge.findFirst({
+      where: {
+        userId: user.id,
+        challenge: `passkey_setup:${setupToken}`,
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    const isValidToken = !!challenge;
     const isRecentlyCompleted = user.passkeySetupCompleted;
 
     if (!isValidToken && !isRecentlyCompleted) {
@@ -94,14 +103,28 @@ export async function POST(req: Request) {
       );
     }
 
+    // チャレンジを使用済みにマーク
+    if (challenge) {
+      await prisma.authChallenge.update({
+        where: { id: challenge.id },
+        data: { used: true },
+      });
+    }
+
     // 認証用トークンを生成（NextAuth signInで使用）
     const authToken = crypto.randomBytes(32).toString("hex");
+
+    await prisma.authChallenge.create({
+      data: {
+        userId: user.id,
+        challenge: `auto_login:${authToken}`,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      },
+    });
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        verifyToken: authToken,
-        verifyTokenCreatedAt: new Date(),
         passkeySetupCompleted: true,
       },
     });

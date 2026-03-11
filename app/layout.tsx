@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "My-fridgeai",
-  description: "AI冷蔵庫管理アプリで食材の無駄をゼロに。賞味期限通知、在庫管理、献立自動提案まで。バーコード読み取りで簡単登録。食品ロス削減と毎日の料理をサポートする無料アプリ。",
+  description: "AI冷蔵庫管理アプリで食材の無駄をゼロに。賞味期限通知、在庫管理、献立自動提案まで。レシート読み取りで簡単登録。食品ロス削減と毎日の料理をサポートする無料アプリ。",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
