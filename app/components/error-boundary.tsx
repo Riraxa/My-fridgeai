@@ -35,7 +35,7 @@ class ErrorBoundary extends Component<Props, State> {
             エラーが発生しました
           </h2>
           <p className="text-red-600 mb-4 text-sm">
-            {this.state.error?.message || "不明なエラーです"}
+            {this.state.error?.message ?? "不明なエラーです"}
           </p>
           <button
             onClick={() => this.setState({ hasError: false })}

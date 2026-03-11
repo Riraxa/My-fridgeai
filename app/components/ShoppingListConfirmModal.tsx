@@ -23,7 +23,7 @@ export default function ShoppingListConfirmModal({
   onClose,
   missingIngredients,
 }: ShoppingListConfirmModalProps) {
-  const { setShopping } = useFridge();
+  const { setShopping: _setShopping } = useFridge();
   const [loading, setLoading] = useState(false);
 
   // 一括追加
@@ -43,7 +43,7 @@ export default function ShoppingListConfirmModal({
       }
 
       const data = await res.json();
-      const count = data.processed || 0;
+      const count = data.processed ?? 0;
 
       // ローカル側の買い物リストも更新（再フェッチするか、疑似的に追加するか）
       // ここでは簡易的に現在のshoppingステートにマージする動きを入れたいが、

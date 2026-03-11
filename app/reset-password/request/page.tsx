@@ -34,7 +34,7 @@ export default function ResetRequestPage() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMsg(j?.message || "送信に失敗しました");
+        setMsg(j?.message ?? "送信に失敗しました");
       } else {
         setMsg(
           "確認メールを送信しました。メールを確認してください（届いていない場合は迷惑メールもご確認ください）。",

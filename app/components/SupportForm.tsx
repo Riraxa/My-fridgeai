@@ -31,7 +31,7 @@ export default function SupportForm() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "送信エラー");
+        throw new Error(data.error ?? "送信エラー");
       }
 
       setMessage(data.message);

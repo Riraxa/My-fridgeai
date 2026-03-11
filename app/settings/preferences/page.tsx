@@ -149,7 +149,7 @@ export default function EnhancedPreferencesPage() {
         setServerFreeText(initialFreeText);
         // 1. Precise normalization - only extract fields we manage in state
         const normalizedPrefs = {
-          cookingSkill: prefsData.preferences?.cookingSkill || "intermediate",
+          cookingSkill: prefsData.preferences?.cookingSkill ?? "intermediate",
           comfortableMethods: Array.isArray(prefsData.preferences?.comfortableMethods) ? prefsData.preferences.comfortableMethods : [],
           avoidMethods: Array.isArray(prefsData.preferences?.avoidMethods) ? prefsData.preferences.avoidMethods : [],
           kitchenEquipment: Array.isArray(prefsData.preferences?.kitchenEquipment) ? prefsData.preferences.kitchenEquipment : [],
@@ -172,7 +172,7 @@ export default function EnhancedPreferencesPage() {
           freeText: tasteData.freeText ?? "",
         };
 
-        const nextGenrePenalty = tasteData.recentGenrePenalty || {};
+        const nextGenrePenalty = tasteData.recentGenrePenalty ?? {};
 
         // 2. Set all states simultaneously
         const nextAiMessageEnabled = prefsData.preferences?.aiMessageEnabled ?? false;
@@ -204,6 +204,8 @@ export default function EnhancedPreferencesPage() {
     fetchData();
   }, []);
 
+  // TODO: Implement debounced saving in future - currently unused but kept for reference
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _debouncedSaveTaste = useDebounce<[typeof taste]>(async (newData) => {
     await fetch("/api/preferences/taste", {
       method: "PUT",
@@ -718,7 +720,7 @@ export default function EnhancedPreferencesPage() {
                           if (typeInput && typeInput.value.trim()) {
                             addRestriction(
                               typeInput.value.trim(),
-                              noteInput?.value.trim() || "",
+                              noteInput?.value?.trim() || "",
                             );
                             typeInput.value = "";
                             if (noteInput) noteInput.value = "";

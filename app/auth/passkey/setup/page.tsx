@@ -47,7 +47,7 @@ function base64urlToUint8Array(base64url: string) {
     const out = new Uint8Array(len);
     for (let i = 0; i < len; i++) out[i] = binary.charCodeAt(i);
     return out;
-  } catch (error) {
+  } catch (_error) {
     throw new Error('DECODE_FAILED');
   }
 }
@@ -104,7 +104,7 @@ function preformatCreateOptions(opts: any) {
       }
       try {
         publicKey.user.id = base64urlToUint8Array(publicKey.user.id);
-      } catch (error: any) {
+      } catch (_error: any) {
         throw new Error('USER_ID_INVALID');
       }
     } else if (Array.isArray(publicKey.user.id)) {
@@ -122,7 +122,7 @@ function preformatCreateOptions(opts: any) {
           }
           try {
             out.id = base64urlToUint8Array(out.id);
-          } catch (error: any) {
+          } catch (_error: any) {
             throw new Error('CREDENTIAL_ID_INVALID');
           }
         } else if (Array.isArray(out.id)) {

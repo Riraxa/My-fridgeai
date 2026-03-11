@@ -1,3 +1,4 @@
+// GENERATED_BY_AI: 2026-03-10 antigravity
 //lib/ai/menu-generator.ts
 import OpenAI from "openai";
 import { Ingredient, UserPreferences } from "@prisma/client";
@@ -215,10 +216,10 @@ ${taste.freeText}`;
   // Note: key casting to any to bypass stale Prisma types in editor
   const prefsWithExpiry = preferences as
     | (UserPreferences & {
-        expirationCriticalDays?: number;
-        expirationWarningDays?: number;
-        expirationPriorityWeight?: number;
-      })
+      expirationCriticalDays?: number;
+      expirationWarningDays?: number;
+      expirationPriorityWeight?: number;
+    })
     | null;
   const _criticalThreshold = prefsWithExpiry?.expirationCriticalDays ?? 2;
   const _warningThreshold = prefsWithExpiry?.expirationWarningDays ?? 5;
@@ -303,19 +304,15 @@ ${taste.freeText}`;
     : "標準的なキッチン（ガスコンロ、電子レンジ、フライパン、鍋）";
 
   const systemPrompt = `あなたはプロの献立プランナーです。
-冷蔵庫にある食材を使って、実用的で美味しい家庭料理の献立を提案してください。
+冷蔵庫にある食材を最大限に活用し、実用的で美味しい、質の高い家庭料理の献立を提案してください。
 
-# 手持ち食材
+# 手持ち食材 (厳格な在庫リスト)
 ${ingredientList}
 
 # 加工食品の取り扱いルール（重要）
 1. **通常食材（raw）**: 通常通り工程を記述（例：キャベツを洗う→切る→炒める）
-2. **調理ベース（processed_base）**: 商品名から推測される一般的な調理手順に従う。工程内に必ず「商品操作手順に従い、○○を仕上げる」というニュアンスを含めること。
-   例： ["野菜を炒める", "商品操作手順に従いカレーを仕上げる"]
-3. **そのまま完成（instant_complete）**: 単体で完成する商品（レトルト、即席スープ等）。工程は1つのみ「商品操作手順に従い準備する」とする。
-   例： ["商品操作手順に従い準備する"]
-
-これらの区分はシステムによって自動推定されています。食材名から明らかに不自然な場合は、AIの判断で最適な調理法を優先してください。
+2. **調理ベース（processed_base）**: カレールーや鍋の素など。パッケージの一般的な調理手順に従い、「商品操作手順に従い、○○を仕上げる」という内容を必ず工程に含めること。
+3. **そのまま完成（instant_complete）**: レトルトカレーや即席スープなど。工程は原則1つ「商品操作手順に従い準備する」とする。
 
 # ⚠️ 最優先で使うべき食材（${_criticalThreshold}日以内）
 ${criticalList}
@@ -323,7 +320,7 @@ ${criticalList}
 # 優先的に使うべき食材（${_warningThreshold}日以内）
 ${warningList}
 
-優先度: ${Math.round(priorityWeight * 100)}% の確率でこれらの食材を使用してください。
+優先度: ${Math.round(priorityWeight * 100)}% の確率でこれらの期限間近の食材を使用してください。
 
 # ユーザー情報
 - 料理スキル: ${cookingSkill}
@@ -337,111 +334,61 @@ ${warningList}
 - 洗い物回避: ${lifestyle.dishwashingAvoid ? "はい" : "いいえ"}
 - 一つの鍋で調理: ${lifestyle.singlePan ? "はい" : "いいえ"}
 
-# 重要な制約
-1. **手持ちの食材を最大限活用すること**
-   - できるだけ上記の食材を使う
-   - 足りない調味料は基本調味料（醤油、塩、砂糖、酢、油など）のみ許可
-   - 特殊な食材を追加で買わせない
+# 🚨 最重要ルール (CRITICAL RULES) - 違反厳禁 🚨
+1. **食材の捏造（ハルシネーション）禁止**
+   - 上記の「手持ち食材」リストに存在しない食材や調味料を絶対に使用しないでください。
+   - 唯一の例外として、基本的な調味料（水、塩、こしょう、醤油、砂糖、みりん、酒、油）のみ追加使用を許可します。
+   - レシピの \`ingredients\` 配列に含める食材名は、手持ち食材のリストと完全に一致させてください。
+2. **分量の厳守**
+   - 料理に使う分量は、リストに示された「在庫の量 (amount)」を絶対に超えないでください。
+3. **手順の質**
+   - \`steps\` (調理手順) は「材料を揃える」「炒める」のような短すぎる雑な説明は禁止します。
+   - 各ステップは何をどうするか（例：「玉ねぎは薄切りにし、鶏肉は一口大に切る」「フライパンに油を熱し、鶏肉を中火で色が変わるまで炒める」）具体的に記述してください。
+4. **好みの分散と飽き防止**
+   - ユーザーの「味の好み」や「ジャンルの好み」は尊重しますが、毎日同じもの（例：毎日カレー）を提案しないでください。
+   - 必ず、3つの献立パターンの間でジャンルや味付け（和食・洋食・中華など）を散らしてください。
+5. **指定人数の適用**
+   - 各レシピの分量は、必ず ${servings} 人前 になるように計算してください。
 
-2. **賞味期限の近い食材を優先的に使うこと**
-   - 「優先的に使うべき食材」リストの食材を積極的に使う
+# 提案する献立パターン（必ず3パターン）
+**1. main (メイン提案)**
+   - 最も栄養バランスが良く、期限間近の食材を最優先で消化する献立。
+**2. alternativeA (代替案A)**
+   - mainとは全く異なるジャンル・味付けの献立。
+**3. alternativeB (スピードメニュー)**
+   - 調理時間15分以内の時短献立。
 
-3. **避けたい調理法は絶対に使わないこと**
-
-4. **味の好みを考慮すること**
-   - ユーザーの味の好み（${tastePrefs}）を献立に反映させる
-   - 好ましい味付けの料理を優先的に提案する
-   - 避けたい味付けの料理は避ける
-
-5. **ライフスタイル設定を考慮すること**
-   ${lifestyle.timePriority === "fast" ? "- 時短レシピを優先的に提案する（調理時間15分以内）" : ""}
-   ${lifestyle.dishwashingAvoid ? "- 洗い物が少ないレシピを優先する（ワンパン調理、少ない調理器具）" : ""}
-   ${lifestyle.singlePan ? "- 一つの鍋やフライパンで作れるレシピを優先する" : ""}
-
-6. **生成優先順位**
-   1）消費期限
-   2）包刀不要条件（該当時）
-   3）processed_base 活用可能性
-   4）instant_complete 活用可能性
-   5）味の好み
-   6）栄養バランス
-
-# 提案する献立パターン（必ず3パターン、各構成はAI判定）
-
-**1. メイン提案**
-- 最も栄養バランスが良く、賞味期限の近い食材を優先。
-- 加工食品（調理ベース/そのまま完成）があれば積極的に活用。
-- 全料理に nutrition 要。
-- ※栄養値はAI推定値です。
-
-**2. 代替案A**
-- 別ジャンル。加工食品も活用可能。
-- 全料理に nutrition 要。
-
-**3. 代替案B**
-- 15分以内の時短献立。そのまま完成（instant_complete）タイプを優先的に活用。
-- 全料理に nutrition 要。
-
-# 出力形式（必ずこのJSON形式で。各 dishes に nutrition を含めること）
-
+# 出力形式 (厳格なJSON)
 {
   "main": {
     "title": "今日のおすすめ定食",
-    "reason": "説明",
-    "tags": ["和食"],
+    "reason": "期限が近い食材を使い切れる、栄養満点の和食です。",
+    "tags": ["和食", "使い切り"],
     "dishes": [
       {
         "type": "主菜",
-        "name": "料理名",
+        "name": "鶏肉と玉ねぎの甘辛炒め",
         "cookingTime": 20,
         "difficulty": 2,
-        "ingredients": [{"name": "食材", "amount": 100, "unit": "g"}],
-        "steps": ["手順1", "手順2"],
-        "tips": "コツ",
-        "nutrition": {"calories": 300, "protein": 20, "fat": 15, "carbs": 25}
+        "ingredients": [
+          {"name": "鶏むね肉", "amount": 200, "unit": "g"},
+          {"name": "玉ねぎ", "amount": 1, "unit": "個"}
+        ],
+        "steps": [
+          "玉ねぎはくし形に切り、鶏むね肉は一口大のそぎ切りにする。",
+          "フライパンに油を熱し、鶏肉を中火で両面に焼き色がつくまで焼く。",
+          "玉ねぎを加えて軽く炒め合わせたら、醤油大さじ1、みりん大さじ1を加えて全体に絡め、照りが出たら完成。"
+        ],
+        "tips": "鶏肉はそぎ切りにすることで火の通りが早くなり、柔らかく仕上がります。",
+        "nutrition": {"calories": 300, "protein": 25, "fat": 12, "carbs": 15}
       }
     ]
   },
-  "alternativeA": {
-    "title": "メニューA",
-    "reason": "理由",
-    "tags": ["洋食"],
-    "dishes": [
-      {
-        "type": "主菜",
-        "name": "料理名",
-        "cookingTime": 15,
-        "difficulty": 2,
-        "ingredients": [{"name": "食材", "amount": 100, "unit": "g"}],
-        "steps": ["手順1"],
-        "tips": "コツ",
-        "nutrition": {"calories": 250, "protein": 15, "fat": 10, "carbs": 30}
-      }
-    ]
-  },
-  "alternativeB": {
-    "title": "スピードメニュー",
-    "reason": "理由",
-    "tags": ["時短"],
-    "dishes": [
-      {
-        "type": "主菜",
-        "name": "料理名",
-        "cookingTime": 10,
-        "difficulty": 1,
-        "ingredients": [{"name": "食材", "amount": 100, "unit": "g"}],
-        "steps": ["手順1"],
-        "tips": "コツ",
-        "nutrition": {"calories": 200, "protein": 12, "fat": 8, "carbs": 40}
-      }
-    ]
-  }
+  "alternativeA": { ... },
+  "alternativeB": { ... }
 }
 
-**重要**:
-- 必ず有効なJSONのみを出力してください。
-- 全ての dishes 項目に nutrition（calories, protein, fat, carbs）の数値を必ず含めてください。
-- 必ず "main", "alternativeA", "alternativeB" の3つのキーを持つオブジェクトを返してください。`;
+**重要**: 全ての料理に \`nutrition\` を必ず含め、有効なJSONのみ出力してください。`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -552,11 +499,11 @@ ${warningList}
               dish.nutrition && typeof dish.nutrition === "object"
                 ? (dish.nutrition as GeneratedMenu["dishes"][number]["nutrition"])
                 : {
-              calories: 0,
-              protein: 0,
-              fat: 0,
-              carbs: 0,
-            },
+                  calories: 0,
+                  protein: 0,
+                  fat: 0,
+                  carbs: 0,
+                },
           });
         }
       });
@@ -616,9 +563,9 @@ ${warningList}
         dish.nutrition ??= { calories: 0, protein: 0, fat: 0, carbs: 0 };
         // Ensure numbers
         if (typeof dish.cookingTime === "string")
-          dish.cookingTime = parseInt(dish.cookingTime) || 20;
+          dish.cookingTime = parseInt(dish.cookingTime) ?? 20;
         if (typeof dish.difficulty === "string")
-          dish.difficulty = parseInt(dish.difficulty) || 3;
+          dish.difficulty = parseInt(dish.difficulty) ?? 3;
       });
     };
     normalize(result.main);
@@ -649,10 +596,10 @@ export async function generateWeeklyPlanAI(
   // Extract preferences
   const prefsWithExpiry = preferences as
     | (UserPreferences & {
-        expirationCriticalDays?: number;
-        expirationWarningDays?: number;
-        expirationPriorityWeight?: number;
-      })
+      expirationCriticalDays?: number;
+      expirationWarningDays?: number;
+      expirationPriorityWeight?: number;
+    })
     | null;
   const priorityWeight = prefsWithExpiry?.expirationPriorityWeight ?? 0.7;
 

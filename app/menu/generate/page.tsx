@@ -794,6 +794,12 @@ export default function MenuGeneratePage() {
                 )}
               </button>
 
+              {loading && (
+                <p className="mt-4 text-sm text-[var(--color-text-secondary)] animate-pulse">
+                  ※ 高精度な献立をご提案するため、生成に約1分かかります。
+                </p>
+              )}
+
               {error && (
                 <div className="mt-4 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-3 rounded flex items-center gap-2 justify-center border border-red-100 dark:border-red-900/30">
                   <AlertTriangle size={16} />
@@ -830,7 +836,7 @@ export default function MenuGeneratePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <MenuCard
-                  type="main"
+                  _type="main"
                   menu={{
                     name: generated.menus.main?.title ?? "献立",
                     description: generated.menus.main?.reason ?? "",
@@ -860,7 +866,7 @@ export default function MenuGeneratePage() {
                 />
 
                 <MenuCard
-                  type="altA"
+                  _type="altA"
                   menu={{
                     name: generated.menus.alternativeA?.title ?? "代替案A",
                     description: generated.menus.alternativeA?.reason ?? "",
@@ -889,7 +895,7 @@ export default function MenuGeneratePage() {
                 />
 
                 <MenuCard
-                  type="altB"
+                  _type="altB"
                   menu={{
                     name: generated.menus.alternativeB?.title ?? "代替案B",
                     description: generated.menus.alternativeB?.reason ?? "",
@@ -964,6 +970,9 @@ export default function MenuGeneratePage() {
                     <div className="animate-spin h-8 w-8 border-2 border-[var(--accent)] border-t-transparent rounded-full mx-auto mb-4"></div>
                     <p className="text-[var(--color-text-secondary)]">
                       レシピを取得中...
+                    </p>
+                    <p className="text-[var(--color-text-muted)] mt-2 text-sm animate-pulse">
+                      ※ 詳細なレシピを執筆しています（約50秒）
                     </p>
                   </div>
                 ) : recipeDetails.length > 0 ? (

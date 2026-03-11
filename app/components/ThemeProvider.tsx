@@ -30,7 +30,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const saved =
-      (localStorage.getItem("theme") as ThemeMode | null) || "system";
+      (localStorage.getItem("theme") as ThemeMode | null) ?? "system";
     setRawTheme(saved);
 
     const getEffectiveTheme = (mode: ThemeMode): "light" | "dark" => {

@@ -43,7 +43,7 @@ export default function InviteSuccessModal({
           text: "My-fridgeaiの家族グループに招待します。このリンクから参加してください。",
           url: inviteUrl,
         });
-      } catch (e) {
+      } catch (_e) {
         // user cancelled or failed
       }
     } else {

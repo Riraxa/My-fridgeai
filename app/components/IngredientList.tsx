@@ -211,7 +211,7 @@ export default function IngredientList({
                     ) : (
                       <span>
                         {it.amount ?? it.quantity}
-                        {it.unit || ""}
+                        {it.unit ?? ""}
                       </span>
                     )}
                   </div>

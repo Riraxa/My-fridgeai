@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useTheme } from "@/app/components/ThemeProvider";
 
 interface Dish {
@@ -32,7 +31,6 @@ interface WeeklyPlanResponse {
 
 export default function WeeklyPlanningPage() {
   const router = useRouter();
-  const { data: session } = useSession();
   const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanResponse | null>(null);

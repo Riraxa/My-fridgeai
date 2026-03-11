@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     // usedIngredients: optional, provided if menuGenerationId is missing
 
     let usedIngredientsList: any[] = [];
-    let _cookedDishesList: string[] = cookedDishes || [];
+    let _cookedDishesList: string[] = cookedDishes ?? [];
 
     // 1. Get Generation Record (if provided)
     if (menuGenerationId) {
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
       if (menuGenerationId) {
         await tx.menuGeneration.update({
           where: { id: menuGenerationId },
-          data: { selectedMenu: selectedMenu || "main" },
+          data: { selectedMenu: selectedMenu ?? "main" },
         });
       }
     });

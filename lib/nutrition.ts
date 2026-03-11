@@ -42,10 +42,10 @@ export function evaluateNutrition(
   // Sum up all nutrition from dishes
   for (const dish of dishes) {
     if (dish.nutrition) {
-      total.calories += dish.nutrition.calories || 0;
-      total.protein += dish.nutrition.protein || 0;
-      total.fat += dish.nutrition.fat || 0;
-      total.carbs += dish.nutrition.carbs || 0;
+      total.calories += dish.nutrition.calories ?? 0;
+      total.protein += dish.nutrition.protein ?? 0;
+      total.fat += dish.nutrition.fat ?? 0;
+      total.carbs += dish.nutrition.carbs ?? 0;
     }
   }
 

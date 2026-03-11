@@ -4,9 +4,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSecureRandomString } from "@/lib/security";
 
-const INVITE_BASE_URL = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/household/join`;
+const INVITE_BASE_URL = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/household/join`;
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   });
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });

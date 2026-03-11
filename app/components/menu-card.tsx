@@ -4,12 +4,9 @@
 import {
   Clock,
   Flame,
-  AlertTriangle,
-  XCircle,
   BarChart2,
   Lightbulb,
   ShoppingCart,
-  Plus,
 } from "lucide-react";
 
 interface IngredientStatus {
@@ -43,7 +40,7 @@ interface MenuPattern {
 }
 
 interface MenuCardProps {
-  type: "main" | "altA" | "altB";
+  _type: "main" | "altA" | "altB";
   menu: MenuPattern;
   availability: AvailabilityData;
   nutrition?: any;
@@ -54,7 +51,7 @@ interface MenuCardProps {
 }
 
 export default function MenuCard({
-  type,
+  _type,
   menu,
   availability,
   nutrition,

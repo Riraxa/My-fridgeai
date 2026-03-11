@@ -33,7 +33,7 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(prefs.tasteJson || {});
+    return NextResponse.json(prefs.tasteJson ?? {});
   } catch (error) {
     console.error("Taste GET Error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
@@ -61,13 +61,13 @@ export async function PUT(req: Request) {
       where: { userId },
     });
 
-    const currentTaste = (currentPrefs?.tasteJson as any) || {};
+    const currentTaste = (currentPrefs?.tasteJson as any) ?? {};
     const updatedTaste = {
       ...currentTaste,
       ...parsed.data,
       lifestyle: {
-        ...(currentTaste.lifestyle || {}),
-        ...(parsed.data.lifestyle || {}),
+        ...(currentTaste.lifestyle ?? {}),
+        ...(parsed.data.lifestyle ?? {}),
       },
     };
 

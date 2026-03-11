@@ -92,7 +92,7 @@ export default function Tabs() {
     <div className="mb-8">
       {/* タブコンテナ */}
       <div className="relative flex gap-2 bg-[var(--surface-bg)] p-1 rounded-xl border border-[var(--surface-border)]">
-        {tabs.map((tab, index) => {
+        {tabs.map((tab, _index) => {
           const isActive = pathname === tab.href;
 
           return (

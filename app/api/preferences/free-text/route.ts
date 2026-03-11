@@ -68,7 +68,7 @@ export async function PUT(req: Request) {
       where: { userId },
     });
 
-    const currentTaste = (currentPrefs?.tasteJson as any) || {};
+    const currentTaste = (currentPrefs?.tasteJson as any) ?? {};
     const updatedTaste = {
       ...currentTaste,
       freeText: parsed.data.freeText,

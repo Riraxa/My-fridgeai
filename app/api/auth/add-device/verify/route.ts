@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
 import { resend, EMAIL_FROM } from "@/lib/mail/resend";
+import { buildPasskeyVerificationEmail } from "@/lib/mail/passkeyTemplates";
 import crypto from "crypto";
 import { headers } from "next/headers";
 import { rateLimit } from "@/lib/rateLimiter";
@@ -161,38 +162,14 @@ export async function POST(req: Request) {
 
     // 確認メールを送信
     const verifyUrl = `${BASE_URL}/auth/passkey/add-device/verify?token=${rawToken}`;
+    const { subject, plain, html } = buildPasskeyVerificationEmail(verifyUrl);
 
     await resend.emails.send({
       from: EMAIL_FROM,
       to: user.email ?? "",
-      subject: "【My-fridgeai】新しい端末でのパスキー登録確認",
-      html: `
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 24px;">My-fridgeai</h1>
-</div>
-<div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 12px 12px;">
-  <p style="margin-bottom: 16px;">My-fridgeai をご利用いただきありがとうございます。</p>
-  <p style="margin-bottom: 16px;">新しい端末から、あなたのアカウントにパスキーを追加登録しようとしています。</p>
-  <p style="margin-bottom: 24px;">以下のボタンをクリックして、パスキーの登録を完了してください。</p>
-  <div style="text-align: center; margin: 30px 0;">
-    <a href="${verifyUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">パスキー登録を続行する</a>
-  </div>
-  <p style="color: #666; font-size: 14px; margin-top: 24px;">※このリンクの有効期限は15分です。</p>
-  <p style="color: #666; font-size: 14px;">※この操作に心当たりがない場合は、本メールを破棄してください。</p>
-</div>
-<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
-  © My-fridgeai
-</div>
-</body>
-</html>
-      `.trim(),
+      subject,
+      text: plain,
+      html,
     });
 
     return NextResponse.json({

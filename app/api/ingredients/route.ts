@@ -8,7 +8,7 @@ import { sanitizeString, escapeHtml } from "@/lib/security";
 import { addApiSecurityHeaders } from "@/lib/securityHeaders";
 
 // GET: 食材一覧取得
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const session = await auth();
 
@@ -25,10 +25,10 @@ export async function GET(req: NextRequest) {
     // レスポンスデータのサニタイズ
     const sanitizedList = list.map((item) => ({
       ...item,
-      name: escapeHtml(item.name || ""),
-      unit: escapeHtml(item.unit || ""),
-      category: escapeHtml(item.category || ""),
-      ingredientType: item.ingredientType || "raw",
+      name: escapeHtml(item.name ?? ""),
+      unit: escapeHtml(item.unit ?? ""),
+      category: escapeHtml(item.category ?? ""),
+      ingredientType: item.ingredientType ?? "raw",
     }));
 
     return addApiSecurityHeaders(NextResponse.json({ items: sanitizedList }));
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     // 有効な日付のチェック
     let expirationDate: Date | null = null;
-    const rawDate = body.expirationDate || body.expiry;
+    const rawDate = body.expirationDate ?? body.expiry;
     if (rawDate) {
       const parsed = new Date(rawDate);
       if (!isNaN(parsed.getTime()) && parsed > new Date("2000-01-01")) {
@@ -102,18 +102,18 @@ export async function POST(req: NextRequest) {
     // ingredientType is automatically inferred
     const { inferIngredientType } = await import("@/lib/ingredient-inference");
     const { ingredientType } = inferIngredientType(name);
-    const productId = body.productId || null;
+    const productId = body.productId ?? null;
 
     const created = await prisma.ingredient.create({
       data: {
         userId,
         name,
-        quantity: amount || 0, // Legacy: amountをコピーして後方互換性を維持
+        quantity: amount ?? 0, // Legacy: amountをコピーして後方互換性を維持
         amount,
         amountLevel,
-        unit: unit || "個",
+        unit: unit ?? "個",
         expirationDate,
-        category: category || "その他",
+        category: category ?? "その他",
         ingredientType,
         productId,
       },
@@ -123,8 +123,8 @@ export async function POST(req: NextRequest) {
     const sanitizedResponse = {
       ...created,
       name: escapeHtml(created.name),
-      unit: escapeHtml(created.unit || ""),
-      category: escapeHtml(created.category || ""),
+      unit: escapeHtml(created.unit ?? ""),
+      category: escapeHtml(created.category ?? ""),
     };
 
     return addApiSecurityHeaders(

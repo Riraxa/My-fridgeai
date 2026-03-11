@@ -26,7 +26,7 @@ export default function JoinForm({ token }: { token: string }) {
                 router.push("/settings/family");
                 router.refresh();
             }
-        } catch (e) {
+        } catch (_e) {
             toast.error("ネットワークエラーが発生しました");
         } finally {
             setLoading(false);

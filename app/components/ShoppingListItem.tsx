@@ -74,7 +74,7 @@ export default function ShoppingListItem({
           >
             {item.name}
           </span>
-          {(item.quantity || item.unit || item.note) && (
+          {(item.quantity ?? item.unit ?? item.note) && (
             <span className="text-xs text-[var(--color-text-muted)] truncate">
               {item.quantity && `${item.quantity}${item.unit ?? ""}`}
               {item.quantity && item.note && " • "}

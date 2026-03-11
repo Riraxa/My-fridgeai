@@ -43,11 +43,11 @@ export async function POST(req: Request) {
             // Remove amount with proper unit conversion
             const stockNormalized = normalizeAmount(
               stock.amount,
-              stock.unit || "",
+              stock.unit ?? "",
             );
             const usedNormalized = normalizeAmount(
               used.amount,
-              used.unit || "",
+              used.unit ?? "",
             );
 
             if (stockNormalized >= usedNormalized) {
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
             } else {
               // Insufficient stock - this shouldn't happen in normal uncancel flow
               console.warn(
-                `[Uncancel] Insufficient stock for ${stock.name}: have ${stock.amount}${stock.unit || ""}, trying to remove ${used.amount}${used.unit || ""}`,
+                `[Uncancel] Insufficient stock for ${stock.name}: have ${stock.amount}${stock.unit ?? ""}, trying to remove ${used.amount}${used.unit ?? ""}`,
               );
             }
           } else if (stock.amountLevel) {

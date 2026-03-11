@@ -1,5 +1,5 @@
 // lib/auth.ts
-import NextAuth, { AuthError, CredentialsSignin } from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -70,7 +70,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               data: {
                 verifyToken: null,
                 verifyTokenCreatedAt: null,
-                authMethod: user.authMethod || "password_only",
+                authMethod: user.authMethod ?? "password_only",
               },
             });
 
@@ -255,7 +255,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
 
           if (dbUser) {
-            const plan = dbUser.plan || "FREE";
+            const plan = dbUser.plan ?? "FREE";
             (session.user as { plan?: string }).plan = plan;
             (session.user as { isPro?: boolean }).isPro = plan === "PRO";
             (session.user as { cancelAtPeriodEnd?: boolean }).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;

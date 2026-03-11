@@ -1,6 +1,5 @@
 // app/api/auth/verify-email/route.ts
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
@@ -46,7 +45,7 @@ export async function GET(req: Request) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    const userEmail = ev.pendingUser?.email || ev.user?.email;
+    const userEmail = ev.pendingUser?.email ?? ev.user?.email;
     if (!userEmail) {
       return NextResponse.redirect(`${BASE_URL}/verify-request?status=invalid`);
     }
@@ -74,7 +73,7 @@ export async function GET(req: Request) {
           data: { emailVerified: new Date() },
         });
         userId = existingUser.id;
-        email = existingUser.email!;
+        email = existingUser.email ?? "";
       } else {
         // 新規ユーザー作成
         const newUser = await prisma.user.create({
@@ -89,7 +88,7 @@ export async function GET(req: Request) {
         });
         await prisma.pendingUser.delete({ where: { id: pending.id } });
         userId = newUser.id;
-        email = newUser.email!;
+        email = newUser.email ?? "";
       }
 
       // 認証用の一時トークン（verifyToken）を生成・保存
@@ -152,8 +151,9 @@ export async function GET(req: Request) {
 
     // Fallback
     return NextResponse.redirect(`${BASE_URL}/verify-request?status=invalid`);
-  } catch (err: any) {
-    console.error("[verify-email] error", err);
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("[verify-email] error", error);
     return NextResponse.json(
       { ok: false, message: "server error" },
       { status: 500 },

@@ -45,7 +45,7 @@ export default function ResetConfirmClient() {
 
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok) {
-        setMsg(j?.message || "パスワード更新に失敗しました");
+        setMsg(j?.message ?? "パスワード更新に失敗しました");
         setLoading(false);
         return;
       }

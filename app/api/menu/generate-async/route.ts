@@ -1,3 +1,4 @@
+// GENERATED_BY_AI: 2026-03-11 antigravity
 // app/api/menu/generate-async/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -98,6 +99,29 @@ export async function POST(req: Request) {
       }
     }
 
+    // 3.5. Hash calculation for caching (Async)
+    const crypto = await import("crypto");
+    const sortedIngredients = [...ingredients].sort((a, b) => a.id.localeCompare(b.id));
+    const userData = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferences: { select: { tasteJson: true } } }
+    });
+    const cachePayload = {
+      ingredients: sortedIngredients.map((i) => ({
+        id: i.id,
+        amount: i.amount,
+        amountLevel: i.amountLevel,
+        expiry: i.expirationDate?.toISOString(),
+      })),
+      prefs: userData?.preferences?.tasteJson,
+      servings,
+      budget,
+    };
+    const requestHash = crypto
+      .createHash("sha256")
+      .update(JSON.stringify(cachePayload))
+      .digest("hex");
+
     // 4. Create pending generation record
     const generation = await prisma.menuGeneration.create({
       data: {
@@ -112,6 +136,8 @@ export async function POST(req: Request) {
         // Added fields
         servings: servings,
         budget: budget ?? undefined,
+        requestHash: requestHash,
+        generatedAt: new Date(),
       },
     });
 

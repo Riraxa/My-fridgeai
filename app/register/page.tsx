@@ -5,7 +5,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
 import { Alert } from "@/app/components/Alert";
@@ -54,7 +54,6 @@ export default function RegisterPageClient() {
 }
 
 function RegisterPageContent() {
-  const router = useRouter();
   const search = useSearchParams();
   const errorParam = search?.get ? search.get("error") : null;
 
@@ -124,7 +123,7 @@ function RegisterPageContent() {
       const result = await res.json();
 
       if (!res.ok || !result.ok) {
-        throw new Error(result.message || "アカウント作成に失敗しました。");
+        throw new Error(result.message ?? "アカウント作成に失敗しました。");
       }
 
       setMsg({
@@ -141,7 +140,7 @@ function RegisterPageContent() {
       console.error("register error:", err);
       setMsg({
         type: "error",
-        text: err?.message || "アカウント作成に失敗しました。",
+        text: err?.message ?? "アカウント作成に失敗しました。",
       });
     } finally {
       setLoading(false);

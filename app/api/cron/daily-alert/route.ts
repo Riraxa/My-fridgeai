@@ -64,7 +64,7 @@ export async function GET(req: Request) {
                     });
 
                     // Skip if alerted within last 23 hours
-                    if (existingAlert && existingAlert.lastAlertedAt) {
+                    if (existingAlert?.lastAlertedAt) {
                         const hoursSince = differenceInHours(
                             new Date(),
                             existingAlert.lastAlertedAt,
@@ -108,7 +108,7 @@ export async function GET(req: Request) {
                         const itemsList = itemsToNotify
                             .map(
                                 (i) =>
-                                    `- ${i.name} (あと${differenceInDays(i.expirationDate!, new Date())}日)`,
+                                    `- ${i.name} (あと${differenceInDays(i.expirationDate ?? new Date(), new Date())}日)`,
                             )
                             .join("\n");
 
@@ -118,7 +118,7 @@ export async function GET(req: Request) {
                                 to: userEmail,
                                 subject: `【My-fridgeai】賞味期限が近い食材があります(${itemsToNotify.length}件)`,
                                 text:
-                                    `${pref.user.name || "ユーザー"} 様\n\n` +
+                                    `${pref.user.name ?? "ユーザー"} 様\n\n` +
                                     `以下の食材の賞味期限が近づいています。\n\n` +
                                     `${itemsList} \n\n` +
                                     `これらの食材を使って献立を作成しませんか？\n` +

@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resend, EMAIL_FROM } from "@/lib/mail/resend";
+import { buildPasskeyCompletionEmail } from "@/lib/mail/passkeyTemplates";
 import crypto from "crypto";
 import { headers } from "next/headers";
 import { rateLimit } from "@/lib/rateLimiter";
@@ -109,38 +110,16 @@ export async function POST(req: Request) {
     const deviceInfo = parseUserAgent(userAgent);
     const now = new Date();
     const formattedDate = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const ipAddress = (ip.split(",")[0] ?? "unknown").trim();
+    
+    const { subject, plain, html } = buildPasskeyCompletionEmail(deviceInfo, formattedDate, ipAddress);
 
     await resend.emails.send({
       from: EMAIL_FROM,
-      to: user.email!,
-      subject: "【My-fridgeai】新しい端末が登録されました",
-      html: `
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 24px;">My-fridgeai</h1>
-</div>
-<div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 12px 12px;">
-  <h2 style="color: #333; margin-top: 0;">新しい端末が登録されました</h2>
-  <p style="margin-bottom: 16px;">あなたのアカウントに新しい端末が登録されました。</p>
-  <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin: 20px 0;">
-    <p style="margin: 0 0 8px 0;"><strong>日時:</strong> ${formattedDate}</p>
-    <p style="margin: 0 0 8px 0;"><strong>端末:</strong> ${deviceInfo}</p>
-    <p style="margin: 0;"><strong>IPアドレス:</strong> ${(ip.split(",")[0] ?? "unknown").trim()}</p>
-  </div>
-  <p style="color: #e74c3c; font-weight: bold; margin-top: 24px;">この操作に心当たりがない場合は、すぐにサポートまでご連絡ください。</p>
-</div>
-<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
-  © My-fridgeai
-</div>
-</body>
-</html>
-      `.trim(),
+      to: user.email ?? "",
+      subject,
+      text: plain,
+      html,
     });
 
     return NextResponse.json({

@@ -5,7 +5,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { registerLocale } from "react-datepicker";
 import { ja } from "date-fns/locale";
-import { Ingredient, IngredientType } from "@/types";
+import { Ingredient } from "@/types";
 import { useNativeSelect } from "@/app/hooks/useNativeSelect";
 registerLocale("ja", ja);
 
@@ -273,7 +273,7 @@ export default function AddEditModal({
             {pickerOpen && (
               <div className="relative mt-2 z-50 flex justify-center">
                 <DatePicker
-                  selected={expiry || new Date()}
+                  selected={expiry ?? new Date()}
                   onChange={(date: Date | null) => {
                     setExpiry(date);
                     setPickerOpen(false);

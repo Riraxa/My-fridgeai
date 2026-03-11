@@ -55,7 +55,7 @@ export default function HistoryPage() {
         const data = await res.json();
         alert(data.error || "取り消しに失敗しました");
       }
-    } catch (e) {
+    } catch (_e) {
       alert("通信エラーが発生しました");
     } finally {
       setProcessing(null);
@@ -87,7 +87,7 @@ export default function HistoryPage() {
         const data = await res.json();
         alert(data.error || "元に戻すことに失敗しました");
       }
-    } catch (e) {
+    } catch (_e) {
       alert("通信エラーが発生しました");
     } finally {
       setProcessing(null);

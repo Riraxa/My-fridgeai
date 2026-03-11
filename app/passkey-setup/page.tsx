@@ -126,7 +126,7 @@ export default function PasskeySetupPage() {
                 return; // セッションが見つかったのでリダイレクトしない
               }
             }
-          } catch (error) {
+          } catch (_error) {
             // ネットワークエラー等は無視してリトライ継続
           }
 
@@ -152,7 +152,7 @@ export default function PasskeySetupPage() {
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok || !j?.ok)
-      throw new Error(j?.message || "Failed to get registration options");
+      throw new Error(j?.message ?? "Failed to get registration options");
     return j.options;
   }
 
@@ -164,7 +164,7 @@ export default function PasskeySetupPage() {
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok || !j?.ok)
-      throw new Error(j?.message || "Failed to register passkey");
+      throw new Error(j?.message ?? "Failed to register passkey");
     return j;
   }
 
@@ -184,7 +184,7 @@ export default function PasskeySetupPage() {
           "セッションが有効期限切れです。再度ログインしてください。",
         );
       }
-      throw new Error(error?.error || "登録完了処理に失敗しました");
+      throw new Error(error?.error ?? "登録完了処理に失敗しました");
     }
 
     return res.json();

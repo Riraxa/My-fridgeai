@@ -40,7 +40,7 @@ export default function ProModal({ open, onClose }: ProModalProps) {
       } else {
         console.error("No URL returned from checkout session creation:", data);
         alert(
-          data.error ||
+          data.error ??
           "エラーが発生しました。しばらくしてから再度お試しください。",
         );
       }

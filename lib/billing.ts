@@ -10,7 +10,7 @@ export async function getUserPlan(userId: string): Promise<"FREE" | "PRO"> {
     select: { plan: true },
   });
 
-  return (user?.plan as "FREE" | "PRO") || "FREE";
+  return (user?.plan as "FREE" | "PRO") ?? "FREE";
 }
 
 /**

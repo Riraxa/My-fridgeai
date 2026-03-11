@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         data: {
           userId,
           allergen: data.allergen,
-          label: data.label || data.allergen,
+          label: data.label ?? data.allergen,
         },
       });
       return NextResponse.json(allergy, { status: 201 });

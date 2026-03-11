@@ -98,7 +98,7 @@ export default function PasskeyManager() {
       if (data.ok && data.passkeys) {
         setPasskeys(data.passkeys);
       } else {
-        setError(data.message || "パスキーの取得に失敗しました");
+        setError(data.message ?? "パスキーの取得に失敗しました");
       }
     } catch {
       setError("パスキーの取得に失敗しました");
@@ -122,7 +122,7 @@ export default function PasskeyManager() {
         setPasskeys((prev) => prev.filter((p) => p.id !== id));
         setDeleteConfirm(null);
       } else {
-        setError(data.message || "削除に失敗しました");
+        setError(data.message ?? "削除に失敗しました");
       }
     } catch {
       setError("削除に失敗しました");
@@ -148,7 +148,7 @@ export default function PasskeyManager() {
         setRenameModal(null);
         setRenameValue("");
       } else {
-        setError(data.message || "名前の変更に失敗しました");
+        setError(data.message ?? "名前の変更に失敗しました");
       }
     } catch {
       setError("名前の変更に失敗しました");
@@ -264,7 +264,7 @@ export default function PasskeyManager() {
                     className="font-medium truncate cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => {
                       setRenameModal(passkey);
-                      setRenameValue(passkey.name || "");
+                      setRenameValue(passkey.name ?? "");
                     }}
                     title="クリックして名前を変更"
                   >
@@ -328,7 +328,7 @@ export default function PasskeyManager() {
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => handleDelete(deleteConfirm!)}
+                onClick={() => handleDelete(deleteConfirm ?? "")}
                 disabled={actionLoading}
                 className="border-2 border-red-500 bg-red-500 hover:bg-red-600 text-white"
               >

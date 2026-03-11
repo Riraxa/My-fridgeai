@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (user?.allowedIps && user.allowedIps.length > 0) {
-      const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+      const ip = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
       if (!user.allowedIps.includes(ip)) {
         return NextResponse.json(
           { ok: false, message: "許可されていないIPからの操作です" },

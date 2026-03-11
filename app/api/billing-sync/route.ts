@@ -70,7 +70,7 @@ export async function POST(_req: NextRequest) {
       where: { id: user.id },
       data: {
         plan: getPlanByStatus(subscription.status),
-        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end || !!cancelAt,
+        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end ?? !!cancelAt,
         stripeCurrentPeriodEnd: currentPeriodEnd,
         billingStatus: subscription.status,
         stripeSubscriptionId: subscription.id,

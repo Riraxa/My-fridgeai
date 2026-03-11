@@ -5,8 +5,8 @@ import { resend, EMAIL_FROM } from "@/lib/mail/resend";
 import crypto from "crypto";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL ||
-  process.env.VERCEL_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ??
+  process.env.VERCEL_URL ??
   "http://localhost:3000";
 
 function makeToken() {
@@ -87,8 +87,9 @@ export async function POST(req: Request) {
       ok: true,
       message: "確認メールを送信しました。メールをご確認ください。",
     });
-  } catch (err: any) {
-    console.error("[password-reset request] error:", err?.stack ?? err);
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("[password-reset request] error:", error?.stack ?? error);
     return NextResponse.json(
       {
         ok: false,

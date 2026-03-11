@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { AI_LIMIT_FREE, AI_LIMIT_PRO } from "@/lib/aiLimit";
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const session = await auth();
 

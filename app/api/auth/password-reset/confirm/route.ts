@@ -82,8 +82,9 @@ export async function POST(req: Request) {
       ok: true,
       message: "パスワードを更新しました。ログインしてください。",
     });
-  } catch (err: any) {
-    console.error("[password-reset confirm] error:", err?.stack ?? err);
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("[password-reset confirm] error:", error?.stack ?? error);
     return NextResponse.json(
       { ok: false, message: "サーバーエラーが発生しました" },
       { status: 500 },

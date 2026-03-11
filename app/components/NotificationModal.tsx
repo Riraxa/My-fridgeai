@@ -5,7 +5,6 @@ import React, { useEffect, useState, useCallback } from "react";
 import { X, Bell, Calendar, AlertCircle, Trash2, ChefHat } from "lucide-react";
 import {
   motion,
-  AnimatePresence,
   useMotionValue,
   useTransform,
   PanInfo,
@@ -194,7 +193,7 @@ export default function NotificationModal({
         const res = await fetch("/api/notifications");
         if (res.ok) {
           const data = await res.json();
-          setAlerts(data.alerts || []);
+          setAlerts(data.alerts ?? []);
         }
       } catch (e) {
         console.error("Failed to fetch notifications", e);

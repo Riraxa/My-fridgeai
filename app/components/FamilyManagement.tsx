@@ -76,9 +76,9 @@ export default function FamilyManagement({ userPlan }: { userPlan: string }) {
         fetchMembers();
         // グループ作成直後は招待はまだない
       } else {
-        alert(data.error || "作成に失敗しました。");
+        alert(data.error ?? "作成に失敗しました。");
       }
-    } catch (e) {
+    } catch (_e) {
       alert("エラーが発生しました。");
     } finally {
       setCreating(false);
@@ -97,9 +97,9 @@ export default function FamilyManagement({ userPlan }: { userPlan: string }) {
         });
         setShowSuccessModal(true);
       } else {
-        alert(data.error || "招待リンクの作成に失敗しました。");
+        alert(data.error ?? "招待リンクの作成に失敗しました。");
       }
-    } catch (e) {
+    } catch (_e) {
       alert("エラーが発生しました。");
     } finally {
       setIsInviteLoading(false);
@@ -110,7 +110,7 @@ export default function FamilyManagement({ userPlan }: { userPlan: string }) {
 
   // Check if user is owner and active PRO (or whatever logic for enabling invite)
   // Note: If user is owner, they can manage invites.
-  const isOwner = members.some(
+  const _isOwner = members.some(
     (m) =>
       m.role === "OWNER" &&
       m.userId === members.find((me) => me.role === "OWNER")?.userId,
@@ -231,7 +231,7 @@ export default function FamilyManagement({ userPlan }: { userPlan: string }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">
-                      {member.name || "名称未設定"}
+                      {member.name ?? "名称未設定"}
                     </div>
                     <div className="text-xs text-gray-500 truncate">
                       {member.email}

@@ -70,11 +70,11 @@ export async function POST(req: Request) {
             // Add back amount with proper unit conversion
             const stockNormalized = normalizeAmount(
               stock.amount,
-              stock.unit || "",
+              stock.unit ?? "",
             );
             const usedNormalized = normalizeAmount(
               used.amount,
-              used.unit || "",
+              used.unit ?? "",
             );
             const newTotalNormalized = stockNormalized + usedNormalized;
 

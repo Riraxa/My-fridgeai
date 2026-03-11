@@ -22,7 +22,7 @@ export async function GET() {
 
     const tasteJson = prefs.tasteJson as any;
     return NextResponse.json({
-      recentGenrePenalty: tasteJson?.recentGenrePenalty || {},
+      recentGenrePenalty: tasteJson?.recentGenrePenalty ?? {},
     });
   } catch (error) {
     console.error("Genre GET Error:", error);
@@ -45,7 +45,7 @@ export async function PUT(req: Request) {
       where: { userId },
     });
 
-    const currentTaste = (currentPrefs?.tasteJson as any) || {};
+    const currentTaste = (currentPrefs?.tasteJson as any) ?? {};
     const updatedTaste = {
       ...currentTaste,
       recentGenrePenalty,
@@ -58,7 +58,7 @@ export async function PUT(req: Request) {
     });
 
     return NextResponse.json({
-      recentGenrePenalty: (updated.tasteJson as any)?.recentGenrePenalty || {},
+      recentGenrePenalty: (updated.tasteJson as any)?.recentGenrePenalty ?? {},
     });
   } catch (error) {
     console.error("Genre PUT Error:", error);

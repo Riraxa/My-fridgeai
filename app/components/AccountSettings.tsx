@@ -80,7 +80,7 @@ export default function AccountSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 表示用のセッションデータ（キャッシュされたデータか現在のセッション）
-  const displaySession = session || cachedSession;
+  const displaySession = session ?? cachedSession;
 
   // Googleでの既存の認証情報を確認 (OAuthユーザーかどうかの判定用)
   const isGoogleOAuth = (displaySession?.user as any)?.accounts?.some(
@@ -137,7 +137,7 @@ export default function AccountSettings() {
           await signIn();
           return;
         }
-        throw new Error(data?.error || "削除エラー");
+        throw new Error(data?.error ?? "削除エラー");
       }
 
       alert("アカウントを削除しました。");
@@ -226,7 +226,7 @@ export default function AccountSettings() {
         credentials: "include",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Portalの起動に失敗しました");
+      if (!res.ok) throw new Error(data.error ?? "Portalの起動に失敗しました");
       if (data.url) {
         window.location.href = data.url;
       }
@@ -492,11 +492,11 @@ export default function AccountSettings() {
                   ) : (
                     <>
                       <div className="font-bold text-lg truncate">
-                        {displaySession.user.name || "未設定"}
+                        {displaySession.user.name ?? "未設定"}
                       </div>
                       <button
                         onClick={() => {
-                          setTempName(displaySession.user.name || "");
+                          setTempName(displaySession.user.name ?? "");
                           setIsEditingName(true);
                         }}
                         className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded transition-colors"

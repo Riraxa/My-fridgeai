@@ -5,7 +5,7 @@ import { sanitizeString } from "@/lib/security";
 import { addApiSecurityHeaders } from "@/lib/securityHeaders";
 
 // GET: ユーザーの加工食品商品一覧
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
     try {
         const session = await auth();
 

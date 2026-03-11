@@ -105,11 +105,11 @@ export default function BarcodeScanner({
                   // AddItemModalをプリフィルで開く
                   openAddModal({
                     name: product.name,
-                    category: product.category || "その他",
+                    category: product.category ?? "その他",
                     expirationDate,
                     barcode: code,
                     source: product.source,
-                    ingredientType: product.ingredientType || "raw",
+                    ingredientType: product.ingredientType ?? "raw",
                   });
 
                   stopScanner();
@@ -118,7 +118,7 @@ export default function BarcodeScanner({
                 } else {
                   // Not found -> Do NOT add automatically. Just warn user.
                   alert(
-                    data.error ||
+                    data.error ??
                     "商品情報が見つかりませんでした。手動で入力してください。",
                   );
                   setLoading(false);

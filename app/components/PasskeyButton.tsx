@@ -114,7 +114,7 @@ export default function PasskeyButton({ onSuccess }: PasskeyButtonProps) {
 
       if (!resOptions.ok) {
         const err = await resOptions.json().catch(() => ({}));
-        throw new Error(err?.message || "登録オプションの取得に失敗しました。");
+        throw new Error(err?.message ?? "登録オプションの取得に失敗しました。");
       }
 
       const json = await resOptions.json().catch(() => ({}));
@@ -168,13 +168,13 @@ export default function PasskeyButton({ onSuccess }: PasskeyButtonProps) {
 
       if (!resRegister.ok) {
         const err = await resRegister.json().catch(() => ({}));
-        throw new Error(err?.message || "パスキー登録に失敗しました。");
+        throw new Error(err?.message ?? "パスキー登録に失敗しました。");
       }
 
       const regJson = await resRegister.json().catch(() => ({}));
       if (!regJson?.ok && resRegister.ok) {
         // server might return 200 with { ok: false, message: "..." }
-        throw new Error(regJson?.message || "登録が完了しませんでした。");
+        throw new Error(regJson?.message ?? "登録が完了しませんでした。");
       }
 
       // 6) complete-passkey-setup (flag the user as setup complete)
@@ -186,7 +186,7 @@ export default function PasskeyButton({ onSuccess }: PasskeyButtonProps) {
 
       if (!resComplete.ok) {
         const err = await resComplete.json().catch(() => ({}));
-        throw new Error(err?.message || "登録完了処理に失敗しました。");
+        throw new Error(err?.message ?? "登録完了処理に失敗しました。");
       }
 
       setMessage("パスキーの登録が完了しました。");

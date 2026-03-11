@@ -1,3 +1,4 @@
+// GENERATED_BY_AI: 2026-03-10 antigravity
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -48,8 +49,8 @@ export async function POST(req: Request) {
     });
 
     const isPro = userData?.plan === "PRO";
-    const ingredients = userData?.Ingredient || [];
-    const _preferences = userData?.preferences;
+    const ingredients = userData?.Ingredient ?? [];
+    // preferences is stored but not used in current implementation
 
     if (ingredients.length === 0) {
       return NextResponse.json(
@@ -101,13 +102,56 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. Generate Menus via AI
-    const menus = await generateMenus(ingredients, userId, {
+    // 3.5. Hash calculation for caching
+    const crypto = await import("crypto");
+    const sortedIngredients = [...ingredients].sort((a, b) => a.id.localeCompare(b.id));
+    const cachePayload = {
+      ingredients: sortedIngredients.map((i) => ({
+        id: i.id,
+        amount: i.amount,
+        amountLevel: i.amountLevel,
+        expiry: i.expirationDate?.toISOString(),
+      })),
+      prefs: userData?.preferences?.tasteJson,
       servings,
       budget,
+    };
+    const requestHash = crypto
+      .createHash("sha256")
+      .update(JSON.stringify(cachePayload))
+      .digest("hex");
+
+    const cacheExpiryTs = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const cachedGeneration = await prisma.menuGeneration.findFirst({
+      where: {
+        userId,
+        requestHash,
+        status: "completed",
+        generatedAt: { gte: cacheExpiryTs },
+      },
+      orderBy: { generatedAt: "desc" },
     });
-    if (!menus?.main) {
-      throw new Error("AIが有効な献立を生成できませんでした");
+
+    let menus: any;
+    let isCached = false;
+
+    if (cachedGeneration) {
+      menus = {
+        main: cachedGeneration.mainMenu,
+        alternativeA: cachedGeneration.alternativeA,
+        alternativeB: cachedGeneration.alternativeB,
+      };
+      isCached = true;
+      console.log("[Menu Generation] Cache HIT! Using cached generation:", cachedGeneration.id);
+    } else {
+      // 4. Generate Menus via AI
+      menus = await generateMenus(ingredients, userId, {
+        servings,
+        budget,
+      });
+      if (!menus?.main) {
+        throw new Error("AIが有効な献立を生成できませんでした");
+      }
     }
 
     // 5. Check Availability for ALL Menus
@@ -115,14 +159,14 @@ export async function POST(req: Request) {
     // but future improvement could check scaled amounts. For now, we adjust generated amounts)
 
     const mainDetails = checkIngredientAvailability(
-      (menus.main.dishes || []).flatMap((d: any) => d.ingredients || []),
+      (menus.main.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
       ingredients,
     );
 
     const altADetails = menus.alternativeA
       ? checkIngredientAvailability(
-        (menus.alternativeA.dishes || []).flatMap(
-          (d: any) => d.ingredients || [],
+        (menus.alternativeA.dishes ?? []).flatMap(
+          (d: any) => d.ingredients ?? [],
         ),
         ingredients,
       )
@@ -130,8 +174,8 @@ export async function POST(req: Request) {
 
     const altBDetails = menus.alternativeB
       ? checkIngredientAvailability(
-        (menus.alternativeB.dishes || []).flatMap(
-          (d: any) => d.ingredients || [],
+        (menus.alternativeB.dishes ?? []).flatMap(
+          (d: any) => d.ingredients ?? [],
         ),
         ingredients,
       )
@@ -159,34 +203,41 @@ export async function POST(req: Request) {
 
     // 6. Save to DB and Return
     try {
-      const generation = await prisma.menuGeneration.create({
-        data: {
-          userId: userId,
-          mainMenu: menus.main as any,
-          alternativeA: menus.alternativeA as any,
-          alternativeB: menus.alternativeB as any,
-          nutritionInfo: nutritionInfo as any,
-          // New Fields
-          servings: servings,
-          budget: budget ?? undefined, // prisma expects undefined for nullable optional if not set, or null
+      let menuGenerationId = cachedGeneration?.id;
 
-          usedIngredients: {
-            main: mainDetails.available,
-            altA: altADetails.available,
-            altB: altBDetails.available,
-          } as any,
-          shoppingList: {
-            main: mainDetails.missing.concat(mainDetails.insufficient),
-            altA: altADetails.missing.concat(altADetails.insufficient),
-            altB: altBDetails.missing.concat(altBDetails.insufficient),
-          } as any,
-          status: "completed",
-        },
-      });
+      if (!isCached) {
+        const generation = await prisma.menuGeneration.create({
+          data: {
+            userId: userId,
+            mainMenu: menus.main as any,
+            alternativeA: menus.alternativeA as any,
+            alternativeB: menus.alternativeB as any,
+            nutritionInfo: nutritionInfo as any,
+            // New Fields
+            servings: servings,
+            budget: budget ?? undefined, // prisma expects undefined for nullable optional if not set, or null
+            requestHash: requestHash,
+
+            usedIngredients: {
+              main: mainDetails.available,
+              altA: altADetails.available,
+              altB: altBDetails.available,
+            } as any,
+            shoppingList: {
+              main: mainDetails.missing.concat(mainDetails.insufficient),
+              altA: altADetails.missing.concat(altADetails.insufficient),
+              altB: altBDetails.missing.concat(altBDetails.insufficient),
+            } as any,
+            status: "completed",
+          },
+        });
+        menuGenerationId = generation.id;
+      }
 
       return NextResponse.json({
         success: true,
-        menuGenerationId: generation.id,
+        menuGenerationId,
+        isCached,
         menus,
         availability: {
           main: mainDetails,
@@ -214,7 +265,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: "献立生成中にエラーが発生しました",
-        details: error.message || "Unknown error",
+        details: error.message ?? "Unknown error",
       },
       { status: 500 },
     );
