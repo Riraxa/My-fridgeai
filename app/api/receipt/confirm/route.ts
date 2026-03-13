@@ -85,55 +85,19 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        if (item.mappedIngredientId) {
-          // Update existing ingredient (optimistic lock)
-          const existing = await tx.ingredient.findUnique({
-            where: { id: item.mappedIngredientId },
-          });
-
-          if (existing && existing.userId === userId) {
-            // Add quantity to existing
-            const newAmount = (existing.amount ?? 0) + (item.finalQuantityValue ?? 1);
-            await tx.ingredient.update({
-              where: { id: item.mappedIngredientId },
-              data: {
-                amount: newAmount,
-                unit: item.finalQuantityUnit ?? existing.unit,
-                amountLevel: item.finalInferredLevel ?? existing.amountLevel,
-                version: { increment: 1 },
-              },
-            });
-            updatedCount++;
-          } else {
-            // Ingredient doesn't exist or belongs to another user, create new
-            await tx.ingredient.create({
-              data: {
-                userId,
-                name,
-                amount: item.finalQuantityValue ?? 1,
-                unit: item.finalQuantityUnit ?? "個",
-                amountLevel: item.finalInferredLevel ?? "normal",
-                category: item.finalCategory ?? "その他",
-                ingredientType: "raw",
-              },
-            });
-            addedCount++;
-          }
-        } else {
-          // New ingredient
-          await tx.ingredient.create({
-            data: {
-              userId,
-              name,
-              amount: item.finalQuantityValue ?? 1,
-              unit: item.finalQuantityUnit ?? "個",
-              amountLevel: item.finalInferredLevel ?? "normal",
-              category: item.finalCategory ?? "その他",
-              ingredientType: "raw",
-            },
-          });
-          addedCount++;
-        }
+        // Always create as new ingredient [Requirement: Add, not merge/replace]
+        await tx.ingredient.create({
+          data: {
+            userId,
+            name,
+            amount: item.finalQuantityValue ?? 1,
+            unit: item.finalQuantityUnit ?? "個",
+            amountLevel: item.finalInferredLevel ?? "normal",
+            category: item.finalCategory ?? "その他",
+            ingredientType: "raw",
+          },
+        });
+        addedCount++;
 
         // Mark receipt item as user-modified if applicable
         if (item.receiptItemId) {

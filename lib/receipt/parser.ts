@@ -195,11 +195,11 @@ async function aiParseLines(
 - existing_ingredients: ${JSON.stringify(ingredientSample)}
 
 タスク:
-各 raw_line について、以下のJSONを生成してください:
+各 raw_line について、以下のJSONを必ず1つずつ、入力と同じ順番で配列として生成してください（入力行が10行なら、出力も必ず10要素のJSON配列にしてください）:
 {
   "line": "元のテキスト",
   "normalized_name": "正規化された食材名（例: 若鶏もも肉 300g → 鶏もも肉）",
-  "quantity_value": 数値またはnull,
+  "quantity_value": 数値（「10個入」なら 10、不明なら 1 をデフォルトにしてください）,
   "quantity_unit": "g" | "kg" | "個" | "本" | "ml" | "L" | "枚" | "袋" | "パック" | null,
   "mapped_candidates": [{"id": "...", "name": "...", "score": 0.0-1.0}],
   "processedCategory": "ingredient" | "processedFood",
@@ -208,11 +208,11 @@ async function aiParseLines(
 
 ルール:
 - 「*」や「※」で始まる行は商品である可能性が高いため、優先的に商品として扱ってください。
-- 食材名以外のテキスト（「領収証」、「No...」、「客数」など）が含まれる行は、normalized_name を null にし、confidence を 0.0 にしてください。
-- 合計金額、小計、点数、レジ担当、日時など、レシートのメタデータ行は、confidence を 0.0 にしてください。
-- 金額（¥123）や数値（-70）のみの行から勝手に商品名を推測（ハルシネーション）しないでください。推測できない場合は confidence を 0.0 にしてください。
-- 商品名の中にブランド名（「日清」、「マルサン」など）が含まれる場合は、それも含めて normalized_name を作成してください（例: 「日清 どん兵衛」）。
-- 加工食品（カレールー、即席麺、冷凍食品等）は "processedFood"、生鮮食材は "ingredient" としてください。
+- 食材名以外のテキスト（「領収証」、「No...」、「客数」など）が含まれる行は、confidence を 0.0 にしてください。
+- 数量が明記されていない場合も、食材であれば quantity_value を 1 に設定してください。
+- 合計金額、小計、点数、レジ担当、日時などは、confidence を 0.0 にしてください。
+- 商品名の中にブランド名（「日清」、「マルサン」など）が含まれる場合は、それも含めて normalized_name を作成してください。
+- 入力が商品でない場合や無視すべき行であっても、空のオブジェクトではなく、confidence: 0.0 のJSONオブジェクトを必ず返して、入力と出力のインデックスを一致させてください。
 - JSON配列のみを出力してください。説明文は不要です。`;
 
     const response = await callOpenAIOnce({

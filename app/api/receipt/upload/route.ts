@@ -213,7 +213,6 @@ export async function POST(req: NextRequest) {
       status: "parsed",
       items: receiptItems.map((item) => ({
         id: item.id,
-        lineText: item.lineText,
         productName: item.productName,
         normalizedName: item.normalizedName,
         mappedIngredientId: item.mappedIngredientId,

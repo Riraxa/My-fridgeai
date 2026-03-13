@@ -59,12 +59,23 @@ export default function ReceiptScanner({
     }
   }, [visible, setIsNavBarVisible]);
 
+  const [scanningSteps, setScanningSteps] = useState([
+    { label: "OCRを実行中", status: "pending" as "pending" | "doing" | "done" },
+    { label: "食材を特定中", status: "pending" as "pending" | "doing" | "done" },
+    { label: "在庫情報を照合中", status: "pending" as "pending" | "doing" | "done" },
+  ]);
+
   const resetState = useCallback(() => {
     setStep("upload");
     setItems([]);
     setReceiptId(null);
     setError(null);
     setResultMessage(null);
+    setScanningSteps([
+      { label: "OCRを実行中", status: "pending" },
+      { label: "食材を特定中", status: "pending" },
+      { label: "在庫情報を照合中", status: "pending" },
+    ]);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -92,23 +103,43 @@ export default function ReceiptScanner({
     setStep("scanning");
     setScanMessage("レシートを解析中...");
 
+    // Simulate progress steps
+    const updateStep = (idx: number, status: "pending" | "doing" | "done") => {
+      setScanningSteps((prev) => {
+        const next = [...prev];
+        if (next[idx]) next[idx] = { ...next[idx], status };
+        return next;
+      });
+    };
+
+    updateStep(0, "doing");
+
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("idempotencyKey", `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
-      const res = await fetch("/api/receipt/upload", {
+      // Mock timers for visual effect if the API is too fast, but here we just follow the process
+      const apiPromise = fetch("/api/receipt/upload", {
         method: "POST",
         body: formData,
         credentials: "include",
       });
 
+      // Simple timing logic to update UI steps
+      setTimeout(() => updateStep(0, "done"), 3000);
+      setTimeout(() => updateStep(1, "doing"), 3200);
+      setTimeout(() => updateStep(1, "done"), 7000);
+      setTimeout(() => updateStep(2, "doing"), 7200);
+
+      const res = await apiPromise;
       const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.error ?? "レシートの処理に失敗しました");
       }
 
+      updateStep(2, "done");
       setReceiptId(data.receiptId);
 
       if (!data.items || data.items.length === 0) {
@@ -121,14 +152,15 @@ export default function ReceiptScanner({
       const editableItems: ParsedItem[] = data.items.map((item: any) => ({
         ...item,
         action: item.confidenceScore < 0.6 ? ("skip" as const) : ("add" as const),
-        editedName: item.normalizedName ?? item.productName ?? item.lineText,
+        editedName: item.normalizedName ?? item.productName ?? "読み取り不明",
         editedQuantity: item.quantityValue ?? 1,
         editedUnit: item.quantityUnit ?? "個",
         editedCategory: item.processedCategory === "processedFood" ? "加工食品" : "その他",
       }));
 
       setItems(editableItems);
-      setStep("results");
+      // Brief delay to show last checkmark
+      setTimeout(() => setStep("results"), 800);
     } catch (e: any) {
       console.error("Receipt upload error:", e);
       setError(e?.message ?? "レシートの処理中にエラーが発生しました");
@@ -327,12 +359,46 @@ export default function ReceiptScanner({
 
         {/* Scanning Step */}
         {step === "scanning" && (
-          <div className="flex flex-col items-center justify-center h-full gap-6 py-12">
-            <div className="animate-spin h-12 w-12 border-4 rounded-full" style={{ borderColor: "var(--surface-border)", borderTopColor: "var(--accent)" }} />
-            <p className="text-lg font-medium">{scanMessage}</p>
-            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-              AI がレシートを解析しています...
-            </p>
+          <div className="flex flex-col items-center justify-center h-full gap-8 py-12">
+            <div className="relative">
+              <div
+                className="animate-spin h-20 w-20 border-4 rounded-full"
+                style={{ borderColor: "var(--surface-border)", borderTopColor: "var(--accent)" }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Receipt className="text-accent animate-pulse" size={32} />
+              </div>
+            </div>
+
+            <div className="w-full max-w-xs space-y-4">
+              {scanningSteps.map((s, i) => (
+                <div key={i} className="flex items-center gap-3 transition-opacity duration-300" style={{ opacity: s.status === "pending" ? 0.4 : 1 }}>
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                      s.status === "done" ? "bg-green-500" : s.status === "doing" ? "bg-accent" : "bg-gray-700"
+                    }`}
+                  >
+                    {s.status === "done" ? (
+                      <Check size={14} className="text-white" />
+                    ) : s.status === "doing" ? (
+                      <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+                    ) : (
+                      <div className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                    )}
+                  </div>
+                  <span className={`text-sm font-medium ${s.status === "doing" ? "text-accent" : "text-gray-300"}`}>{s.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center">
+              <p className="text-lg font-bold mb-1">{scanMessage}</p>
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                AI が丁寧にレシートを読み取っています。
+                <br />
+                少々お待ちください...
+              </p>
+            </div>
           </div>
         )}
 
@@ -389,15 +455,10 @@ export default function ReceiptScanner({
                       <input
                         value={item.editedName}
                         onChange={(e) => updateItemName(idx, e.target.value)}
-                        className="w-full text-sm font-medium bg-transparent border-none outline-none"
+                        className="w-full text-base font-bold bg-transparent border-none outline-none"
                         style={{ color: "var(--color-text-primary)" }}
                         placeholder="食材名"
                       />
-
-                      {/* Original text */}
-                      <p className="text-xs mt-0.5 truncate" style={{ color: "var(--color-text-muted)" }}>
-                        {item.lineText}
-                      </p>
 
                       {/* Quantity & unit */}
                       <div className="flex items-center gap-2 mt-2">
