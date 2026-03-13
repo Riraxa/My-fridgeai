@@ -149,9 +149,29 @@ export async function POST(req: NextRequest) {
     }
 
     // 10. Parse product lines
-    const parsedItems = await parseReceiptLines(productLines, userId);
+    const allParsedItems = await parseReceiptLines(productLines, userId);
 
-    // 11. Save parsed items to DB
+    // 11. Filter out clearly non-food items (confidenceScore 0)
+    const parsedItems = allParsedItems.filter((item) => item.confidenceScore > 0);
+
+    if (parsedItems.length === 0) {
+      await prisma.receipt.update({
+        where: { id: receipt.id },
+        data: {
+          status: "parsed",
+          rawText: ocrResult.rawText,
+          parsedAt: new Date(),
+        },
+      });
+      return NextResponse.json({
+        receiptId: receipt.id,
+        status: "parsed",
+        items: [],
+        message: "食材を検出できませんでした",
+      });
+    }
+
+    // 12. Save parsed items to DB
     const receiptItems = await prisma.$transaction(async (tx) => {
       const items = [];
       for (const item of parsedItems) {

@@ -207,7 +207,9 @@ async function aiParseLines(
 }
 
 ルール:
-- 金額行、小計・合計行、税金行は除外し、空の結果を返さないでください。もし food item でない行が含まれていたら confidence を 0.1 にしてください。
+- 食材ではない行（消耗品、日用品、サービス料、ポイント、クーポン、残高、店名、挨拶、レジ担当、日時など）は、normalized_name を null にし、confidence を 0.0 にしてください。
+- レシートの余白やノイズ（「・・・」、「---」など）は除外してください。
+- 割引・値引行（「-¥100」、「クーポン」など）は除外または confidence を 0.0 にしてください。
 - existing_ingredients の名前と一致度が 0.8 以上なら mapped_candidates に含めてください。
 - 加工食品（カレールー、即席麺、冷凍食品等）は "processedFood"、生鮮食材は "ingredient" としてください。
 - JSON配列のみを出力してください。説明文は不要です。`;

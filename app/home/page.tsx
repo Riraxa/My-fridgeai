@@ -2,11 +2,13 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import Image from "next/image";
 import NotificationModal from "@/app/components/NotificationModal";
 import { Plus, Search, Bell, Receipt } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useFridge } from "@/app/components/FridgeProvider";
+import { useTheme } from "@/app/components/ThemeProvider";
 import IngredientList from "@/app/components/IngredientList";
 import ReceiptScanner from "@/app/components/ReceiptScanner";
 import Toast from "@/app/components/Toast";
@@ -21,6 +23,7 @@ import { Ingredient } from "@/types";
 export default function HomePage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isAddOpen, setAddOpen] = useState(false);
   const [prefilledItem, setPrefilledItem] = useState<Ingredient | null>(null);
@@ -159,7 +162,16 @@ export default function HomePage() {
   return (
     <PageTransition className="container mx-auto min-h-screen pb-32">
       <HeaderTransition className="sticky top-0 z-40 flex items-center justify-center border-b border-[var(--surface-border)] bg-[var(--background)]/95 px-4 py-3">
-        <div className="text-lg font-bold">My-fridgeai</div>
+        <div className="relative w-32 h-8">
+          <Image 
+            src={theme === "dark" ? "/my-fridgeai-logo-dark.png" : "/my-fridgeai-logo-light.png"} 
+            alt="My-fridgeai" 
+            width={128}
+            height={32}
+            className="object-contain"
+            priority
+          />
+        </div>
       </HeaderTransition>
 
       <ContentTransition className="p-4 space-y-6">

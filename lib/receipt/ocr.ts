@@ -107,10 +107,13 @@ export function filterReceiptLines(rawLines: string[]): {
 } {
   const metadataPatterns = [
     /^(合計|小計|税|消費税|内税|外税|お預り|お釣り|釣銭|おつり|支払|クレジット|カード|現金|ポイント|レシート|領収|電話|TEL|tel|\d{2,4}[年\/\-]\d{1,2}[月\/\-]\d{1,2}|店|〒|\d{3}-\d{4})/,
-    /^[\d\s\-:\.\/]+$/, // date/time only lines
-    /^(※|＊|\*|#|ー|─|━|=)+/, // separator lines
+    /^(WAON|waon|入金|残高|今回ポイント|有効|ID\s*\*|電子マネー|割引|値引|クーポン)/i,
+    /^(取引|番号|登録|承認|伝票|担当|レジ|客数)/,
+    /^(\(内\)|\[内\]|内）|内\s)/,
+    /^[\d\s\-:\.\/・]+$/, // date/time/noise only lines
+    /^(※|＊|\*|#|ー|─|━|=|\.|…|・|:|：|；|;)+$/, // separator/punctuation-only lines
     /^(お買い?上げ|ありがとう|またのご来店|いらっしゃいませ)/,
-    /^(No\.|レジ|担当|会員)/i,
+    /^(No\.|レジ|担当|会員|客数)/i,
   ];
 
   const productLines: string[] = [];

@@ -6,6 +6,7 @@ import type { Session } from "next-auth";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { Button } from "@/app/components/ui/button";
 import PasskeyManager from "./PasskeyManager";
+import ImageCropperModal from "./ImageCropperModal";
 import { useState, useEffect, useRef } from "react";
 // import { useCallback } from "react"; // 将来使用
 import { Pencil, Save, X, User } from "lucide-react";
@@ -77,6 +78,8 @@ export default function AccountSettings() {
   const [tempName, setTempName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 表示用のセッションデータ（キャッシュされたデータか現在のセッション）
@@ -198,12 +201,19 @@ export default function AccountSettings() {
 
     setIsUploadingImage(true);
     const reader = new FileReader();
-    reader.onloadend = async () => {
+    reader.onloadend = () => {
       const base64String = reader.result as string;
-      await handleUpdateProfile({ image: base64String });
+      setSelectedImage(base64String);
+      setShowCropper(true);
       setIsUploadingImage(false);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = async (croppedImage: string) => {
+    setShowCropper(false);
+    setSelectedImage("");
+    await handleUpdateProfile({ image: croppedImage });
   };
 
   const [isPortalLoading, setIsPortalLoading] = useState(false);
@@ -619,6 +629,16 @@ export default function AccountSettings() {
       </section>
 
       <ProModal open={showProModal} onClose={() => setShowProModal(false)} />
+      
+      <ImageCropperModal
+        isOpen={showCropper}
+        imageSrc={selectedImage}
+        onClose={() => {
+          setShowCropper(false);
+          setSelectedImage("");
+        }}
+        onCrop={handleCropComplete}
+      />
     </div>
   );
 }

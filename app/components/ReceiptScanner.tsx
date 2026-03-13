@@ -5,7 +5,7 @@
 
 "use client";
 
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useFridge } from "./FridgeProvider";
 import { X, Camera, Upload, Check, Trash2, Edit3, AlertTriangle, Receipt } from "lucide-react";
 
@@ -48,7 +48,16 @@ export default function ReceiptScanner({
   const [scanMessage, setScanMessage] = useState("レシートを解析中...");
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
-  const { fetchIngredients, setToast, setReceiptScanOpen } = useFridge();
+  const { fetchIngredients, setToast, setReceiptScanOpen, setIsNavBarVisible } = useFridge();
+
+  // レシートスキャナーが表示されたときにナビゲーションバーを非表示にする
+  useEffect(() => {
+    if (visible) {
+      setIsNavBarVisible(false);
+    } else {
+      setIsNavBarVisible(true);
+    }
+  }, [visible, setIsNavBarVisible]);
 
   const resetState = useCallback(() => {
     setStep("upload");
@@ -111,7 +120,7 @@ export default function ReceiptScanner({
       // Map to editable items
       const editableItems: ParsedItem[] = data.items.map((item: any) => ({
         ...item,
-        action: "add" as const,
+        action: item.confidenceScore < 0.6 ? ("skip" as const) : ("add" as const),
         editedName: item.normalizedName ?? item.productName ?? item.lineText,
         editedQuantity: item.quantityValue ?? 1,
         editedUnit: item.quantityUnit ?? "個",
