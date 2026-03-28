@@ -18,7 +18,7 @@
     "test:db": "node -e \"require('dotenv').config({ path: '.env.local' }); const { PrismaPg } = require('@prisma/adapter-pg'); const { PrismaClient } = require('@prisma/client'); const databaseUrl = process.env.DATABASE_URL; if (!databaseUrl) { console.error('❌ DATABASE_URL not set'); process.exit(1); } const adapter = new PrismaPg({ connectionString: databaseUrl }); const prisma = new PrismaClient({ adapter }); prisma.$connect().then(() => { console.log('✅ DB connection OK'); process.exit(0); }).catch((e) => { console.error('❌ DB connection failed:', e.message); process.exit(1); });\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "push": "npm run pre-commit && npm run check:security && git add -A && git commit -m \"update\" && git push",
+    "push": "npm run pre-commit && npm run check:security && git add -A && (git diff --staged --quiet || (git commit -m \"update\" && git push))",
     "db:pull": "node -e \"require('dotenv').config({ path: '.env.local' }); const { execSync } = require('child_process'); execSync('npx prisma db pull', { stdio: 'inherit' });\"",
     "db:push": "node -e \"require('dotenv').config({ path: '.env.local' }); const { execSync } = require('child_process'); execSync('npx prisma db push', { stdio: 'inherit' });\"",
     "db:diff": "node -e \"require('dotenv').config({ path: '.env.local' }); const { execSync } = require('child_process'); execSync('npx prisma migrate diff --from-schema prisma/schema.prisma --to-config-datasource --script', { stdio: 'inherit' });\"",
