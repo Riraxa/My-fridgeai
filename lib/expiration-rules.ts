@@ -1,0 +1,338 @@
+import { addDays } from "date-fns";
+import Fuse from "fuse.js";
+
+export interface FoodMaster {
+  name: string;
+  days: number;
+  category: "冷蔵" | "冷凍" | "野菜" | "調味料" | "加工食品" | "その他";
+  defaultAmount?: number;
+  defaultUnit?: string;
+  aliases?: string[]; // 別名・類似語
+}
+
+/**
+ * 科学的根拠に基づく食材マスターデータ
+ * USDA FoodKeeperおよび国内の一般的な保存目安を統合
+ */
+const FOOD_DATABASE: FoodMaster[] = [
+  // 乳製品・卵
+  { name: "牛乳", days: 7, category: "冷蔵", defaultAmount: 1000, defaultUnit: "ml", aliases: ["ミルク", "牛乳"] },
+  { name: "低脂肪牛乳", days: 10, category: "冷蔵", defaultAmount: 1000, defaultUnit: "ml", aliases: ["低脂肪ミルク", "スキムミルク"] },
+  { name: "卵", days: 14, category: "冷蔵", defaultAmount: 10, defaultUnit: "個", aliases: ["たまご", "玉子", "鶏卵"] },
+  { name: "ヨーグルト", days: 10, category: "冷蔵", defaultAmount: 400, defaultUnit: "g", aliases: ["ヨーグルト"] },
+  { name: "チーズ", days: 14, category: "冷蔵", defaultAmount: 120, defaultUnit: "g", aliases: ["チーズ"] },
+  { name: "プロセスチーズ", days: 90, category: "冷蔵", defaultAmount: 100, defaultUnit: "g", aliases: ["スライスチーズ", "とろけるチーズ"] },
+  { name: "バター", days: 30, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["バター"] },
+  { name: "生クリーム", days: 7, category: "冷蔵", defaultAmount: 200, defaultUnit: "ml", aliases: ["クリーム", "フレッシュクリーム"] },
+  { name: "クリームチーズ", days: 14, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["クリームチーズ"] },
+  { name: "ラクトネーズ", days: 30, category: "冷蔵", defaultAmount: 900, defaultUnit: "ml", aliases: ["ラクトネーズ"] },
+
+  // 肉類（実際のパッケージサイズに修正）
+  { name: "鶏もも肉", days: 2, category: "冷蔵", defaultAmount: 400, defaultUnit: "g", aliases: ["もも肉", "鶏肉", "チキン"] },
+  { name: "鶏むね肉", days: 2, category: "冷蔵", defaultAmount: 500, defaultUnit: "g", aliases: ["むね肉", "胸肉", "鶏胸肉"] },
+  { name: "鶏手羽元", days: 2, category: "冷蔵", defaultAmount: 400, defaultUnit: "g", aliases: ["手羽元", "てばもと"] },
+  { name: "鶏手羽先", days: 2, category: "冷蔵", defaultAmount: 300, defaultUnit: "g", aliases: ["手羽先", "てばさき"] },
+  { name: "豚ロース", days: 3, category: "冷蔵", defaultAmount: 300, defaultUnit: "g", aliases: ["ロース", "豚肉", "ポーク"] },
+  { name: "豚バラ肉", days: 3, category: "冷蔵", defaultAmount: 250, defaultUnit: "g", aliases: ["バラ肉", "豚バラ"] },
+  { name: "豚こま切れ肉", days: 2, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["こま切れ", "豚こま"] },
+  { name: "豚薄切り肉", days: 2, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["薄切り", "豚薄切り"] },
+  { name: "牛バラ肉", days: 3, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["バラ肉", "牛バラ", "ビーフ"] },
+  { name: "牛ロース", days: 3, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["ロース", "牛ロース"] },
+  { name: "牛こま切れ肉", days: 3, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["こま切れ", "牛こま"] },
+  { name: "挽肉", days: 1, category: "冷蔵", defaultAmount: 300, defaultUnit: "g", aliases: ["ひき肉", "ミンチ"] },
+  { name: "合挽き肉", days: 1, category: "冷蔵", defaultAmount: 300, defaultUnit: "g", aliases: ["合いびき", "合挽"] },
+  { name: "ひき肉", days: 1, category: "冷蔵", defaultAmount: 300, defaultUnit: "g", aliases: ["挽肉", "ミンチ"] },
+  { name: "ハム", days: 7, category: "加工食品", defaultAmount: 100, defaultUnit: "g", aliases: ["ハム"] },
+  { name: "ベーコン", days: 7, category: "加工食品", defaultAmount: 100, defaultUnit: "g", aliases: ["ベーコン"] },
+  { name: "ウィンナー", days: 7, category: "加工食品", defaultAmount: 150, defaultUnit: "g", aliases: ["ウインナー", "ソーセージ"] },
+  { name: "ソーセージ", days: 7, category: "加工食品", defaultAmount: 150, defaultUnit: "g", aliases: ["ソーセージ", "ウィンナー"] },
+
+  // 魚介類
+  { name: "鮭", days: 2, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["サーモン", "しゃけ", "さけ"] },
+  { name: "サーモン", days: 2, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["鮭", "しゃけ", "さけ"] },
+  { name: "マグロ", days: 1, category: "冷蔵", defaultAmount: 150, defaultUnit: "g", aliases: ["まぐろ", "ツナ", "マグロ"] },
+  { name: "刺身", days: 1, category: "冷蔵", defaultAmount: 150, defaultUnit: "g", aliases: ["さしみ", "刺身"] },
+  { name: "アジ", days: 2, category: "冷蔵", defaultAmount: 100, defaultUnit: "g", aliases: ["あじ", "鯵"] },
+  { name: "イワシ", days: 2, category: "冷蔵", defaultAmount: 100, defaultUnit: "g", aliases: ["いわし", "鰯"] },
+  { name: "サバ", days: 2, category: "冷蔵", defaultAmount: 150, defaultUnit: "g", aliases: ["さば", "鯖"] },
+  { name: "サバ缶", days: 1095, category: "加工食品", defaultAmount: 190, defaultUnit: "g", aliases: ["さば缶", "鯖缶"] },
+  { name: "ツナ缶", days: 1095, category: "加工食品", defaultAmount: 70, defaultUnit: "g", aliases: ["シーチキン", "ツナ", "まぐろ缶"] },
+  { name: "たら", days: 2, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["たら", "タラ", "鱈"] },
+  { name: "かじき", days: 2, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["かじき", "カジキ", "梶木"] },
+  { name: "えび", days: 2, category: "冷蔵", defaultAmount: 100, defaultUnit: "g", aliases: ["エビ", "海老", "シュリンプ"] },
+  { name: "いか", days: 2, category: "冷蔵", defaultAmount: 150, defaultUnit: "g", aliases: ["イカ", "烏賊", "スルメ"] },
+  { name: "ほたて", days: 2, category: "冷蔵", defaultAmount: 100, defaultUnit: "g", aliases: ["ホタテ", "帆立", "貝柱"] },
+
+  // 野菜（実際の販売単位に修正）
+  { name: "キャベツ", days: 14, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "玉ねぎ", days: 30, category: "野菜", defaultAmount: 3, defaultUnit: "個" },
+  { name: "人参", days: 21, category: "野菜", defaultAmount: 3, defaultUnit: "個" },
+  { name: "じゃがいも", days: 30, category: "野菜", defaultAmount: 5, defaultUnit: "個" },
+  { name: "トマト", days: 5, category: "野菜", defaultAmount: 3, defaultUnit: "個" },
+  { name: "ミニトマト", days: 7, category: "野菜", defaultAmount: 150, defaultUnit: "g" },
+  { name: "レタス", days: 5, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "きゅうり", days: 4, category: "野菜", defaultAmount: 3, defaultUnit: "本" },
+  { name: "ピーマン", days: 7, category: "野菜", defaultAmount: 3, defaultUnit: "個" },
+  { name: "パプリカ", days: 7, category: "野菜", defaultAmount: 2, defaultUnit: "個" },
+  { name: "小松菜", days: 3, category: "野菜", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "ほうれん草", days: 3, category: "野菜", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "もやし", days: 2, category: "野菜", defaultAmount: 200, defaultUnit: "g" },
+  { name: "ブロッコリー", days: 5, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "カリフラワー", days: 5, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "大根", days: 10, category: "野菜", defaultAmount: 1, defaultUnit: "本" },
+  { name: "白菜", days: 10, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "ネギ", days: 7, category: "野菜", defaultAmount: 3, defaultUnit: "本" },
+  { name: "長ネギ", days: 7, category: "野菜", defaultAmount: 3, defaultUnit: "本" },
+  { name: "わけぎ", days: 5, category: "野菜", defaultAmount: 1, defaultUnit: "束" },
+  { name: "あさつき", days: 5, category: "野菜", defaultAmount: 1, defaultUnit: "束" },
+  { name: "しいたけ", days: 4, category: "野菜", defaultAmount: 100, defaultUnit: "g" },
+  { name: "えのき", days: 4, category: "野菜", defaultAmount: 100, defaultUnit: "g" },
+  { name: "まいたけ", days: 4, category: "野菜", defaultAmount: 100, defaultUnit: "g" },
+  { name: "しめじ", days: 4, category: "野菜", defaultAmount: 100, defaultUnit: "g" },
+  { name: "エリンギ", days: 4, category: "野菜", defaultAmount: 100, defaultUnit: "g" },
+  { name: "きのこ", days: 4, category: "野菜", defaultAmount: 100, defaultUnit: "g" },
+  { name: "なす", days: 4, category: "野菜", defaultAmount: 3, defaultUnit: "個" },
+  { name: "オクラ", days: 3, category: "野菜", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "ゴーヤ", days: 4, category: "野菜", defaultAmount: 1, defaultUnit: "本" },
+  { name: "ズッキーニ", days: 4, category: "野菜", defaultAmount: 1, defaultUnit: "本" },
+  { name: "レンコン", days: 7, category: "野菜", defaultAmount: 200, defaultUnit: "g" },
+  { name: "ごぼう", days: 7, category: "野菜", defaultAmount: 1, defaultUnit: "本" },
+  { name: "山芋", days: 14, category: "野菜", defaultAmount: 200, defaultUnit: "g" },
+  { name: "長いも", days: 14, category: "野菜", defaultAmount: 200, defaultUnit: "g" },
+  { name: "さつまいも", days: 21, category: "野菜", defaultAmount: 2, defaultUnit: "個" },
+  { name: "里芋", days: 21, category: "野菜", defaultAmount: 300, defaultUnit: "g" },
+  { name: "とうもろこし", days: 3, category: "野菜", defaultAmount: 2, defaultUnit: "本" },
+  { name: "スナップえんどう", days: 4, category: "野菜", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "グリーンピース", days: 4, category: "野菜", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "アスパラガス", days: 4, category: "野菜", defaultAmount: 1, defaultUnit: "束" },
+  { name: "春菊", days: 3, category: "野菜", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "水菜", days: 3, category: "野菜", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "チンゲン菜", days: 4, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "白菜", days: 10, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "芽キャベツ", days: 7, category: "野菜", defaultAmount: 200, defaultUnit: "g" },
+
+  // 果物
+  { name: "りんご", days: 30, category: "野菜", defaultAmount: 3, defaultUnit: "個" },
+  { name: "バナナ", days: 5, category: "野菜", defaultAmount: 1, defaultUnit: "房" },
+  { name: "みかん", days: 14, category: "野菜", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "イチゴ", days: 3, category: "野菜", defaultAmount: 1, defaultUnit: "パック" },
+  { name: "ぶどう", days: 4, category: "野菜", defaultAmount: 1, defaultUnit: "房" },
+  { name: "キウイ", days: 7, category: "野菜", defaultAmount: 3, defaultUnit: "個" },
+  { name: "梨", days: 7, category: "野菜", defaultAmount: 2, defaultUnit: "個" },
+  { name: "桃", days: 3, category: "野菜", defaultAmount: 3, defaultUnit: "個" },
+  { name: "すもも", days: 4, category: "野菜", defaultAmount: 1, defaultUnit: "パック" },
+  { name: "メロン", days: 7, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "スイカ", days: 7, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "パイナップル", days: 5, category: "野菜", defaultAmount: 1, defaultUnit: "個" },
+  { name: "レモン", days: 14, category: "野菜", defaultAmount: 2, defaultUnit: "個" },
+  { name: "ライム", days: 14, category: "野菜", defaultAmount: 3, defaultUnit: "個" },
+  { name: "オレンジ", days: 14, category: "野菜", defaultAmount: 5, defaultUnit: "個" },
+  { name: "グレープフルーツ", days: 14, category: "野菜", defaultAmount: 2, defaultUnit: "個" },
+
+  // 調味料
+  { name: "醤油", days: 365, category: "調味料", defaultAmount: 1000, defaultUnit: "ml" },
+  { name: "味噌", days: 180, category: "調味料", defaultAmount: 750, defaultUnit: "g" },
+  { name: "料理酒", days: 365, category: "調味料", defaultAmount: 1000, defaultUnit: "ml" },
+  { name: "みりん", days: 365, category: "調味料", defaultAmount: 1000, defaultUnit: "ml" },
+  { name: "マヨネーズ", days: 30, category: "調味料", defaultAmount: 450, defaultUnit: "g" },
+  { name: "ケチャップ", days: 30, category: "調味料", defaultAmount: 500, defaultUnit: "g" },
+  { name: "塩", days: 3650, category: "調味料", defaultAmount: 500, defaultUnit: "g" },
+  { name: "コショウ", days: 3650, category: "調味料", defaultAmount: 100, defaultUnit: "g" },
+  { name: "砂糖", days: 3650, category: "調味料", defaultAmount: 1000, defaultUnit: "g" },
+  { name: "酢", days: 365, category: "調味料", defaultAmount: 500, defaultUnit: "ml" },
+  { name: "油", days: 365, category: "調味料", defaultAmount: 1000, defaultUnit: "g" },
+  { name: "オリーブオイル", days: 365, category: "調味料", defaultAmount: 500, defaultUnit: "g" },
+  { name: "ごま油", days: 365, category: "調味料", defaultAmount: 200, defaultUnit: "ml" },
+  { name: "サラダ油", days: 365, category: "調味料", defaultAmount: 1000, defaultUnit: "ml" },
+  { name: "ドレッシング", days: 30, category: "調味料", defaultAmount: 200, defaultUnit: "ml" },
+  { name: "めんつゆ", days: 365, category: "調味料", defaultAmount: 500, defaultUnit: "ml" },
+  { name: "ポン酢", days: 365, category: "調味料", defaultAmount: 300, defaultUnit: "ml" },
+  { name: "ソース", days: 365, category: "調味料", defaultAmount: 300, defaultUnit: "ml" },
+  { name: "ウスターソース", days: 365, category: "調味料", defaultAmount: 300, defaultUnit: "ml" },
+  { name: "中濃ソース", days: 365, category: "調味料", defaultAmount: 300, defaultUnit: "ml" },
+  { name: "おろしソース", days: 365, category: "調味料", defaultAmount: 200, defaultUnit: "ml" },
+  { name: "チリソース", days: 365, category: "調味料", defaultAmount: 150, defaultUnit: "ml" },
+  { name: "わさび", days: 365, category: "調味料", defaultAmount: 40, defaultUnit: "g" },
+  { name: "からし", days: 365, category: "調味料", defaultAmount: 40, defaultUnit: "g" },
+  { name: "豆板醤", days: 365, category: "調味料", defaultAmount: 100, defaultUnit: "g" },
+  { name: "焼肉のたれ", days: 365, category: "調味料", defaultAmount: 300, defaultUnit: "ml" },
+  { name: "焼肉ソース", days: 365, category: "調味料", defaultAmount: 300, defaultUnit: "ml" },
+
+  // 加工食品
+  { name: "カレールウ", days: 365, category: "加工食品", defaultAmount: 200, defaultUnit: "g" },
+  { name: "シチューミクスト", days: 365, category: "加工食品", defaultAmount: 200, defaultUnit: "g" },
+  { name: "ハヤシルウ", days: 365, category: "加工食品", defaultAmount: 200, defaultUnit: "g" },
+  { name: "納豆", days: 7, category: "加工食品", defaultAmount: 45, defaultUnit: "g" },
+  { name: "豆腐", days: 5, category: "加工食品", defaultAmount: 350, defaultUnit: "g" },
+  { name: "絹豆腐", days: 5, category: "加工食品", defaultAmount: 300, defaultUnit: "g" },
+  { name: "木綿豆腐", days: 5, category: "加工食品", defaultAmount: 350, defaultUnit: "g" },
+  { name: "焼き豆腐", days: 7, category: "加工食品", defaultAmount: 300, defaultUnit: "g" },
+  { name: "油揚げ", days: 7, category: "加工食品", defaultAmount: 3, defaultUnit: "枚" },
+  { name: "厚揚げ", days: 7, category: "加工食品", defaultAmount: 1, defaultUnit: "パック" },
+  { name: "しらす", days: 3, category: "冷蔵", defaultAmount: 50, defaultUnit: "g", aliases: ["シラス", "ちりめんじゃこ"] },
+  { name: "キムチ", days: 14, category: "冷蔵", defaultAmount: 200, defaultUnit: "g", aliases: ["漬物"] },
+  { name: "梅干し", days: 180, category: "冷蔵", defaultAmount: 100, defaultUnit: "g" },
+  { name: "がんもどき", days: 7, category: "加工食品", defaultAmount: 150, defaultUnit: "g" },
+  { name: "麩", days: 30, category: "加工食品", defaultAmount: 50, defaultUnit: "g" },
+  { name: "春雨", days: 730, category: "加工食品", defaultAmount: 100, defaultUnit: "g" },
+  { name: "麺", days: 3, category: "加工食品", defaultAmount: 200, defaultUnit: "g" },
+  { name: "うどん", days: 3, category: "加工食品", defaultAmount: 200, defaultUnit: "g" },
+  { name: "そば", days: 3, category: "加工食品", defaultAmount: 200, defaultUnit: "g" },
+  { name: "パスタ", days: 730, category: "加工食品", defaultAmount: 500, defaultUnit: "g" },
+  { name: "スパゲッティ", days: 730, category: "加工食品", defaultAmount: 500, defaultUnit: "g" },
+  { name: "マカロニ", days: 730, category: "加工食品", defaultAmount: 250, defaultUnit: "g" },
+  { name: "パン", days: 3, category: "加工食品", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "食パン", days: 3, category: "加工食品", defaultAmount: 6, defaultUnit: "枚" },
+  { name: "フランスパン", days: 2, category: "加工食品", defaultAmount: 1, defaultUnit: "本" },
+  { name: "バゲット", days: 2, category: "加工食品", defaultAmount: 1, defaultUnit: "本" },
+  { name: "ロールパン", days: 3, category: "加工食品", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "カップ麺", days: 180, category: "加工食品", defaultAmount: 1, defaultUnit: "個" },
+  { name: "インスタントラーメン", days: 180, category: "加工食品", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "袋ラーメン", days: 180, category: "加工食品", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "レトルトカレー", days: 365, category: "加工食品", defaultAmount: 200, defaultUnit: "g" },
+  { name: "レトルト食品", days: 365, category: "加工食品", defaultAmount: 200, defaultUnit: "g" },
+  { name: "缶詰", days: 1095, category: "加工食品", defaultAmount: 1, defaultUnit: "個" },
+  { name: "フルーツ缶", days: 1095, category: "加工食品", defaultAmount: 425, defaultUnit: "g" },
+  { name: "みかん缶", days: 1095, category: "加工食品", defaultAmount: 425, defaultUnit: "g" },
+  { name: "パイン缶", days: 1095, category: "加工食品", defaultAmount: 425, defaultUnit: "g" },
+  { name: "桃缶", days: 1095, category: "加工食品", defaultAmount: 425, defaultUnit: "g" },
+  { name: "コーン缶", days: 1095, category: "加工食品", defaultAmount: 425, defaultUnit: "g" },
+  { name: "ミックスベジタブル", days: 365, category: "冷凍", defaultAmount: 250, defaultUnit: "g" },
+  { name: "冷凍野菜", days: 365, category: "冷凍", defaultAmount: 250, defaultUnit: "g" },
+  { name: "冷凍食品", days: 365, category: "冷凍", defaultAmount: 200, defaultUnit: "g" },
+  { name: "冷凍ご飯", days: 365, category: "冷凍", defaultAmount: 200, defaultUnit: "g" },
+  { name: "冷凍うどん", days: 365, category: "冷凍", defaultAmount: 200, defaultUnit: "g" },
+  { name: "冷凍パスタ", days: 365, category: "冷凍", defaultAmount: 250, defaultUnit: "g" },
+  { name: "冷凍ピラフ", days: 365, category: "冷凍", defaultAmount: 200, defaultUnit: "g" },
+  { name: "冷凍チャーハン", days: 365, category: "冷凍", defaultAmount: 200, defaultUnit: "g" },
+  { name: "冷凍餃子", days: 365, category: "冷凍", defaultAmount: 150, defaultUnit: "g" },
+  { name: "冷凍焼売", days: 365, category: "冷凍", defaultAmount: 120, defaultUnit: "g" },
+  { name: "冷凍春巻", days: 365, category: "冷凍", defaultAmount: 100, defaultUnit: "g" },
+  { name: "アイスクリーム", days: 90, category: "冷凍", defaultAmount: 200, defaultUnit: "ml" },
+  { name: "シャーベット", days: 90, category: "冷凍", defaultAmount: 200, defaultUnit: "ml" },
+  { name: "冷凍フルーツ", days: 365, category: "冷凍", defaultAmount: 150, defaultUnit: "g" },
+  { name: "冷凍ベリー", days: 365, category: "冷凍", defaultAmount: 150, defaultUnit: "g" },
+
+  // 米・穀物
+  { name: "米", days: 365, category: "その他", defaultAmount: 5, defaultUnit: "kg" },
+  { name: "白米", days: 365, category: "その他", defaultAmount: 5, defaultUnit: "kg" },
+  { name: "玄米", days: 180, category: "その他", defaultAmount: 5, defaultUnit: "kg" },
+  { name: "もち米", days: 365, category: "その他", defaultAmount: 5, defaultUnit: "kg" },
+  { name: "餅", days: 90, category: "その他", defaultAmount: 1, defaultUnit: "袋" },
+  { name: "小麦粉", days: 365, category: "その他", defaultAmount: 1000, defaultUnit: "g" },
+  { name: "薄力粉", days: 365, category: "その他", defaultAmount: 1000, defaultUnit: "g" },
+  { name: "強力粉", days: 365, category: "その他", defaultAmount: 1000, defaultUnit: "g" },
+  { name: "米粉", days: 365, category: "その他", defaultAmount: 200, defaultUnit: "g" },
+  { name: "パン粉", days: 180, category: "その他", defaultAmount: 200, defaultUnit: "g" },
+  { name: "おから", days: 7, category: "加工食品", defaultAmount: 150, defaultUnit: "g" },
+  { name: "高野豆腐", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "切り干し大根", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "干し椎茸", days: 365, category: "その他", defaultAmount: 30, defaultUnit: "g" },
+  { name: "昆布", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "かつお節", days: 365, category: "その他", defaultAmount: 30, defaultUnit: "g" },
+  { name: "ワカメ", days: 365, category: "その他", defaultAmount: 30, defaultUnit: "g" },
+  { name: "ひじき", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+
+  // 飲料
+  { name: "コーヒー", days: 365, category: "その他", defaultAmount: 200, defaultUnit: "g" },
+  { name: "インスタントコーヒー", days: 365, category: "その他", defaultAmount: 200, defaultUnit: "g" },
+  { name: "コーヒー豆", days: 365, category: "その他", defaultAmount: 200, defaultUnit: "g" },
+  { name: "紅茶", days: 365, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "緑茶", days: 365, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "お茶", days: 365, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "麦茶", days: 365, category: "その他", defaultAmount: 500, defaultUnit: "ml" },
+  { name: "ジュース", days: 14, category: "その他", defaultAmount: 1000, defaultUnit: "ml" },
+  { name: "野菜ジュース", days: 14, category: "その他", defaultAmount: 1000, defaultUnit: "ml" },
+  { name: "果物ジュース", days: 14, category: "その他", defaultAmount: 1000, defaultUnit: "ml" },
+  { name: "炭酸水", days: 180, category: "その他", defaultAmount: 500, defaultUnit: "ml" },
+  { name: "ソーダ", days: 180, category: "その他", defaultAmount: 500, defaultUnit: "ml" },
+  { name: "水", days: 365, category: "その他", defaultAmount: 2, defaultUnit: "L" },
+  { name: "ミネラルウォーター", days: 365, category: "その他", defaultAmount: 2, defaultUnit: "L" },
+  { name: "スポーツドリンク", days: 365, category: "その他", defaultAmount: 500, defaultUnit: "ml" },
+
+  // 菓子・スイーツ
+  { name: "チョコレート", days: 365, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "ビスケット", days: 180, category: "その他", defaultAmount: 150, defaultUnit: "g" },
+  { name: "クッキー", days: 180, category: "その他", defaultAmount: 150, defaultUnit: "g" },
+  { name: "スナック", days: 180, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "ポテトチップス", days: 180, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "せんべい", days: 180, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "おかき", days: 180, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "飴", days: 365, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "ガム", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "ジェリー", days: 365, category: "その他", defaultAmount: 120, defaultUnit: "g" },
+  { name: "プリン", days: 7, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "ゼリー", days: 365, category: "その他", defaultAmount: 120, defaultUnit: "g" },
+  { name: "アイス", days: 90, category: "冷凍", defaultAmount: 200, defaultUnit: "ml" },
+  { name: "シャーベット", days: 90, category: "冷凍", defaultAmount: 200, defaultUnit: "ml" },
+
+  // その他
+  { name: "海苔", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "のり", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "焼き海苔", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "味付け海苔", days: 365, category: "その他", defaultAmount: 30, defaultUnit: "g" },
+  { name: "ふりかけ", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "ごま", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "いりごま", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "すりごま", days: 365, category: "その他", defaultAmount: 50, defaultUnit: "g" },
+  { name: "ナッツ", days: 180, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "アーモンド", days: 180, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "くるみ", days: 180, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "ピーナッツ", days: 180, category: "その他", defaultAmount: 100, defaultUnit: "g" },
+  { name: "蜂蜜", days: 3650, category: "その他", defaultAmount: 300, defaultUnit: "g" },
+  { name: "はちみつ", days: 3650, category: "その他", defaultAmount: 300, defaultUnit: "g" },
+  { name: "ジャム", days: 365, category: "その他", defaultAmount: 370, defaultUnit: "g" },
+  { name: "マーマレード", days: 365, category: "その他", defaultAmount: 370, defaultUnit: "g" },
+  { name: "マーガリン", days: 30, category: "冷蔵", defaultAmount: 300, defaultUnit: "g" },
+];
+
+/**
+ * Fuse.js の初期化 - aliases対応と検索精度向上
+ */
+const fuse = new Fuse(FOOD_DATABASE, {
+  keys: [
+    { name: "name", weight: 0.7 },  // 主名を重視
+    { name: "aliases", weight: 0.3 } // 別名も考慮
+  ],
+  threshold: 0.4, // 0.4以下を信頼できる一致とする（少し緩和）
+  includeScore: true,
+  ignoreLocation: true, // 位置を無視して完全一致を重視
+  minMatchCharLength: 2, // 最低2文字以上で一致
+  shouldSort: true, // スコア順にソート
+});
+
+/**
+ * 名前から食材情報を曖昧検索する
+ */
+export function fuzzySearchFood(name: string): FoodMaster | null {
+  if (!name) return null;
+  const results = fuse.search(name);
+  const bestMatch = results[0];
+  
+  if (bestMatch?.score !== undefined && bestMatch.score < 0.45) {
+    return bestMatch.item;
+  }
+  return null;
+}
+
+/**
+ * 名前から賞味期限を推定する（メインエンジン）
+ */
+export function estimateExpirationDate(
+  name: string,
+  purchasedAt: Date = new Date(),
+): Date | null {
+  const match = fuzzySearchFood(name);
+  if (match) {
+    return addDays(purchasedAt, match.days);
+  }
+  return null;
+}
+
+/**
+ * 食材の規定の保存期間（日数）を取得する
+ */
+export function getExpirationDays(name: string): number | null {
+  const match = fuzzySearchFood(name);
+  return match ? match.days : null;
+}

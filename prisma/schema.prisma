@@ -1,0 +1,424 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                     String                 @id @default(cuid())
+  name                   String?
+  email                  String?                @unique
+  emailVerified          DateTime?
+  image                  String?
+  createdAt              DateTime               @default(now())
+  status                 String?                @default("active")
+  allowedIps             String[]
+  aiMenuCount            Int                    @default(0) @map("ai_menu_count")
+  aiMenuLastReset        DateTime?              @map("ai_menu_last_reset")
+  aiDailyCount           Int                    @default(0)
+  dailyResetAt           DateTime?
+  plan                   PlanType               @default(FREE)
+  planExpiresAt          DateTime?
+  stripeCustomerId       String?                @unique
+  billingStatus          String?
+  stripeSubscriptionId   String?
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
+  cancelAtPeriodEnd      Boolean                @default(false)
+  onboardingCompleted    Boolean                @default(false) @map("onboarding_completed")
+  accounts               Account[]
+  billingEvents          BillingEvent[]
+  cookingHistories       CookingHistory[]
+  Favorite               Favorite[]
+  householdsOwned        Household[]            @relation("Owner")
+  householdMembership    HouseholdMember[]
+  Ingredient             Ingredient[]
+  inventoryAlerts        InventoryAlert[]
+  Menu                   Menu[]
+  menuGenerations        MenuGeneration[]
+  products               Product[]
+  receipts               Receipt[]
+  sessions               Session[]
+  shoppingListItems      ShoppingListItem[]
+  UsageHistory           UsageHistory[]
+  allergies              UserAllergy[]
+  preferences            UserPreferences?
+  restrictions           UserRestriction[]
+  weeklyMenuGenerations  WeeklyMenuGeneration[]
+  pushSubscriptions      PushSubscription[]
+
+  @@index([createdAt], map: "idx_user_createdat")
+  @@index([plan], map: "idx_user_plan")
+}
+
+model Household {
+  id        String            @id @default(cuid())
+  ownerId   String
+  createdAt DateTime          @default(now())
+  owner     User              @relation("Owner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  invites   HouseholdInvite[]
+  members   HouseholdMember[]
+  receipts  Receipt[]
+}
+
+model HouseholdInvite {
+  id          String    @id @default(cuid())
+  householdId String
+  email       String?
+  token       String    @unique
+  expiresAt   DateTime
+  revoked     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+}
+
+model HouseholdMember {
+  id          String        @id @default(cuid())
+  householdId String
+  userId      String
+  role        HouseholdRole @default(MEMBER)
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+}
+
+model BillingEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  eventType String
+  payload   Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@unique([provider, providerAccountId], map: "ux_account_provider_provideraccountid")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  menuId    String?
+  title     String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Ingredient {
+  id                  String           @id @default(cuid())
+  userId              String
+  name                String
+  amount              Float?
+  amountLevel         String?
+  unit                String?
+  expirationDate      DateTime?        @map("expiry")
+  expirationEstimated Boolean          @default(false)
+  category            String?
+  purchasedAt         DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  ingredientType      IngredientType   @default(raw)
+  productId           String?
+  version             Int              @default(1)
+  product             Product?         @relation(fields: [productId], references: [id])
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alerts              InventoryAlert[]
+  receiptItems        ReceiptItem[]
+
+  @@index([userId, expirationDate])
+  @@index([ingredientType])
+  @@index([userId, category], map: "idx_ingredient_user_category")
+  @@index([userId, createdAt], map: "idx_ingredient_user_createdat")
+  @@index([userId, expirationDate], map: "idx_ingredient_user_expiry")
+}
+
+/// 加工食品マスター（ルー、即席食品、混合調味料など）
+model Product {
+  id                            String         @id @default(cuid())
+  userId                        String
+  name                          String
+  brandName                     String?
+  ingredientType                IngredientType @default(processed_base)
+  /// 必要追加食材（JSON）
+  /// 例: [{"name":"玉ねぎ","amount":2,"unit":"個"},{"name":"じゃがいも","amount":2,"unit":"個"}]
+  requiresAdditionalIngredients Json?          @default("[]")
+  /// 調理手順テンプレート
+  /// processed_base: "商品操作手順に従い、◯◯を仕上げる"
+  /// instant_complete: "商品操作手順に従い準備する"
+  instructionTemplate           String?
+  /// 栄養推定値（任意）
+  nutritionEstimate             Json?
+  category                      String?
+  createdAt                     DateTime       @default(now())
+  updatedAt                     DateTime       @default(now()) @updatedAt
+  ingredients                   Ingredient[]
+  user                          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([ingredientType])
+}
+
+model Menu {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  difficulty  String?
+  time        String?
+  tips        String?
+  ingredients Json?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UsageHistory {
+  id     String   @id @default(cuid())
+  userId String
+  date   DateTime @default(now())
+  action String
+  meta   Json?
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ShoppingListItem {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  quantity  Float    @default(1)
+  unit      String?
+  checked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId], map: "idx_shoppinglistitem_userid")
+  @@index([userId, checked], map: "idx_shoppinglistitem_userid_checked")
+  @@index([userId, createdAt], map: "idx_shoppinglistitem_userid_createdat")
+}
+
+model UserPreferences {
+  id                       String   @id @default(cuid())
+  userId                   String   @unique
+  cookingSkill             String   @default("intermediate")
+  comfortableMethods       String[] @default([])
+  avoidMethods             String[] @default([])
+  kitchenEquipment         String[] @default([])
+  enableExpirationAlert    Boolean  @default(true)
+  alertDaysBefore          Int      @default(3)
+  alertTime                String   @default("07:00")
+  expirationCriticalDays   Int      @default(2)
+  expirationWarningDays    Int      @default(5)
+  expirationPriorityWeight Float    @default(0.7)
+  tasteJson                Json     @default("{}")
+  aiMessageEnabled         Boolean  @default(false)
+  proFeaturesUnlocked      Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @default(now()) @updatedAt
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model UserAllergy {
+  id        String   @id @default(cuid())
+  userId    String
+  allergen  String
+  label     String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model UserRestriction {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model WeeklyMenuGeneration {
+  id                       String   @id @default(cuid())
+  userId                   String
+  startDate                DateTime
+  endDate                  DateTime
+  dailyMenus               Json
+  consolidatedShoppingList Json
+  createdAt                DateTime @default(now())
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MenuGeneration {
+  id              String           @id @default(cuid())
+  userId          String
+  status          String           @default("completed")
+  progressStep    String           @default("preparing")
+  mainMenu        Json
+  alternativeA    Json
+  alternativeB    Json
+  selectedMenu    String?
+  usedIngredients Json
+  shoppingList    Json
+  generatedAt     DateTime         @default(now())
+  difficulty      Int?
+  nutritionInfo   Json?
+  servings        Int              @default(1)
+  budget          Int?
+  requestHash     String
+  cookingHistory  CookingHistory[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, generatedAt])
+  @@index([status], map: "idx_menugeneration_status")
+  @@index([progressStep], map: "idx_menugeneration_progress")
+}
+
+model CookingHistory {
+  id               String          @id @default(cuid())
+  userId           String
+  menuGenerationId String?
+  status           String          @default("completed")
+  cookedAt         DateTime        @default(now())
+  cookedDishes     Json
+  usedIngredients  Json
+  cancellableUntil DateTime
+  menuGeneration   MenuGeneration? @relation(fields: [menuGenerationId], references: [id])
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, cookedAt])
+}
+
+model InventoryAlert {
+  id            String     @id @default(cuid())
+  userId        String
+  ingredientId  String
+  alertType     String
+  alertDays     Int        @default(3)
+  isActive      Boolean    @default(true)
+  lastAlertedAt DateTime?
+  createdAt     DateTime   @default(now())
+  ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ingredientId, alertType])
+  @@unique([userId, ingredientId, alertType], map: "ux_inventoryalert_user_ingredient_alerttype")
+}
+
+model Receipt {
+  id             String        @id @default(cuid())
+  householdId    String
+  uploadedBy     String
+  status         String        @default("uploaded")
+  rawText        String?
+  parsedAt       DateTime?
+  confirmedAt    DateTime?
+  idempotencyKey String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  household      Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+  items          ReceiptItem[]
+
+  @@index([householdId])
+  @@index([uploadedBy])
+  @@index([status])
+  @@index([idempotencyKey])
+}
+
+model ReceiptItem {
+  id                      String      @id @default(cuid())
+  receiptId               String
+  lineText                String
+  productName             String?
+  normalizedName          String?
+  mappedIngredientId      String?
+  quantityValue           Float?
+  quantityUnit            String?
+  inferredLevel           String?
+  processedCategory       String?
+  confidenceScore         Float?
+  userModified            Boolean     @default(false)
+  createdAt               DateTime    @default(now())
+  estimatedExpirationDays Int?
+  mappedIngredient        Ingredient? @relation(fields: [mappedIngredientId], references: [id])
+  receipt                 Receipt     @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId])
+  @@index([mappedIngredientId])
+}
+
+/// 食材推定結果のグローバルキャッシュ（AIコスト削減・速度向上用）
+model EstimatedIngredientCache {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  category   String
+  amount     Float?
+  unit       String?
+  days       Int
+  confidence String   @default("ai_cache")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([name])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+enum PlanType {
+  FREE
+  PRO
+}
+
+enum IngredientType {
+  raw
+  processed_base
+  instant_complete
+}
+
+enum HouseholdRole {
+  OWNER
+  MEMBER
+}

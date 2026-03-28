@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /fridge-illustration-light.png
+Disallow: /fridge-illustration-dark.png
+Disallow: /my-fridgeai-logo-light.png
+Disallow: /my-fridgeai-logo-dark.png
+
+# 画像検索での表示を明示的にブロック
+User-agent: Googlebot-Image
+Disallow: /fridge-illustration-light.png
+Disallow: /fridge-illustration-dark.png
+Disallow: /my-fridgeai-logo-light.png
+Disallow: /my-fridgeai-logo-dark.png
+
+Sitemap: https://www.my-fridgeai.com/sitemap.xml

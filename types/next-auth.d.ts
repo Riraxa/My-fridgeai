@@ -1,0 +1,29 @@
+import { type DefaultSession } from "next-auth";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      isPro: boolean;
+      plan?: "FREE" | "PRO" | null;
+      stripeCurrentPeriodEnd?: Date | null;
+      cancelAtPeriodEnd?: boolean;
+      accounts?: { provider: string }[];
+      provider?: string;
+    } & DefaultSession["user"];
+    authTime?: number;
+  }
+
+  interface User {
+    id?: string;
+    isPro?: boolean;
+    plan?: "FREE" | "PRO" | null;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id?: string;
+    provider?: string;
+  }
+}
