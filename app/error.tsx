@@ -24,9 +24,9 @@ export default function Error({
 
   const isCriticalError = (error: Error): boolean => {
     const criticalPatterns = [
-      /chunk.*failed/i,
-      /loading.*chunk/i,
-      /network.*error/i,
+      /chunk/i,
+      /loading/i,
+      /network error/i,
       /hydration/i,
       /404/i,
       /500/i,
@@ -49,7 +49,6 @@ export default function Error({
       });
       
       sessionStorage.clear();
-      console.log("Emergency cleanup completed");
     } catch (cleanupError) {
       console.error("Cleanup failed:", cleanupError);
     }

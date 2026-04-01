@@ -1,0 +1,95 @@
+/* ===============================
+   Base Styles & Reset
+   =============================== */
+
+html {
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  transition: background 400ms ease, color 400ms ease;
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+/* Typography */
+h1, h2, h3, .title {
+  color: var(--color-text-primary);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.08), 0 0 2px rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.03em;
+  transition: color 0.3s ease, text-shadow 0.3s ease;
+}
+
+/* Legal Text */
+.legal-text {
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+}
+
+.legal-text strong {
+  color: var(--color-text-primary);
+}
+
+.legal-links {
+  display: flex;
+  flex-direction: column;
+}
+
+.legal-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  color: var(--color-text-secondary);
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.legal-link:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--color-text-primary);
+}
+
+.legal-link:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 3px;
+}
+
+.legal-link__label {
+  color: inherit;
+}
+
+.legal-link__arrow {
+  color: var(--color-text-muted);
+}
+
+.legal-divider {
+  border-top: 1px solid var(--surface-border);
+  margin: 0.25rem 0;
+}
+
+/* No Tap Highlight */
+.no-tap-highlight {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Scrollbar Hide */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  height: auto;
+}

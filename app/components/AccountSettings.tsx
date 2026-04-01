@@ -2,19 +2,15 @@
 // app/components/AccountSettings.tsx
 "use client";
 
-import { useSession, signOut, signIn } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
-import Image from "next/image";
 import { useTheme } from "@/app/components/ThemeProvider";
-import { Button } from "@/app/components/ui/button";
-import ImageCropperModal from "./ImageCropperModal";
 import { useState, useEffect, useRef } from "react";
-// import { useCallback } from "react"; // 将来使用
-import { Pencil, Check, X, User } from "lucide-react";
-import { toast } from "sonner";
-import ProModal from "@/app/components/ProModal";
-import { useNativeConfirm } from "@/app/hooks/useOSDetection";
 import { useNativeSelect } from "@/app/hooks/useNativeSelect";
+
+import ProfileSection from "./account/ProfileSection";
+import SubscriptionSection from "./account/SubscriptionSection";
+import SecuritySection from "./account/SecuritySection";
 
 // スケルトンUIコンポーネント
 function SettingsSkeleton() {
@@ -67,40 +63,27 @@ function SettingsSkeleton() {
 export default function AccountSettings() {
   const { data: session, status, update } = useSession();
   const { theme, setTheme } = useTheme();
-  const [showProModal, setShowProModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [cachedSession] = useState<Session | null>(null);
   const didSyncSession = useRef(false);
-  const { confirm: nativeConfirm } = useNativeConfirm();
   const { getSelectClassName } = useNativeSelect();
 
-  // 編集関連の状態
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [tempName, setTempName] = useState("");
-  const [isSavingName, setIsSavingName] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [showCropper, setShowCropper] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string>("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 表示用のセッションデータ（キャッシュされたデータか現在のセッション）
+  // 表示用のセッションデータ
   const displaySession = session ?? cachedSession;
 
   useEffect(() => {
     if (status === "authenticated" && !didSyncSession.current) {
       didSyncSession.current = true;
       setIsSyncing(true);
-      // バックグラウンドで請求情報を同期
       void (async () => {
         try {
-          // 一時的に新しいエンドポイントをテスト
           await fetch("/api/billing-sync", {
             method: "POST",
             credentials: "include",
             cache: "no-store",
           });
         } catch {
-          // ignore sync errors here
+          // ignore sync errors
         } finally {
           setIsSyncing(false);
         }
@@ -108,458 +91,23 @@ export default function AccountSettings() {
     }
   }, [status]);
 
-  const handleDeleteAccount = async () => {
-    const confirmed = nativeConfirm(
-      "本当にアカウントを削除しますか？この操作は取り消せません。\n注意: セキュリティのため、直近でログインしていない場合は削除に失敗することがあります。",
-      "アカウント削除の確認",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/account/delete", { method: "POST" });
-      // 可能性のある非JSONレスポンスにも耐える
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch {
-        // ignore JSON parse errors
-      }
-
-      if (!res.ok) {
-        if (res.status === 403 || res.status === 401) {
-          alert(
-            "セキュリティのため、再認証が必要です。ログイン画面へ移動します。",
-          );
-          await signIn();
-          return;
-        }
-        throw new Error(data?.error ?? "削除エラー");
-      }
-
-      alert("アカウントを削除しました。");
-      await signOut({ callbackUrl: "/" });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      alert(`エラー: ${message}`);
-    }
-  };
-
-  const handleUpdateProfile = async (data: {
-    name?: string;
-    image?: string;
-  }) => {
-    try {
-      const res = await fetch("/api/account/update", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!res.ok) throw new Error("更新に失敗しました。");
-
-      // セッションを更新 (NextAuth v5なら update() が使えるが、v4ならリロードまたは再認証が必要)
-      // ここでは、SessionWrapper等で管理されているセッションをリロードするために
-      // useSession().update() を使ってセッションを更新
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          ...data,
-        },
-      });
-
-      toast.success("プロフィールを更新しました");
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "エラーが発生しました。",
-      );
-    }
-  };
-
-  const saveName = async () => {
-    setIsSavingName(true);
-    await handleUpdateProfile({ name: tempName });
-    setIsSavingName(false);
-    setIsEditingName(false);
-  };
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    console.log('Selected file:', {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      lastModified: file.lastModified
-    });
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("画像サイズは2MB以下にしてください。");
-      return;
-    }
-
-    setIsUploadingImage(true);
-    const reader = new FileReader();
-    
-    reader.onloadend = () => {
-      try {
-        const base64String = reader.result as string;
-        console.log('FileReader result length:', base64String?.length);
-        console.log('FileReader result prefix:', base64String?.substring(0, 50));
-        
-        if (!base64String?.startsWith('data:image/')) {
-          throw new Error('画像の読み込みに失敗しました');
-        }
-        setSelectedImage(base64String);
-        setShowCropper(true);
-        console.log('Image cropper should show now');
-      } catch (error) {
-        console.error('Image processing error:', error);
-        toast.error('画像の処理に失敗しました。別の画像をお試しください。');
-      } finally {
-        setIsUploadingImage(false);
-      }
-    };
-    
-    reader.onerror = () => {
-      console.error('FileReader error:', reader.error);
-      toast.error('画像の読み込みに失敗しました。別の画像をお試しください。');
-      setIsUploadingImage(false);
-    };
-    
-    reader.readAsDataURL(file);
-  };
-
-  const handleCropComplete = async (croppedImage: string) => {
-    setShowCropper(false);
-    setSelectedImage("");
-    await handleUpdateProfile({ image: croppedImage });
-  };
-
-  const [isPortalLoading, setIsPortalLoading] = useState(false);
-
-  const handleCancelSubscription = async () => {
-    const message = `本当に解約しますか？
-
-【ご確認事項】
-・解約後も現在の請求期間が終了するまでは Pro 機能をご利用いただけます。
-・請求期間終了後、自動更新は行われません。
-・返金は行われませんのでご了承ください。`;
-
-    const confirmed = nativeConfirm(message, "解約の確認");
-    if (!confirmed) return;
-
-    setIsPortalLoading(true);
-    try {
-      const res = await fetch("/api/billing-portal", {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Portalの起動に失敗しました");
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      alert(`エラー: ${message}`);
-    } finally {
-      setIsPortalLoading(false);
-    }
-  };
-
-  // ローディング時はスケルトン表示（ただしキャッシュがあれば即時表示）
   if (status === "loading" && !cachedSession) return <SettingsSkeleton />;
   if (!displaySession?.user) return <div>ログインしてください</div>;
 
-  // 型安全に boolean 化
-  const isPro = (displaySession.user as any).plan === "PRO";
-
   return (
-    // 画面中央に寄せるために mx-auto と左右パディングを追加
     <div className="space-y-8 max-w-2xl mx-auto pb-24 px-4">
-      {/* Pro Plan Section */}
-      <section>
-        {isPro ? (
-          <div className="space-y-4">
-            <div className="card border-2 border-orange-400/30 bg-gradient-to-br from-orange-50/80 to-amber-50/80 dark:from-orange-900/20 dark:to-amber-900/20">
-              <div className="flex items-center justify-between mb-3">
-                <div
-                  className="font-bold text-lg"
-                  style={{ color: "var(--accent)" }}
-                >
-                  Pro サポーター 🌟
-                </div>
-                <div className="flex items-center gap-2">
-                  {isSyncing && (
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                      <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                      同期中
-                    </div>
-                  )}
-                  {displaySession?.user &&
-                    (displaySession.user as any).cancelAtPeriodEnd ? (
-                    <span className="text-xs px-3 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
-                      解約予約中
-                    </span>
-                  ) : (
-                    <span
-                      className="text-xs px-3 py-1.5 rounded-full font-semibold"
-                      style={{
-                        background:
-                          "color-mix(in srgb, var(--accent) 15%, transparent)",
-                        color: "var(--accent)",
-                        border:
-                          "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-                      }}
-                    >
-                      有効
-                    </span>
-                  )}
-                </div>
-              </div>
-              <p
-                className="text-base leading-relaxed"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
-                {displaySession?.user &&
-                  (displaySession.user as any).cancelAtPeriodEnd
-                  ? "Proプランは解約済みです。"
-                  : "ご支援ありがとうございます！あなたのサポートが開発の力になります。"}
-              </p>
-              {displaySession?.user &&
-                (displaySession.user as any).cancelAtPeriodEnd &&
-                (displaySession.user as any).stripeCurrentPeriodEnd && (
-                  <p
-                    className="text-sm font-medium mt-2"
-                    style={{ color: "var(--accent)" }}
-                  >
-                    機能は{" "}
-                    {new Date(
-                      (displaySession.user as any).stripeCurrentPeriodEnd,
-                    ).toLocaleDateString()}{" "}
-                    までご利用いただけます。
-                  </p>
-                )}
-            </div>
+      <SubscriptionSection displaySession={displaySession} isSyncing={isSyncing} />
 
-            <div className="card">
-              <h3
-                className="font-bold mb-2"
-                style={{ color: "var(--color-text-primary)" }}
-              >
-                サブスクリプション管理
-              </h3>
-              <p
-                className="text-sm mb-4"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
-                お支払い方法の変更や、
-                {displaySession?.user &&
-                  (displaySession.user as any).cancelAtPeriodEnd
-                  ? "解約のキャンセル"
-                  : "プランの解約"}{" "}
-                などの手続きを行えます。
-              </p>
-              <div className="flex justify-center">
-                <Button
-                  variant={
-                    displaySession?.user &&
-                      (displaySession.user as any).cancelAtPeriodEnd
-                      ? "default"
-                      : "destructive"
-                  }
-                  onClick={handleCancelSubscription}
-                  disabled={isPortalLoading}
-                  className="w-full sm:w-auto border-2 hover:scale-[1.02] transition-all"
-                  style={
-                    displaySession?.user &&
-                      (displaySession.user as any).cancelAtPeriodEnd
-                      ? {}
-                      : {
-                        borderColor: "var(--accent)",
-                        background: "var(--accent)",
-                        color: "#fff",
-                      }
-                  }
-                >
-                  {isPortalLoading
-                    ? "読み込み中..."
-                    : displaySession?.user &&
-                      (displaySession.user as any).cancelAtPeriodEnd
-                      ? "解約をキャンセルする"
-                      : "Proプランを解約する"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 border-2 border-orange-400 relative overflow-hidden rounded-xl">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex-1">
-                <h3
-                  className="font-bold text-lg mb-1"
-                  style={{ color: "var(--accent)" }}
-                >
-                  Proプランで応援する
-                </h3>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>✨ 1日の献立生成数が3回にUP</li>
-                  <li>📅 1週間分の献立を一括作成</li>
-                  <li>🍽️ 最大8人前まで生成可能</li>
-                  <li>💰 1食あたりの予算を指定可能</li>
-                  <li>🥕 期限切れ食材を優先消費</li>
-                </ul>
-              </div>
-              <Button
-                onClick={() => setShowProModal(true)}
-                className="font-bold shadow-md whitespace-nowrap"
-                style={{
-                  background: "var(--accent)",
-                  color: "#fff",
-                  border: "none",
-                }}
-              >
-                Proで応援する
-              </Button>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* User Info */}
-      <section>
-        <h2 className="text-xl font-bold mb-4">アカウント情報</h2>
-
-        <div className="card">
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center gap-4">
-              <div className="relative group">
-                <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center border-2"
-                  style={{
-                    background: 'var(--surface-bg)',
-                    borderColor: 'var(--surface-border)'
-                  }}>
-                  {displaySession.user.image ? (
-                    <Image
-                      src={displaySession.user.image}
-                      alt=""
-                      width={64}
-                      height={64}
-                      className="w-full h-full object-cover rounded-full"
-                    />
-                  ) : (
-                    <User style={{ color: 'var(--color-text-secondary)' }} />
-                  )}
-                  {isUploadingImage && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full shadow-lg border hover:scale-110 transition-transform"
-                    style={{
-                      background: 'var(--surface-bg)',
-                      borderColor: 'var(--surface-border)'
-                    }}
-                    title="アイコンを変更"
-                  >
-                    <Pencil
-                      size={12}
-                      style={{ color: 'var(--color-text-secondary)' }}
-                    />
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageChange}
-                    className="hidden"
-                    accept="image/*"
-                  />
-
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  {isEditingName ? (
-                    <div className="flex items-center gap-2 w-full">
-                      <input
-                        type="text"
-                        value={tempName}
-                        onChange={(e) => setTempName(e.target.value)}
-                        className="px-2 py-1 flex-1 outline-none text-sm"
-                        style={{
-                          background: 'var(--surface-bg)',
-                          color: 'var(--color-text-primary)',
-                          border: '1px solid var(--surface-border)',
-                          borderRadius: '0.25rem'
-                        }}
-                        placeholder="名前を入力"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveName();
-                          if (e.key === "Escape") setIsEditingName(false);
-                        }}
-                      />
-                      <button
-                        onClick={saveName}
-                        disabled={isSavingName}
-                        className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
-                      >
-                        <Check size={18} />
-                      </button>
-                      <button
-                        onClick={() => setIsEditingName(false)}
-                        className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded transition-colors"
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="font-bold text-lg truncate">
-                        {displaySession.user.name ?? "未設定"}
-                      </div>
-                      <button
-                        onClick={() => {
-                          setTempName(displaySession.user.name ?? "");
-                          setIsEditingName(true);
-                        }}
-                        className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded transition-colors"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                    </>
-                  )}
-                </div>
-                <div className="text-sm text-gray-500 truncate">
-                  {displaySession.user.email}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <ProfileSection displaySession={displaySession} updateSession={update} />
 
       {/* Theme Settings */}
       <section>
         <h2 className="text-xl font-bold mb-4">表示設定</h2>
-
-        {/* ← ここも .card に置換 */}
         <div className="card">
           <div className="font-semibold mb-2">画面テーマ</div>
           <select
             value={theme}
-            onChange={(e) =>
-              setTheme(e.target.value as "system" | "light" | "dark")
-            }
+            onChange={(e) => setTheme(e.target.value as "system" | "light" | "dark")}
             className={getSelectClassName()}
           >
             <option value="system">OSに合わせる</option>
@@ -569,89 +117,44 @@ export default function AccountSettings() {
         </div>
       </section>
 
+      {/* Other Settings */}
+      <section>
+        <h2 className="text-xl font-bold mb-4">その他</h2>
+        <div className="card legal-links">
+          <a href="/settings/notifications" className="legal-link">
+            <span className="legal-link__label">通知設定</span>
+            <span className="legal-link__arrow">→</span>
+          </a>
+          <div className="legal-divider"></div>
+          <a href="/settings/support" className="legal-link">
+            <span className="legal-link__label">サポート・お問い合わせ</span>
+            <span className="legal-link__arrow">→</span>
+          </a>
+        </div>
+      </section>
+
       {/* Legal Information */}
       <section>
         <h2 className="text-xl font-bold mb-4">法的事項</h2>
         <div className="card legal-links">
-          <a
-            href="/terms"
-            className="legal-link"
-          >
+          <a href="/terms" className="legal-link">
             <span className="legal-link__label">利用規約</span>
             <span className="legal-link__arrow">→</span>
           </a>
           <div className="legal-divider"></div>
-          <a
-            href="/privacy"
-            className="legal-link"
-          >
+          <a href="/privacy" className="legal-link">
             <span className="legal-link__label">プライバシーポリシー</span>
             <span className="legal-link__arrow">→</span>
           </a>
           <div className="legal-divider"></div>
-          <a
-            href="/tokusho"
-            className="legal-link"
-          >
+          <a href="/tokusho" className="legal-link">
             <span className="legal-link__label">特定商取引法に基づく表記</span>
             <span className="legal-link__arrow">→</span>
           </a>
         </div>
       </section>
 
-      {/* アカウント管理 */}
-      <section className="pt-8 border-t dark:border-gray-700">
-        <h2
-          className="text-xl font-bold mb-4"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          アカウント管理 / ログアウト
-        </h2>
-
-        {/* Danger は card ベースにして注意色のボーダーを保持 */}
-        <div className="card border border-red-100 dark:border-red-900">
-          <div className="space-y-4">
-            <Button
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="w-full"
-              style={{
-                background: "var(--surface-bg)",
-                color: "var(--color-text-primary)",
-                border: "1px solid var(--surface-border)",
-              }}
-            >
-              ログアウト
-            </Button>
-
-            <div className="pt-4 border-t border-red-200 dark:border-red-800">
-              <Button
-                onClick={handleDeleteAccount}
-                className="w-full bg-red-600 text-white hover:bg-red-700"
-              >
-                アカウントを削除する
-              </Button>
-              <p
-                className="mt-2 text-sm"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                アカウントを削除すると、すべてのデータが永久に失われます。
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <ProModal open={showProModal} onClose={() => setShowProModal(false)} />
-      
-      <ImageCropperModal
-        isOpen={showCropper}
-        imageSrc={selectedImage}
-        onClose={() => {
-          setShowCropper(false);
-          setSelectedImage("");
-        }}
-        onCrop={handleCropComplete}
-      />
+      <SecuritySection />
     </div>
   );
 }

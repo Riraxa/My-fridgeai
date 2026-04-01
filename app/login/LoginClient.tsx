@@ -9,7 +9,7 @@ import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { motion } from "framer-motion";
-import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
+import { fadeInUp, springTransition, buttonTap } from "@/lib/motion";
 import { Alert } from "@/app/components/Alert";
 
 function getErrorMessage(errorCode: string | null): string | null {
@@ -54,8 +54,10 @@ export default function LoginClient() {
   const handleGoogle = async () => {
     setLoading(true);
     try {
+      const isLocalhost = window.location.hostname === "localhost";
+      const secureFlag = isLocalhost ? "" : "Secure;";
       document.cookie =
-        "google_auth_type=login; path=/; max-age=300; SameSite=Lax; Secure";
+        `google_auth_type=login; path=/; max-age=300; SameSite=Lax; ${secureFlag}`;
       await signIn("google", { callbackUrl: "/home" });
     } catch (err) {
       console.error("[google login] error:", err);

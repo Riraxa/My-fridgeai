@@ -30,7 +30,11 @@
     "paths": {
       "@/*": [
         "./*"
-      ]
+      ],
+      "@/app/components/ui/Toggle": ["./app/components/ui/toggle/index.tsx"],
+      "@/app/components/ui/button": ["./app/components/ui/button/index.tsx"],
+      "@/app/components/ui/card": ["./app/components/ui/card/index.tsx"],
+      "@/app/components/ui/dialog": ["./app/components/ui/dialog/index.tsx"]
     }
   },
   "include": [

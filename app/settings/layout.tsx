@@ -4,13 +4,17 @@
 import Tabs from "@/app/components/Tabs";
 import ProThankYouModal from "@/app/components/ProThankYouModal";
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Suspense } from "react";
 
 function SettingsLayoutContent({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const router = useRouter();
   const [showThankYouModal, setShowThankYouModal] = useState(false);
+
+  // タブを非表示にするページ（アカウントタブ内の詳細ページ）
+  const hideTabs = pathname === "/settings/notifications" || pathname === "/settings/support";
 
   useEffect(() => {
     const proStatus = searchParams.get("pro");
@@ -53,7 +57,7 @@ function SettingsLayoutContent({ children }: { children: React.ReactNode }) {
     <div className="relative min-h-screen pb-20">
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6">設定</h1>
-        <Tabs />
+        {!hideTabs && <Tabs />}
         {children}
       </div>
       <ProThankYouModal open={showThankYouModal} onClose={handleModalClose} />

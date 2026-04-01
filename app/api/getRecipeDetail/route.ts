@@ -1,10 +1,8 @@
 // app/api/getRecipeDetail/route.ts
 import { NextResponse } from "next/server";
-import {
-  callOpenAIOnce,
-  extractTextFromResponse,
-  extractJsonFromText,
-} from "@/lib/openai";
+import { generateObject } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { z } from 'zod';
 
 /**
  * getRecipeDetail (single-call)
@@ -65,49 +63,41 @@ export async function POST(req: Request) {
 `;
 
     try {
-      const resp = await callOpenAIOnce(
-        {
-          input: prompt,
-          max_output_tokens: 1000,
-          temperature: 0.12,
-        },
-        15_000,
-      );
+      // AI SDK 6: Structured Outputで型安全にレシピ生成
+      const RecipeSchema = z.object({
+        title: z.string(),
+        servings: z.number(),
+        time_minutes: z.number(),
+        difficulty: z.enum(['低', '中', '高']),
+        ingredients: z.array(z.object({
+          name: z.string(),
+          quantity_per_serving: z.number(),
+          unit: z.string(),
+          total_quantity: z.number(),
+          optional: z.boolean(),
+        })),
+        steps: z.array(z.string()),
+        timers: z.array(z.object({
+          step: z.number(),
+          seconds: z.number(),
+          label: z.string(),
+        })).optional(),
+        tips: z.array(z.string()).optional(),
+        grocery_additions: z.array(z.string()).optional(),
+        nutrition_estimate: z.object({}).passthrough().optional(),
+      });
 
-      const raw = extractTextFromResponse(resp) ?? "";
-      console.log("[getRecipeDetail] raw preview:", raw?.slice?.(0, 800) ?? "");
+      const { object: parsed } = await generateObject({
+        model: openai('gpt-4o-mini'),
+        schema: RecipeSchema,
+        prompt,
+        temperature: 0.12,
+      });
 
-      // Extract JSON object robustly
-      let parsed: any = null;
-      const jsonText = extractJsonFromText(raw);
-      if (jsonText) {
-        try {
-          parsed = JSON.parse(jsonText);
-        } catch {
-          parsed = null;
-        }
-      } else {
-        // quick parse attempt
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          parsed = null;
-        }
-      }
+      console.log("[getRecipeDetail] generated:", JSON.stringify(parsed).slice(0, 800));
 
-      if (!parsed) {
-        // cannot parse model output -> deterministic fallback (one-shot)
-        const fallback = makeFallbackRecipe(
-          title,
-          servings,
-          itemsToUse,
-          fridgeItems,
-        );
-        return NextResponse.json({ recipe: fallback, raw, fallback: true });
-      }
-
-      const recipe = normalizeParsedRecipe(parsed, title, servings, raw);
-      return NextResponse.json({ recipe, raw, fallback: false });
+      const recipe = normalizeParsedRecipe(parsed, title, servings, JSON.stringify(parsed));
+      return NextResponse.json({ recipe, raw: JSON.stringify(parsed), fallback: false });
     } catch (err: any) {
       console.warn(
         "getRecipeDetail: OpenAI call failed:",

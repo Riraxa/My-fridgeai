@@ -1,0 +1,79 @@
+/* Toggle Switch Component - CSS Modules */
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 2.75rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  background-color: #d1d5db;
+  transition: background-color 200ms ease;
+  border: none;
+  padding: 0;
+}
+
+.toggle:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 2px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .toggle {
+    background-color: #4b5563;
+  }
+}
+
+/* Checked state */
+.toggle[data-checked="true"] {
+  background-color: var(--accent);
+}
+
+/* Disabled state */
+.toggle[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Toggle thumb (knob) */
+.toggleThumb {
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  background-color: white;
+  border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 200ms ease;
+  display: block;
+}
+
+/* Move thumb when checked */
+.toggle[data-checked="true"] .toggleThumb {
+  transform: translateX(1.25rem);
+}
+
+/* Size variants */
+.sm {
+  width: 2.25rem;
+  height: 1.25rem;
+}
+
+.sm .toggleThumb {
+  width: 1rem;
+  height: 1rem;
+}
+
+.sm[data-checked="true"] .toggleThumb {
+  transform: translateX(1rem);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .toggle,
+  .toggleThumb {
+    transition: none;
+  }
+}

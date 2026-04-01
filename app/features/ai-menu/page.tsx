@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.my-fridgeai.com";
@@ -143,7 +142,7 @@ export default function AIMenuFeaturePage() {
                 icon: "🥗",
                 side: "left"
               }
-            ].map((section, idx) => (
+            ].map((section) => (
               <div key={section.id} className={`flex flex-col ${section.side === 'right' ? 'md:flex-row-reverse' : 'md:flex-row'} items-center gap-16 md:gap-24`}>
                 <div className="flex-1 space-y-8">
                   <div className="flex items-center gap-4">
@@ -181,7 +180,7 @@ export default function AIMenuFeaturePage() {
                 { step: 2, title: "条件を設定", desc: "「時短で」「薄味で」など今日の希望をセット。" },
                 { step: 3, title: "AIが生成", desc: "数秒でAIがあなた専用の3案を作成します。" },
                 { step: 4, title: "調理・完食", desc: "一番食べたい案を選んで調理をスタート。" },
-              ].map((item, index) => (
+              ].map((item) => (
                 <div key={item.step} className="relative p-10 bg-[var(--background)] border border-[var(--surface-border)] rounded-[2.5rem] group hover:shadow-xl transition-all">
                   <div className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-xl mb-8 group-hover:scale-110 group-hover:bg-indigo-500 transition-all">
                     {item.step}

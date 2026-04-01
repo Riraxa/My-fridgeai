@@ -1,0 +1,115 @@
+/* Button Component - CSS Modules */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1), 
+              transform 150ms cubic-bezier(0.2, 0, 0, 1);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  border: none;
+}
+
+.button:active {
+  transform: translateY(2.5px) scale(0.956);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 
+              inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 3px;
+}
+
+/* Variants */
+.default {
+  background-color: var(--accent);
+  color: white;
+}
+
+.default:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px) scale(1.03);
+}
+
+.secondary {
+  background-color: var(--surface-bg);
+  color: var(--color-text-primary);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.secondary:hover {
+  filter: brightness(1.05);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.outline {
+  background-color: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--surface-border);
+}
+
+.outline:hover {
+  background-color: color-mix(in srgb, var(--accent) 6%, transparent);
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.ghost {
+  background-color: transparent;
+  color: var(--color-text-primary);
+}
+
+.ghost:hover {
+  background-color: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.destructive {
+  background-color: #dc2626;
+  color: white;
+}
+
+.destructive:hover {
+  background-color: #b91c1c;
+}
+
+.success {
+  background-color: #16a34a;
+  color: white;
+}
+
+.success:hover {
+  background-color: #15803d;
+}
+
+/* Sizes */
+.sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.md {
+  padding: 0.75rem 1rem;
+}
+
+.lg {
+  padding: 0.875rem 1.25rem;
+  font-size: 1rem;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+/* Disabled */
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}

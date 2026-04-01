@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Users } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import FamilyInviteCard from "./FamilyInviteCard";
 import InviteSuccessModal from "./InviteSuccessModal";
@@ -16,6 +18,7 @@ interface Member {
 }
 
 export default function FamilyManagement({ userPlan }: { userPlan: string }) {
+  const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -154,21 +157,40 @@ export default function FamilyManagement({ userPlan }: { userPlan: string }) {
   return (
     <div className="space-y-6">
       {!hasGroup ? (
-        <div className="text-center p-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
-          <p className="text-sm text-gray-500 mb-4">
-            家族グループを作成して食材や献立を共有しましょう。
-          </p>
-          <Button
-            onClick={handleCreateGroup}
-            disabled={creating || userPlan !== "PRO"}
-            className="continue-btn"
-          >
-            {creating ? "作成中..." : "家族グループを作成する"}
-          </Button>
-          {userPlan !== "PRO" && (
-            <p className="text-xs text-orange-500 mt-2">
-              ※作成にはProプランが必要です
+        <div className="relative rounded-xl overflow-hidden">
+          {/* 背景: 常に表示（Free/Pro共通） */}
+          <div inert={userPlan !== "PRO" || undefined} className={`text-center p-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 min-h-[280px] flex flex-col items-center justify-center ${userPlan !== "PRO" ? "pointer-events-none" : ""}`}>
+            <p className="text-sm text-gray-500 mb-4">
+              家族グループを作成して食材や献立を共有しましょう。
             </p>
+            <Button
+              onClick={handleCreateGroup}
+              disabled={creating || userPlan !== "PRO"}
+              className="continue-btn"
+            >
+              {creating ? "作成中..." : "家族グループを作成する"}
+            </Button>
+          </div>
+
+          {/* Freeプラン: 半透明オーバーレイ */}
+          {userPlan !== "PRO" && (
+            <div className="absolute inset-0 bg-[var(--background)]/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-8 text-center">
+              <div className="bg-amber-500 text-white p-4 rounded-3xl mb-4 shadow-xl shadow-amber-100">
+                <Users size={32} />
+              </div>
+              <h3 className="text-lg font-extrabold mb-2 text-[var(--color-text-primary)]">
+                家族グループの作成
+              </h3>
+              <p className="text-sm text-slate-500 mb-6 max-w-xs mx-auto">
+                Proプランで家族グループを作成して、食材や献立を家族と共有できます。
+              </p>
+              <button
+                onClick={() => router.push("/settings/account")}
+                className="bg-amber-500 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-amber-100 hover:scale-105 active:scale-95 transition"
+              >
+                Proにアップグレード
+              </button>
+            </div>
           )}
         </div>
       ) : (

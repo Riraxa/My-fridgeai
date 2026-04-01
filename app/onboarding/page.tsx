@@ -1,11 +1,12 @@
+//app/onboarding/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useFridge } from "@/app/components/FridgeProvider";
 
-type Step = "items" | "safety" | "environment" | "generate";
+type Step = "items" | "safety" | "equipment" | "cookware" | "generate";
 
 const QUICK_ITEMS = [
   { name: "牛乳", amount: 1, unit: "L", category: "冷蔵" },
@@ -43,19 +44,26 @@ function OnboardingPage() {
 
   // Safety
   const [allergies, setAllergies] = useState<string[]>([]);
-  const [restriction, setRestriction] = useState<string>("なし");
 
-  // Environment
-  const [cookingSkill, setCookingSkill] = useState<
-    "beginner" | "intermediate" | "advanced"
-  >("beginner");
+  // Equipment
   const [equipment, setEquipment] = useState<Record<string, boolean>>({
     "ガスコンロ": true,
     "IH": false,
     "電子レンジ": true,
+    "オーブン": false,
+    "圧力鍋": false,
+    "トースター": false,
+    "炊飯器": true,
+  });
+
+  // Cookware
+  const [cookware, setCookware] = useState<Record<string, boolean>>({
     "フライパン": true,
     "鍋": true,
-    "オーブン": false,
+    "包丁・まな板": true,
+    "ボウル": true,
+    "ざる": false,
+    "菜箸・おたま": true,
   });
 
   useEffect(() => {
@@ -164,26 +172,13 @@ function OnboardingPage() {
         }).catch(() => {});
       }
 
-      // restriction
-      if (restriction && restriction !== "なし") {
-        await fetch("/api/preferences/safety", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "restriction",
-            restrictionType: restriction,
-            note: "",
-          }),
-        }).catch(() => {});
-      }
-
-      setStep("environment");
+      setStep("equipment");
     } finally {
       setSavingPrefs(false);
     }
   };
 
-  const saveEnvironmentAndContinue = async () => {
+  const saveEquipmentAndContinue = async () => {
     setSavingPrefs(true);
     try {
       const kitchenEquipment = Object.entries(equipment)
@@ -194,8 +189,28 @@ function OnboardingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cookingSkill,
           kitchenEquipment,
+        }),
+      }).catch(() => {});
+
+      setStep("cookware");
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
+  const saveCookwareAndContinue = async () => {
+    setSavingPrefs(true);
+    try {
+      const kitchenCookware = Object.entries(cookware)
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+
+      await fetch("/api/settings/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kitchenCookware,
         }),
       }).catch(() => {});
 
@@ -262,7 +277,7 @@ function OnboardingPage() {
                   className="h-2 rounded-full transition-all duration-500 ease-out"
                   style={{
                     background: "var(--accent)",
-                    width: `${((["items", "safety", "environment", "generate"].indexOf(step) + 1) / 4) * 100}%`,
+                    width: `${((["items", "safety", "equipment", "cookware", "generate"].indexOf(step) + 1) / 5) * 100}%`,
                   }}
                 />
               </div>
@@ -273,11 +288,12 @@ function OnboardingPage() {
               {[
                 { id: "items", label: "食材" },
                 { id: "safety", label: "制約" },
-                { id: "environment", label: "環境" },
+                { id: "equipment", label: "設備" },
+                { id: "cookware", label: "器具" },
                 { id: "generate", label: "献立" },
               ].map((s, index) => {
                 const isActive = step === (s.id as Step);
-                const isCompleted = ["items", "safety", "environment", "generate"].indexOf(step) > index;
+                const isCompleted = ["items", "safety", "equipment", "cookware", "generate"].indexOf(step) > index;
                 
                 return (
                   <div
@@ -410,25 +426,6 @@ function OnboardingPage() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">食事制限（任意）</label>
-              <select
-                value={restriction}
-                onChange={(e) => setRestriction(e.target.value)}
-                className="w-full rounded-2xl px-4 py-3 text-sm border"
-                style={{
-                  background: "var(--surface-bg)",
-                  borderColor: "var(--surface-border)",
-                }}
-              >
-                {["なし", "ベジ", "ヴィーガン", "ハラール"].map((x) => (
-                  <option key={x} value={x}>
-                    {x}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="flex gap-2">
               <button
                 onClick={() => setStep("items")}
@@ -452,45 +449,12 @@ function OnboardingPage() {
           </div>
         )}
 
-        {step === "environment" && (
+        {step === "equipment" && (
           <div className="card space-y-4">
-            <h2 className="font-bold">Step3: 調理環境</h2>
+            <h2 className="font-bold">Step3: 設備</h2>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold">調理レベル</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: "beginner", label: "初心者" },
-                  { id: "intermediate", label: "中級" },
-                  { id: "advanced", label: "上級" },
-                ].map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setCookingSkill(s.id as any)}
-                    className="py-3 rounded-2xl border text-sm font-bold"
-                    style={{
-                      background:
-                        cookingSkill === s.id
-                          ? "color-mix(in srgb, var(--accent) 12%, transparent)"
-                          : "var(--surface-bg)",
-                      borderColor:
-                        cookingSkill === s.id
-                          ? "color-mix(in srgb, var(--accent) 40%, transparent)"
-                          : "var(--surface-border)",
-                      color:
-                        cookingSkill === s.id
-                          ? "var(--accent)"
-                          : "var(--color-text-secondary)",
-                    }}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">設備（任意）</label>
+              <label className="text-sm font-semibold">利用可能な設備（任意）</label>
               <div className="grid grid-cols-2 gap-2">
                 {Object.keys(equipment).map((k) => (
                   <label
@@ -529,7 +493,62 @@ function OnboardingPage() {
                 戻る
               </button>
               <button
-                onClick={saveEnvironmentAndContinue}
+                onClick={saveEquipmentAndContinue}
+                disabled={savingPrefs}
+                className="flex-1 py-3 rounded-2xl font-bold text-white"
+                style={{ background: "var(--accent)" }}
+              >
+                {savingPrefs ? "保存中..." : "次へ"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "cookware" && (
+          <div className="card space-y-4">
+            <h2 className="font-bold">Step4: 調理器具</h2>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">利用可能な調理器具（任意）</label>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.keys(cookware).map((k) => (
+                  <label
+                    key={k}
+                    className="flex items-center gap-2 p-3 rounded-xl border"
+                    style={{
+                      background: "var(--surface-bg)",
+                      borderColor: "var(--surface-border)",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={cookware[k]}
+                      onChange={(e) =>
+                        setCookware((prev) => ({
+                          ...prev,
+                          [k]: e.target.checked,
+                        }))
+                      }
+                    />
+                    <span className="text-sm font-medium">{k}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStep("equipment")}
+                className="flex-1 py-3 rounded-2xl border font-semibold"
+                style={{
+                  background: "var(--surface-bg)",
+                  borderColor: "var(--surface-border)",
+                }}
+              >
+                戻る
+              </button>
+              <button
+                onClick={saveCookwareAndContinue}
                 disabled={savingPrefs}
                 className="flex-1 py-3 rounded-2xl font-bold text-white"
                 style={{ background: "var(--accent)" }}
@@ -548,7 +567,7 @@ function OnboardingPage() {
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => setStep("environment")}
+                onClick={() => setStep("cookware")}
                 className="flex-1 py-3 rounded-2xl border font-semibold"
                 style={{
                   background: "var(--surface-bg)",

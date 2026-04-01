@@ -31,6 +31,7 @@ import PageTransition, {
 import { motion, AnimatePresence } from "framer-motion";
 import { useFridge } from "@/app/components/FridgeProvider";
 import { toast } from "sonner";
+import { Toggle } from "@/app/components/ui/Toggle";
 import { DEFAULT_IMPLICIT_INGREDIENTS } from "@/lib/constants/implicit-ingredients";
 
 // Helper to calculate total cooking time from dishes
@@ -82,6 +83,9 @@ function MenuGeneratePage() {
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState("");
+  const [thoughtStream, setThoughtStream] = useState<string[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
   
   // Use session plan if available, otherwise fallback to null (loading)
   const sessionIsPro = !!(session?.user && (session.user as any).plan === "PRO");
@@ -363,18 +367,19 @@ function MenuGeneratePage() {
 
   const handleGenerate = async () => {
     setLoading(true);
+    setIsStreaming(true);
+    setStreamingText("");
+    setThoughtStream([]);
     setError(null);
 
     try {
-      // Start async generation
-      const res = await fetch("/api/menu/generate-async", {
+      const res = await fetch("/api/menu/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           servings,
           budget: enableBudget && budget ? Number(budget) : null,
           mode: strictMode ? "strict" : "flexible",
-          source,
         }),
       });
 
@@ -383,27 +388,55 @@ function MenuGeneratePage() {
         throw new Error(errorData.error ?? "生成の開始に失敗しました");
       }
 
-      const data = await res.json();
-      const generationId = data.menuGenerationId;
-      setCurrentGenerationId(generationId);
+      // レスポンスヘッダーから生成IDを取得
+      const generationId = res.headers.get("x-menu-generation-id");
+      if (generationId) {
+        setCurrentGenerationId(generationId);
+        localStorage.setItem(
+          "menuGenerationState",
+          JSON.stringify({
+            loading: true,
+            currentGenerationId: generationId,
+            timestamp: Date.now(),
+          }),
+        );
+      }
 
-      // すぐに状態を保存して、即座タブ移動に対応
-      localStorage.setItem(
-        "menuGenerationState",
-        JSON.stringify({
-          loading: true,
-          currentGenerationId: generationId,
-          timestamp: Date.now(),
-        }),
-      );
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error("Stream reader not available");
 
-      // 少し遅延してポーリングを開始（即座タブ移動対策）
-      setTimeout(() => {
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        fullText += chunk;
+        setStreamingText(fullText);
+        
+        // 思考プロセスの箇条書きを抽出 (行単位で処理)
+        if (chunk.includes('\n')) {
+           const allLines = fullText.split('\n');
+           const bullets = allLines.filter(l => {
+             const trimmed = l.trim();
+             return trimmed.startsWith('-') || trimmed.startsWith('・');
+           });
+           setThoughtStream(bullets.map(l => l.trim().replace(/^[-・]\s*/, '')));
+        }
+      }
+
+      setIsStreaming(false);
+
+      // ストリーミング終了後、バックエンドの finalize を待つためにポーリングを開始
+      if (generationId) {
         pollForCompletion(generationId);
-      }, 1000); // 1秒後に開始
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
       setLoading(false);
+      setIsStreaming(false);
       setCurrentGenerationId(null);
       localStorage.removeItem("menuGenerationState");
     }
@@ -746,19 +779,10 @@ function MenuGeneratePage() {
                       )}
                       冷蔵庫内の食材のみで献立を生成
                     </label>
-                    <div
-                      className="relative inline-block w-11 h-6 cursor-pointer"
-                      onClick={() => setStrictMode(!strictMode)}
-                    >
-                      <div
-                        className={`w-11 h-6 rounded-full transition-colors duration-200 ${strictMode ? "bg-[var(--accent)]" : "bg-gray-300 dark:bg-gray-600"
-                          }`}
-                      />
-                      <div
-                        className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${strictMode ? "translate-x-5" : "translate-x-0.5"
-                          }`}
-                      />
-                    </div>
+                    <Toggle
+                      checked={strictMode}
+                      onChange={() => setStrictMode(!strictMode)}
+                    />
                   </div>
 
                   <p className="text-xs text-[var(--color-text-muted)] mt-2">
@@ -766,52 +790,6 @@ function MenuGeneratePage() {
                       ? "ONの場合、現在の在庫にある食材のみで献立を生成します（基本調味料は含まれます）"
                       : "OFFの場合、在庫食材を優先しつつ、不足分を一部許可します"}
                   </p>
-
-                  {/* 暗黙食材一覧 */}
-                  <button
-                    onClick={() => setShowImplicitList(!showImplicitList)}
-                    className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--accent)] transition mt-2"
-                  >
-                    <Info size={12} />
-                    デフォルト食材一覧
-                  </button>
-
-                  <AnimatePresence>
-                    {showImplicitList && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="mt-2 p-2 bg-[var(--card-bg)] rounded border border-[var(--surface-border)]">
-                          <p className="text-xs text-[var(--color-text-muted)] mb-1">
-                            以下の食材は登録なしでも常に使用可能です：
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {DEFAULT_IMPLICIT_INGREDIENTS.map((item) => (
-                              <span
-                                key={item}
-                                className="text-xs px-2 py-0.5 rounded-full"
-                                style={{
-                                  background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-                                  color: "var(--accent)",
-                                }}
-                              >
-                                {item}
-                              </span>
-                            ))}
-                          </div>
-                          {isPro === true && (
-                            <p className="text-[10px] text-[var(--color-text-muted)] mt-2">
-                              ※ProプランのAI設定でカスタマイズ可能です
-                            </p>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
               </div>
 
@@ -832,34 +810,49 @@ function MenuGeneratePage() {
                     type="range"
                     min="1"
                     max="8"
-                    step="1"
                     value={servings}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
-                      if (isPro === false && val > 3) {
-                        toast("Freeプランでは最大3人前までです", {
+                      if (val > 8) {
+                        toast("最大8人前までです", {
                           description:
-                            "Proプランにすると8人前まで指定できます。",
-                          action: {
-                            label: "詳細",
-                            onClick: () => router.push("/settings/account"),
-                          },
+                            "8人以上の献立は分割して生成してください。",
                         });
-                        return;
+                        setServings(8);
+                      } else {
+                        setServings(val);
                       }
-                      setServings(val);
                     }}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
                   />
                   <div className="flex justify-between text-xs text-[var(--color-text-muted)] mt-1">
                     <span>1人</span>
-                    <span>{isPro === true ? "8人" : "3人(Free)"}</span>
+                    <span>8人</span>
                   </div>
                 </div>
 
                 {/* Budget (Pro Only) */}
-                {isPro === true && (
-                  <div className="bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)] animate-in fade-in duration-500">
+                <div className={`bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)] overflow-hidden relative ${!isPro ? "min-h-[200px]" : ""}`}>
+                  {!isPro && (
+                    <div className="absolute inset-0 bg-[var(--background)]/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-6 text-center">
+                      <div className="bg-amber-500 text-white p-3 rounded-2xl mb-3 shadow-xl shadow-amber-100">
+                        <Coins size={24} />
+                      </div>
+                      <h3 className="text-base font-extrabold mb-1 text-[var(--color-text-primary)]">
+                        1食あたりの予算設定
+                      </h3>
+                      <p className="text-xs text-slate-500 mb-4">
+                        Proプランで予算を設定できます。コスパ重視や特別な日の献立を調整できます。
+                      </p>
+                      <button
+                        onClick={() => router.push("/settings/account")}
+                        className="bg-amber-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-amber-100 hover:scale-105 active:scale-95 transition text-sm"
+                      >
+                        Proにアップグレード
+                      </button>
+                    </div>
+                  )}
+                  <div inert={!isPro || undefined} className={!isPro ? "pointer-events-none" : ""}>
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-sm font-medium flex items-center gap-2 text-[var(--color-text-primary)]">
                         <Coins size={16} className="text-[var(--accent)]" />
@@ -868,22 +861,13 @@ function MenuGeneratePage() {
                           Pro
                         </span>
                       </label>
-                      <div
-                        className="relative inline-block w-11 h-6 cursor-pointer"
-                        onClick={() => {
+                      <Toggle
+                        checked={enableBudget}
+                        onChange={() => {
                           setEnableBudget(!enableBudget);
                           if (!enableBudget && !budget) setBudget(500);
                         }}
-                      >
-                        <div
-                          className={`w-11 h-6 rounded-full transition-colors duration-200 ${enableBudget ? "bg-[var(--accent)]" : "bg-gray-300 dark:bg-gray-600"
-                            }`}
-                        />
-                        <div
-                          className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${enableBudget ? "translate-x-5" : "translate-x-0.5"
-                            }`}
-                        />
-                      </div>
+                      />
                     </div>
 
                     {enableBudget && (
@@ -912,7 +896,7 @@ function MenuGeneratePage() {
                       </div>
                     )}
                   </div>
-                )}
+                </div>
               </div>
 
               <button
@@ -956,64 +940,90 @@ function MenuGeneratePage() {
               </button>
 
               {loading && (
-                <div className="mt-12 max-w-md mx-auto">
-                  <div className="relative mb-8 flex justify-center">
-                    {/* 微妙に動くコック帽のアニメーション */}
+                <div className="mt-8 max-w-lg mx-auto">
+                  <div className="relative mb-6 flex justify-center">
                     <motion.div
                       animate={{
-                        y: [0, -10, 0],
-                        rotate: [0, -2, 2, 0],
+                        y: [0, -8, 0],
+                        scale: [1, 1.05, 1],
                       }}
                       transition={{
-                        duration: 4,
+                        duration: 3,
                         repeat: Infinity,
                         ease: "easeInOut",
                       }}
                     >
-                      <ChefHat size={64} className="text-[var(--accent)] opacity-80" />
-                    </motion.div>
-
-                    {/* 周りのキラキラ */}
-                    <motion.div
-                      className="absolute top-0 right-1/3 text-amber-400"
-                      animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-                    >
-                      ✨
+                      <ChefHat size={56} className="text-[var(--accent)] opacity-90" />
                     </motion.div>
                     <motion.div
-                      className="absolute bottom-4 left-1/3 text-indigo-400"
-                      animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: 1.5 }}
+                      className="absolute -top-2 right-1/4 text-xl"
+                      animate={{ opacity: [0, 1, 0], y: [0, -10, 0] }}
+                      transition={{ duration: 2, repeat: Infinity }}
                     >
-                      ✨
+                      💡
                     </motion.div>
                   </div>
 
-                  <div className="space-y-4">
+                  {/* AI Thought Stream UI */}
+                  <div className="modal-card rounded-xl p-6 mb-6 text-left border border-[var(--surface-border)] bg-[var(--surface-bg)] shadow-lg overflow-hidden relative">
+                    <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[var(--surface-border)]">
+                      <div className="flex gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-400/80" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400/80" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80" />
+                      </div>
+                      <span className="text-[10px] font-mono text-[var(--color-text-muted)] ml-2 uppercase tracking-widest">
+                        AI Thought Stream
+                      </span>
+                    </div>
+
+                    <div className="space-y-3 font-mono">
+                      {thoughtStream.length > 0 ? (
+                        thoughtStream.map((thought, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, x: -5 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="flex gap-3 text-xs leading-relaxed"
+                          >
+                            <span className="text-[var(--accent)] shrink-0">›</span>
+                            <span className="text-[var(--color-text-primary)]">{thought}</span>
+                          </motion.div>
+                        ))
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] animate-pulse">
+                          <span className="text-[var(--accent)]">›</span>
+                          <span>冷蔵庫の在庫をスキャン中...</span>
+                        </div>
+                      )}
+                      
+                      {isStreaming && (
+                        <div className="flex gap-3 text-xs">
+                          <span className="text-[var(--accent)] shrink-0">›</span>
+                          <motion.span 
+                            animate={{ opacity: [1, 0] }}
+                            transition={{ duration: 0.8, repeat: Infinity }}
+                            className="w-1.5 h-4 bg-[var(--accent)] inline-block"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 px-4">
                     <div className="relative h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                       <motion.div
                         className="absolute top-0 left-0 h-full bg-[var(--accent)]"
                         initial={{ width: "0%" }}
-                        animate={{ width: `${(Object.keys(progressSteps).indexOf(currentProgressStep) + 1) / Object.keys(progressSteps).length * 100}%` }}
+                        animate={{ 
+                          width: generated ? "100%" : (isStreaming ? "70%" : "90%")
+                        }}
                         transition={{ duration: 1 }}
                       />
                     </div>
 
-                    <AnimatePresence mode="wait">
-                      <motion.p
-                        key={currentProgressStep}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="text-sm font-medium text-[var(--color-text-secondary)]"
-                      >
-                        {progressSteps[currentProgressStep as keyof typeof progressSteps]}
-                      </motion.p>
-                    </AnimatePresence>
-
-                    <p className="text-[10px] text-[var(--color-text-muted)] mt-2">
-                      こだわり抜いた最高の献立を作成中です（約1分）
+                    <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-tighter">
+                      {isStreaming ? "AI Generating Plan..." : "Finalizing Recipe Details..."}
                     </p>
                   </div>
                 </div>

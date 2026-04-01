@@ -1,13 +1,13 @@
 // lib/receipt/ocr-tesseract.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { extractTextFromImageTesseract, filterProductLinesWithAI } from './ocr-tesseract';
-import { callOpenAIOnce } from '@/lib/openai';
+import { generateObject } from 'ai';
 
-vi.mock('@/lib/openai', async (importActual) => {
-  const actual = await importActual<typeof import('@/lib/openai')>();
+vi.mock('ai', async (importActual) => {
+  const actual = await importActual<typeof import('ai')>();
   return {
     ...actual,
-    callOpenAIOnce: vi.fn(),
+    generateObject: vi.fn(),
   };
 });
 
@@ -52,16 +52,16 @@ describe('Tesseract.js OCR', () => {
         '醤油'
       ];
 
-      vi.mocked(callOpenAIOnce).mockResolvedValue({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              productLines: ['牛乳', '食パン', '醤油'],
-              nonFoodItems: ['タバコ', '電池', 'スーパーABC', '合計: 500円']
-            })
-          }
-        }]
-      });
+      vi.mocked(generateObject).mockResolvedValue({
+        object: {
+          productLines: ['牛乳', '食パン', '醤油'],
+          nonFoodItems: ['タバコ', '電池', 'スーパーABC', '合計: 500円']
+        },
+        reasoning: undefined,
+        finishReason: 'stop',
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        warnings: [],
+      } as any);
 
       const result = await filterProductLinesWithAI(mockLines);
       

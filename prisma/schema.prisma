@@ -229,6 +229,7 @@ model UserPreferences {
   comfortableMethods       String[] @default([])
   avoidMethods             String[] @default([])
   kitchenEquipment         String[] @default([])
+  implicitIngredients      String[] @default(["水", "塩", "砂糖", "醤油", "味噌", "油", "米", "小麦粉"])
   enableExpirationAlert    Boolean  @default(true)
   alertDaysBefore          Int      @default(3)
   alertTime                String   @default("07:00")
@@ -238,6 +239,7 @@ model UserPreferences {
   tasteJson                Json     @default("{}")
   aiMessageEnabled         Boolean  @default(false)
   proFeaturesUnlocked      Boolean  @default(false)
+  customImplicitIngredients String[] @default([])
   createdAt                DateTime @default(now())
   updatedAt                DateTime @default(now()) @updatedAt
   user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)

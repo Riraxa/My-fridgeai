@@ -221,6 +221,23 @@ async function processMenuGeneration(
       `[MenuGen] Starting process for generation ${generationId}`,
     );
 
+    // ユーザーのカスタム暗黙食材とデフォルト食材選択を取得
+    const userPrefs = await prisma.userPreferences.findUnique({
+      where: { userId },
+      select: { 
+        customImplicitIngredients: true,
+        implicitIngredients: true,
+      },
+    });
+    const customImplicitIngredients = userPrefs?.customImplicitIngredients ?? [];
+    const selectedImplicitIngredients = userPrefs?.implicitIngredients ?? [];
+    
+    // デフォルト食材とカスタム食材をマージ
+    const allImplicitIngredients = [
+      ...selectedImplicitIngredients,
+      ...customImplicitIngredients,
+    ];
+
     // Update status to processing
     await prisma.menuGeneration.update({
       where: { id: generationId },
@@ -251,7 +268,7 @@ async function processMenuGeneration(
 
     // Strict モードのセカンダリバリデーション
     if (options?.mode === "strict") {
-      const constraintResult = validateAllMenusStrict(menus, ingredients);
+      const constraintResult = validateAllMenusStrict(menus, ingredients, allImplicitIngredients);
       if (!constraintResult.allValid) {
         console.warn(
           `[MenuGen] Strict constraint violations detected:`,
@@ -278,6 +295,7 @@ async function processMenuGeneration(
     const mainDetails = checkIngredientAvailability(
       (menus.main.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
       ingredients,
+      allImplicitIngredients,
     );
 
     const altADetails = menus.alternativeA
@@ -286,6 +304,7 @@ async function processMenuGeneration(
           (d: any) => d.ingredients ?? [],
         ),
         ingredients,
+        allImplicitIngredients,
       )
       : mainDetails;
 
@@ -295,6 +314,7 @@ async function processMenuGeneration(
           (d: any) => d.ingredients ?? [],
         ),
         ingredients,
+        allImplicitIngredients,
       )
       : mainDetails;
 

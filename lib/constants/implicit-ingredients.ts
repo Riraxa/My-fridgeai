@@ -51,10 +51,13 @@ export const IMPLICIT_INGREDIENTS_FOR_PROMPT: readonly string[] = [
 
 /**
  * 指定された食材名が暗黙食材かどうかを判定する
+ * @param name - 食材名
+ * @param customIngredients - ユーザー設定のカスタム暗黙食材（オプション）
  */
-export function isImplicitIngredient(name: string): boolean {
+export function isImplicitIngredient(name: string, customIngredients?: string[]): boolean {
   const normalized = name.toLowerCase().trim();
 
+  // 1. デフォルトの暗黙食材をチェック
   for (const aliases of Object.values(IMPLICIT_INGREDIENT_ALIASES)) {
     for (const alias of aliases) {
       if (alias.toLowerCase() === normalized) {
@@ -63,7 +66,16 @@ export function isImplicitIngredient(name: string): boolean {
     }
   }
 
-  // 追加で許可されている基本調味料もチェック
+  // 2. 追加で許可されている基本調味料もチェック
   const extras = ["こしょう", "コショウ", "胡椒", "みりん", "酒", "料理酒"];
-  return extras.some((e) => e.toLowerCase() === normalized);
+  if (extras.some((e) => e.toLowerCase() === normalized)) {
+    return true;
+  }
+
+  // 3. カスタム暗黙食材をチェック
+  if (customIngredients && customIngredients.length > 0) {
+    return customIngredients.some((ing) => ing.toLowerCase().trim() === normalized);
+  }
+
+  return false;
 }

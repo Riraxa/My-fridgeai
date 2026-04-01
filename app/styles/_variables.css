@@ -1,0 +1,129 @@
+/* ===============================
+   CSS Variables - Light & Dark Themes
+   =============================== */
+
+:root {
+  /* Core Colors */
+  --background: #f5d9c3;
+  --foreground: #111111;
+  --accent: #ff8c3d;
+  
+  /* Surface & Cards */
+  --card-bg: #f8e6d3;
+  --card-blur: 18px;
+  --shadow-color: rgba(0, 0, 0, 0.08);
+  --surface-bg: #f8e6d3;
+  --surface-border: rgba(0, 0, 0, 0.06);
+  
+  /* Text Colors */
+  --color-text-primary: #111111;
+  --color-text-secondary: #374151;
+  --color-text-muted: #6b7280;
+  
+  /* Passkey */
+  --color-passkey-text: var(--accent);
+  --passkey-protected-bg: rgba(254, 243, 199, 0.75);
+  --passkey-protected-border: rgba(251, 191, 36, 0.55);
+  --passkey-protected-title: #78350f;
+  --passkey-protected-text: #92400e;
+  
+  /* Navigation */
+  --nav-indicator: #111111;
+  --nav-active-text: #ffffff;
+  --nav-inactive-text: #64748b;
+  --nav-bg: #ffffff;
+  --nav-border: rgba(0, 0, 0, 0.05);
+  
+  /* Selection */
+  --selection-bg: color-mix(in srgb, var(--accent) 20%, transparent);
+  --selection-text: #111111;
+  
+  /* Semantic Colors - Light */
+  --semantic-indigo: #4f46e5;
+  --semantic-indigo-bg: #e0e7ff;
+  --semantic-blue: #2563eb;
+  --semantic-blue-bg: #dbeafe;
+  --semantic-green: #16a34a;
+  --semantic-green-bg: #dcfce7;
+  --semantic-purple: #9333ea;
+  --semantic-purple-bg: #f3e8ff;
+  --semantic-orange: #ea580c;
+  --semantic-orange-bg: #ffedd5;
+  --semantic-red: #dc2626;
+  --semantic-red-bg: #fee2e2;
+}
+
+/* Dark Mode */
+:root[data-theme="dark"] {
+  /* Core Colors */
+  --background: linear-gradient(180deg, #050810 0%, #0a1428 45%, #0f1c35 100%);
+  --foreground: #f3f6fc;
+  --accent: #ff9550;
+  
+  /* Surface & Cards */
+  --card-bg: linear-gradient(180deg, rgba(25, 35, 60, 0.92) 0%, rgba(15, 22, 38, 0.95) 100%);
+  --surface-bg: rgba(30, 40, 65, 0.88);
+  --surface-border: rgba(255, 255, 255, 0.06);
+  
+  /* Text Colors */
+  --color-text-primary: #f9fbff;
+  --color-text-secondary: #d4d8e3;
+  --color-text-muted: #9ba3b7;
+  
+  /* Passkey */
+  --color-passkey-text: var(--accent);
+  --passkey-protected-bg: rgba(113, 63, 18, 0.2);
+  --passkey-protected-border: rgba(180, 83, 9, 0.5);
+  --passkey-protected-title: #fde68a;
+  --passkey-protected-text: #fcd34d;
+  
+  /* Navigation */
+  --nav-indicator: #ffffff;
+  --nav-active-text: #0f172a;
+  --nav-inactive-text: #94a3b8;
+  --nav-bg: #1e293b;
+  --nav-border: rgba(255, 255, 255, 0.08);
+  
+  /* Selection */
+  --selection-bg: color-mix(in srgb, var(--accent) 30%, transparent);
+  --selection-text: #ffffff;
+  
+  /* Semantic Colors - Dark */
+  --semantic-indigo: #818cf8;
+  --semantic-indigo-bg: rgba(49, 46, 129, 0.3);
+  --semantic-blue: #60a5fa;
+  --semantic-blue-bg: rgba(30, 58, 138, 0.3);
+  --semantic-green: #4ade80;
+  --semantic-green-bg: rgba(20, 83, 45, 0.3);
+  --semantic-purple: #c084fc;
+  --semantic-purple-bg: rgba(88, 28, 135, 0.3);
+  --semantic-orange: #fb923c;
+  --semantic-orange-bg: rgba(124, 45, 18, 0.3);
+  --semantic-red: #f87171;
+  --semantic-red-bg: rgba(127, 29, 29, 0.3);
+}
+
+/* Passkey Protected Component */
+.passkey-protected {
+  background: var(--passkey-protected-bg);
+  border: 1px solid var(--passkey-protected-border);
+}
+
+.passkey-protected__title {
+  color: var(--passkey-protected-title);
+}
+
+.passkey-protected__text {
+  color: var(--passkey-protected-text);
+}
+
+/* Theme-based image visibility */
+:root:not([data-theme="dark"]) .theme-light-img,
+:root[data-theme="dark"] .theme-dark-img {
+  display: block;
+}
+
+:root:not([data-theme="dark"]) .theme-dark-img,
+:root[data-theme="dark"] .theme-light-img {
+  display: none;
+}

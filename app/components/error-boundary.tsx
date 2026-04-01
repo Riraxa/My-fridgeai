@@ -46,9 +46,9 @@ class ErrorBoundary extends Component<Props, State> {
   private isCriticalError(error: Error): boolean {
     // 致命的なエラーを判定
     const criticalPatterns = [
-      /chunk.*failed/i,
-      /loading.*chunk/i,
-      /network.*error/i,
+      /chunk/i,
+      /loading/i,
+      /network error/i,
       /hydration/i,
       /404/i,
       /500/i,
@@ -75,7 +75,6 @@ class ErrorBoundary extends Component<Props, State> {
       // sessionStorageは完全にクリア
       sessionStorage.clear();
       
-      console.log("Emergency cleanup completed");
     } catch (cleanupError) {
       console.error("Cleanup failed:", cleanupError);
     }

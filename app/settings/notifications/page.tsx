@@ -2,9 +2,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, BellOff, Loader2, Check, AlertCircle, Info } from 'lucide-react';
+import { Bell, BellOff, Loader2, Check, AlertCircle, Info, ArrowLeft } from 'lucide-react';
 import { usePushNotification } from '@/lib/hooks/usePushNotification';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 export default function NotificationSettingsPage() {
   const {
@@ -17,7 +18,6 @@ export default function NotificationSettingsPage() {
   } = usePushNotification();
 
   const [mounted, setMounted] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>('');
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
@@ -31,19 +31,6 @@ export default function NotificationSettingsPage() {
     const standalone = window.matchMedia('(display-mode: standalone)').matches || 
                        (window as any).navigator?.standalone === true;
     setIsStandalone(standalone);
-    
-    // デバッグ情報収集
-    const info = [
-      `UserAgent: ${navigator.userAgent.slice(0, 50)}...`,
-      `Platform: ${navigator.platform}`,
-      `ServiceWorker: ${'serviceWorker' in navigator}`,
-      `PushManager: ${'PushManager' in window}`,
-      `Notification: ${'Notification' in window}`,
-      `Permission: ${Notification?.permission || 'N/A'}`,
-      `iOS: ${ios}`,
-      `Standalone: ${standalone}`,
-    ].join('\n');
-    setDebugInfo(info);
   }, []);
 
   if (!mounted) {
@@ -57,6 +44,15 @@ export default function NotificationSettingsPage() {
   if (!isSupported) {
     return (
       <main className="pb-24 px-4 w-full">
+        {/* 戻るボタン */}
+        <Link
+          href="/settings/account"
+          className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors mb-4"
+        >
+          <ArrowLeft size={16} />
+          アカウント設定に戻る
+        </Link>
+
         <h2 className="text-xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>
           通知設定
         </h2>
@@ -117,6 +113,20 @@ export default function NotificationSettingsPage() {
 
   return (
     <main className="pb-24 px-4 w-full">
+      {/* 戻るボタン */}
+      <Link
+        href="/settings/account"
+        className="inline-flex items-center justify-center w-10 h-10 rounded-full transition-all hover:scale-[1.05] active:scale-[0.95]"
+        style={{
+          background: 'var(--surface-bg)',
+          border: '1px solid var(--surface-border)',
+          color: 'var(--color-text-secondary)',
+        }}
+        aria-label="アカウント設定に戻る"
+      >
+        <ArrowLeft size={18} />
+      </Link>
+
       <h2 className="text-xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>
         通知設定
       </h2>
@@ -248,16 +258,6 @@ export default function NotificationSettingsPage() {
       <p className="mt-6 text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
         ※通知設定はいつでも変更できます。ブラウザの設定からも通知を管理できます。
       </p>
-      
-      {/* デバッグ情報（開発用） */}
-      {process.env.NODE_ENV === 'development' && (
-        <details className="mt-4 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          <summary className="cursor-pointer">デバッグ情報</summary>
-          <pre className="mt-2 p-2 rounded bg-slate-100 overflow-x-auto whitespace-pre-wrap">
-            {debugInfo}
-          </pre>
-        </details>
-      )}
     </main>
   );
 }

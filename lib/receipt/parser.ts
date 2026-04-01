@@ -2,7 +2,9 @@
 // lib/receipt/parser.ts
 // Receipt parser: maps OCR text lines to ingredients using dictionary + AI fallback.
 
-import { callOpenAIOnce, extractTextFromResponse, extractJsonFromText } from "@/lib/openai";
+import { generateObject } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { z } from 'zod';
 import { prisma } from "@/lib/prisma";
 
 export interface ParsedReceiptItem {
@@ -209,6 +211,22 @@ async function aiParseLines(
       .slice(0, 50)
       .map((i) => ({ id: i.id, name: i.name }));
 
+    const AiParsedLineSchema = z.object({
+      line: z.string(),
+      normalized_name: z.string().nullable(),
+      quantity_value: z.number().nullable(),
+      quantity_unit: z.enum(['g', 'kg', 'ml', 'L', '個', '本', '枚', '袋', 'パック', 'dl', 'dL']).nullable(),
+      estimated_expiration_days: z.number().int(),
+      category: z.enum(['冷蔵', '冷凍', '野菜', '調味料', '加工食品', 'その他']),
+      mapped_candidates: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        score: z.number(),
+      })),
+      processedCategory: z.enum(['ingredient', 'processedFood']).nullable(),
+      confidence: z.number(),
+    });
+
     const prompt = `あなたはスーパーマーケットのレシートテキスト行を構造化された商品データに変換するアシスタントです。
 
 入力:
@@ -245,26 +263,18 @@ async function aiParseLines(
 - 入力が商品でない場合も、confidence: 0.0 のJSONオブジェクトを必ず返し、インデックスを維持してください。
 - JSON配列のみを出力してください。`;
 
-    const response = await callOpenAIOnce({
-      input: prompt,
+    const { object: result } = await generateObject({
+      model: openai('gpt-4o-mini'),
+      schema: z.array(AiParsedLineSchema),
+      prompt,
       temperature: 0,
-      max_output_tokens: 2000,
-    }, 15_000);
+    });
 
-    const text = extractTextFromResponse(response);
-    const jsonStr = extractJsonFromText(text);
-
-    if (!jsonStr) return lines.map(() => null);
-
-    const parsed: AiParsedLine[] = JSON.parse(jsonStr);
-    return Array.isArray(parsed) ? parsed : lines.map(() => null);
+    return Array.isArray(result) ? result : lines.map(() => null);
   } catch (e) {
     console.error("AI parse lines error:", e);
-    // Check if it's a timeout error
     if (e instanceof Error && e.message.includes("timed out")) {
       console.error("AI processing timeout - returning partial results");
-      // Return null for all lines to indicate AI processing failed
-      return lines.map(() => null);
     }
     return lines.map(() => null);
   }

@@ -1,284 +1,24 @@
 @import "tailwindcss";
 
 /* ===============================
-   🎨 テーマ変数（ライト＆ダーク）
+   CSS Architecture - Modular Imports
    =============================== */
 
-html {
-  scrollbar-gutter: stable;
-}
+/* 1. Variables (Light & Dark themes) */
+@import "./styles/_variables.css";
 
-:root {
-  --background: #f5d9c3;
-  --foreground: #111111;
-  --accent: #ff8c3d;
-  --card-bg: #f8e6d3;
-  --card-blur: 18px;
-  --shadow-color: rgba(0, 0, 0, 0.08);
-  --surface-bg: #f8e6d3;
-  --surface-border: rgba(0, 0, 0, 0.06);
-  --color-text-primary: #111111;
-  --color-text-secondary: #374151;
-  --color-text-muted: #6b7280;
+/* 2. Base styles (reset, html, body) */
+@import "./styles/_base.css";
 
-  /* パスキー用テキスト色（既存色ポリシーに従う） */
-  --color-passkey-text: var(--accent);
-
-  --passkey-protected-bg: rgba(254, 243, 199, 0.75);
-  --passkey-protected-border: rgba(251, 191, 36, 0.55);
-  --passkey-protected-title: #78350f;
-  --passkey-protected-text: #92400e;
-
-  /* ナビゲーション用 */
-  --nav-indicator: #111111;
-  /* 選択中のピル（黒） */
-  --nav-active-text: #ffffff;
-  /* 選択中の文字色 */
-  --nav-inactive-text: #64748b;
-  --nav-bg: #ffffff;
-  /* フッター自体の背景（完全不透明） */
-  --nav-border: rgba(0, 0, 0, 0.05);
-
-  /* 選択色 */
-  --selection-bg: color-mix(in srgb, var(--accent) 20%, transparent);
-  --selection-text: #111111;
-
-  /* セマンティックカラー */
-  --semantic-indigo: #4f46e5;
-  --semantic-indigo-bg: #e0e7ff;
-  --semantic-blue: #2563eb;
-  --semantic-blue-bg: #dbeafe;
-  --semantic-green: #16a34a;
-  --semantic-green-bg: #dcfce7;
-  --semantic-purple: #9333ea;
-  --semantic-purple-bg: #f3e8ff;
-  --semantic-orange: #ea580c;
-  --semantic-orange-bg: #ffedd5;
-  --semantic-red: #dc2626;
-  --semantic-red-bg: #fee2e2;
-}
-
-/* ダークモード変数（値はオリジナルのまま） */
-:root[data-theme="dark"] {
-  --background: linear-gradient(180deg, #050810 0%, #0a1428 45%, #0f1c35 100%);
-  --foreground: #f3f6fc;
-  --accent: #ff9550;
-  --card-bg: linear-gradient(180deg,
-      rgba(25, 35, 60, 0.92) 0%,
-      rgba(15, 22, 38, 0.95) 100%);
-  --surface-bg: rgba(30, 40, 65, 0.88);
-  --surface-border: rgba(255, 255, 255, 0.06);
-  --color-text-primary: #f9fbff;
-  --color-text-secondary: #d4d8e3;
-  --color-text-muted: #9ba3b7;
-
-  /* ダークでもパスキー色は accent に準拠 */
-  --color-passkey-text: var(--accent);
-
-  --passkey-protected-bg: rgba(113, 63, 18, 0.2);
-  --passkey-protected-border: rgba(180, 83, 9, 0.5);
-  --passkey-protected-title: #fde68a;
-  --passkey-protected-text: #fcd34d;
-
-  /* ナビゲーション用（ダーク） */
-  --nav-indicator: #ffffff;
-  /* 選択中のピル（白） */
-  --nav-active-text: #0f172a;
-  /* 選択中の文字色（ダーク） */
-  --nav-inactive-text: #94a3b8;
-  --nav-bg: #1e293b;
-  /* フッター自体の背景（ダーク・完全不透明） */
-  --nav-border: rgba(255, 255, 255, 0.08);
-
-  /* 選択色 */
-  --selection-bg: color-mix(in srgb, var(--accent) 30%, transparent);
-  --selection-text: #ffffff;
-
-  /* セマンティックカラー */
-  --semantic-indigo: #818cf8;
-  --semantic-indigo-bg: rgba(49, 46, 129, 0.3);
-  --semantic-blue: #60a5fa;
-  --semantic-blue-bg: rgba(30, 58, 138, 0.3);
-  --semantic-green: #4ade80;
-  --semantic-green-bg: rgba(20, 83, 45, 0.3);
-  --semantic-purple: #c084fc;
-  --semantic-purple-bg: rgba(88, 28, 135, 0.3);
-  --semantic-orange: #fb923c;
-  --semantic-orange-bg: rgba(124, 45, 18, 0.3);
-  --semantic-red: #f87171;
-  --semantic-red-bg: rgba(127, 29, 29, 0.3);
-}
-
-.passkey-protected {
-  background: var(--passkey-protected-bg);
-  border: 1px solid var(--passkey-protected-border);
-}
-
-.passkey-protected__title {
-  color: var(--passkey-protected-title);
-}
-
-.passkey-protected__text {
-  color: var(--passkey-protected-text);
-}
+/* 3. Utilities & animations */
+@import "./styles/utilities.css";
 
 /* ===============================
-   ベーススタイル
+   Card Component (既存コード互換)
    =============================== */
 
-body {
-  background: var(--background);
-  color: var(--color-text-primary);
-  font-family: var(--font-sans);
-  margin: 0;
-  padding: 0;
-  transition:
-    background 400ms ease,
-    color 400ms ease;
-  background-attachment: fixed;
-  background-size: cover;
-}
-
-h1,
-h2,
-h3,
-.title {
-  color: var(--color-text-primary);
-  text-shadow:
-    0 0 10px rgba(255, 255, 255, 0.08),
-    0 0 2px rgba(255, 255, 255, 0.1);
-  letter-spacing: 0.03em;
-  transition:
-    color 0.3s ease,
-    text-shadow 0.3s ease;
-}
-
-.legal-text {
-  color: var(--color-text-secondary);
-  line-height: 1.75;
-}
-
-.legal-text strong {
-  color: var(--color-text-primary);
-}
-
-.legal-links {
-  display: flex;
-  flex-direction: column;
-}
-
-.legal-link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem;
-  border-radius: 0.75rem;
-  color: var(--color-text-secondary);
-  transition:
-    background 160ms ease,
-    color 160ms ease,
-    transform 160ms ease;
-}
-
-.legal-link:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--color-text-primary);
-}
-
-.legal-link:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  outline-offset: 3px;
-}
-
-.legal-link__label {
-  color: inherit;
-}
-
-.legal-link__arrow {
-  color: var(--color-text-muted);
-}
-
-.legal-divider {
-  border-top: 1px solid var(--surface-border);
-  margin: 0.25rem 0;
-}
-
-/* ===============================
-   入力フィールド（統合）
-   =============================== */
-
-.input,
-.input-field,
-.wizard-input {
-  background: var(--surface-bg);
-  color: var(--color-text-primary);
-  border: 1px solid var(--surface-border);
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.5rem;
-  outline: none;
-  width: 100%;
-  transition:
-    all 0.25s ease,
-    box-shadow 160ms ease,
-    border-color 160ms ease,
-    transform 150ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.input:active,
-.input-field:active,
-.wizard-input:active {
-  transform: translateY(1.5px) scale(0.99);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
-}
-
-.no-tap-highlight {
-  -webkit-tap-highlight-color: transparent;
-}
-
-.input-field {
-  border-radius: 0.6rem;
-  transition:
-    box-shadow 160ms ease,
-    border-color 160ms ease;
-}
-
-.input {
-  padding: 0.75rem;
-}
-
-/* 元の .input 固有のパディングを維持 */
-
-.input:focus,
-.wizard-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(255, 145, 77, 0.25);
-  transform: scale(1.01);
-}
-
-.input-field:focus {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-  border-color: color-mix(in srgb, var(--accent) 50%, #0000);
-  transform: scale(1.01);
-}
-
-/* Number input spinner hide */
-.no-spinner::-webkit-outer-spin-button,
-.no-spinner::-webkit-inner-spin-button {
-  appearance: none;
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.no-spinner[type="number"] {
-  appearance: textfield;
-  -moz-appearance: textfield;
-}
-
-/* ===============================
-   カード
-   =============================== */
-
-.card {
+.card,
+.modal-card {
   background: var(--card-bg);
   backdrop-filter: blur(var(--card-blur)) saturate(140%);
   border-radius: 1.5rem;
@@ -287,33 +27,32 @@ h3,
   border: 1px solid var(--surface-border);
   color: var(--color-text-primary);
   animation: fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-  transition:
-    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.3s ease,
-    background 0.4s ease;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.3s ease,
+              background 0.4s ease;
 }
 
 .modal-card {
-  background: var(--card-bg);
-  backdrop-filter: blur(var(--card-blur)) saturate(140%);
-  border-radius: 1rem;
-  box-shadow: 0 14px 40px var(--shadow-color);
   padding: 0.75rem;
-  border: 1px solid var(--surface-border);
-  color: var(--color-text-primary);
-  animation: fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-  transition:
-    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.3s ease,
-    background 0.4s ease;
   max-height: calc(100vh - 6rem);
   overflow: auto;
 }
 
 @media (max-width: 640px) {
-  .card,
-  .modal-card {
+  .card {
+    padding: 1.4rem;
     backdrop-filter: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .modal-card {
+    padding: 1rem;
+    margin: 1rem;
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    border-radius: 1rem;
   }
 }
 
@@ -324,8 +63,15 @@ h3,
   }
 }
 
+@media (max-width: 640px) {
+  .card {
+    padding: 1.4rem;
+    backdrop-filter: none;
+  }
+}
+
 /* ===============================
-   ボタン群（統合）
+   Button Components (既存コード互換)
    =============================== */
 
 .surface-btn,
@@ -376,115 +122,69 @@ h3,
   filter: brightness(1.1);
 }
 
-
-
 /* ===============================
-   アニメーション
+   Additional Global Styles
    =============================== */
 
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes bounce-down {
-
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-  }
-
-  30% {
-    transform: translateY(2px);
-  }
-}
-
-@keyframes notify-slide-down {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.animate-notify-slide-down {
-  animation: notify-slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* ===============================
-   モーダル・キャンセルボタン
-   =============================== */
-
-.cancel-btn {
-  background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--surface-border);
-  padding: 0.6rem 1rem;
-  border-radius: 9999px;
-  transition:
-    background 160ms ease,
-    color 160ms ease,
-    border-color 160ms ease;
-  min-height: 44px;
-  box-shadow: none !important;
-}
-
-.cancel-btn:hover {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
+/* Input Fields (モーダル内フォーム用) */
+.input,
+.input-field {
+  background: var(--surface-bg);
   color: var(--color-text-primary);
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  border: 1px solid var(--surface-border);
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  outline: none;
+  width: 100%;
+  transition: all 0.25s ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
-/* モバイルでのフォーム要素最適化 */
-@media (max-width: 640px) {
-  .react-datepicker {
-    font-size: 14px;
-  }
-
-  .react-datepicker__header {
-    padding: 0.5rem;
-  }
-
-  .react-datepicker__day {
-    font-size: 12px;
-    width: 32px;
-    height: 32px;
-  }
-
-  .react-datepicker__current-month {
-    font-size: 14px;
-  }
+.input:focus,
+.input-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 145, 77, 0.25);
 }
 
-/* ===============================
-   カレンダー / 日付ピッカー
-   =============================== */
-
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.5);
-  opacity: 0.9;
+/* Error state styling */
+.input-error,
+.input.error,
+.input-field.error,
+.input[aria-invalid="true"],
+.input-field[aria-invalid="true"] {
+  border-color: var(--semantic-red) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--semantic-red) 25%, transparent) !important;
 }
 
-input[type="date"] {
-  color-scheme: dark;
+.input-error:focus,
+.input.error:focus,
+.input-field.error:focus,
+.input[aria-invalid="true"]:focus,
+.input-field[aria-invalid="true"]:focus {
+  border-color: var(--semantic-red) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--semantic-red) 35%, transparent) !important;
 }
 
-/* ===============================
-   献立ウィザード
-   =============================== */
+/* Number input spinner hide */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
 
+/* Selection color */
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+/* Focus visible default */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: 2px;
+}
+
+/* Wizard section (献立ウィザード) */
 .wizard-section {
   background: rgba(35, 45, 70, 0.6);
   backdrop-filter: blur(10px);
@@ -511,13 +211,6 @@ input[type="date"] {
   color: inherit !important;
 }
 
-.wizard-input {
-  border-radius: 0.5rem;
-  padding: 0.6rem 0.8rem;
-  width: 100%;
-  transition: all 0.25s ease;
-}
-
 /* ライト／ダークモード切り替え（ウィザード） */
 :root:not([data-theme="dark"]) .wizard-title,
 :root:not([data-theme="dark"]) .wizard-subtitle,
@@ -536,7 +229,6 @@ input[type="date"] {
   color: #f4f7fb !important;
 }
 
-/* 入力の背景（ウィザード） */
 :root:not([data-theme="dark"]) .wizard-input {
   background: #ffffff !important;
   border: 1px solid rgba(0, 0, 0, 0.06) !important;
@@ -547,13 +239,6 @@ input[type="date"] {
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
-/* 日付アイコン（ウィザード） */
-:root:not([data-theme="dark"]) input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: none !important;
-  opacity: 0.95 !important;
-}
-
-/* 小注釈 */
 :root:not([data-theme="dark"]) .wizard-note {
   color: #6b7280 !important;
 }
@@ -562,431 +247,62 @@ input[type="date"] {
   color: #9ba3b7 !important;
 }
 
-/* ===============================
-   Logout Button (Dark Mode Fix)
-   =============================== */
-
-:root:not([data-theme="dark"]) .bg-gray-200 {
-  background-color: rgb(229 231 235 / 1) !important;
-  color: #111827 !important;
+/* 日付アイコン（ウィザード - ライトモード） */
+:root:not([data-theme="dark"]) input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none !important;
+  opacity: 0.95 !important;
 }
 
-:root[data-theme="dark"] .bg-gray-200 {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  color: #f9fafb !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
-}
-
-:root[data-theme="dark"] .bg-gray-200:hover {
-  background-color: rgba(255, 255, 255, 0.14) !important;
-  transition: background-color 0.25s ease;
-}
-
-/* ===============================
-   レスポンシブ 他
-   =============================== */
-
-@media (max-width: 640px) {
-  .card {
-    padding: 1.4rem;
-  }
-
-  /* モバイルでの基本設定 */
-  body {
-    font-size: 14px;
-    -webkit-text-size-adjust: 100%;
-    -moz-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-  }
-
-  .surface-btn,
-  .continue-btn {
-    min-height: 44px;
-    padding: 0.875rem 1.2rem;
-  }
-
-  /* 入力フィールドの最適化 */
-  .input,
-  .input-field,
-  .wizard-input {
-    min-height: 44px;
-    font-size: 16px;
-    /* iOSでのズーム防止 */
-  }
-
-  /* カードの最適化 */
-  .card {
-    margin: 0.5rem;
-    padding: 1rem;
-    border-radius: 1rem;
-  }
-
-  /* テキストの折り返し */
-  * {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
-
-  /* 横スクロール防止 */
-  html,
-  body {
-    overflow-x: hidden;
-    width: 100%;
-  }
-}
-
-/* ===============================
-   最高の 動くインジケーター ナビゲーションバー
-   =============================== */
-
-.nav-inactive {
-  color: var(--nav-inactive-text);
-  opacity: 0.7;
-}
-
-.nav-inactive:hover {
-  color: var(--color-text-primary);
-  opacity: 1;
-}
-
-.nav-glass {
-  background: var(--nav-glass-bg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--nav-glass-border);
-  transition: all 140ms ease;
-}
-
-.nav-glass-strong {
-  background: var(--nav-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--nav-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  transition: all 200ms ease;
-}
-
-.nav-glass--scrolling {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.78);
-}
-
-.nav-fixed-optimized {
-  transform: translateZ(0);
-  will-change: transform;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  contain: layout paint;
-}
-
-.nav-hidden {
-  transform: translateY(100%);
-}
-
-/* 最高のタブバーのベーススタイル */
-.modern-tab-bar,
-.ios-tab-bar-modern,
-.android-tab-bar-modern,
-.windows-tab-bar-modern {
-  background: transparent;
-}
-
-/* 完璧な脈動アニメーション */
-@keyframes pulse-subtle {
-
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  }
-
-  50% {
-    opacity: 0.95;
-    transform: scale(1.03);
-    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.25);
-  }
-}
-
-.animate-pulse-subtle {
-  animation: pulse-subtle 3s ease-in-out infinite;
-}
-
-/* 最高の黒ガラス風インジケーター */
-.premium-dark-glass {
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
-}
-
-/* 完璧なインジケーター移動（シューっと移動） */
-.perfect-indicator-move {
-  transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* アイコンのフェード効果 */
-.icon-fade {
-  transition: all 300ms ease;
-}
-
-/* ホバーエフェクト */
-.nav-item-hover {
-  position: relative;
-  overflow: hidden;
-}
-
-.nav-item-hover::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg,
-      transparent 0%,
-      rgba(0, 0, 0, 0.03) 50%,
-      transparent 100%);
-  transition: left 600ms ease;
-  border-radius: 9999px;
-}
-
-.nav-item-hover:hover::before {
-  left: 100%;
-}
-
-/* ドロップシャドウ効果 */
-.drop-shadow-sm {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-}
-
-/* モバイルでの最適化 */
-@media (max-width: 640px) {
-
-  .modern-tab-bar,
-  .ios-tab-bar-modern,
-  .android-tab-bar-modern,
-  .windows-tab-bar-modern {
-    /* ホームインジケーターとの重なりを防止 */
-    padding-bottom: env(safe-area-inset-bottom, 0);
-  }
-
-  /* タップ領域の確保 */
-  .nav-item-hover {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* モバイルでのアニメーション最適化 */
-  .animate-pulse-subtle {
-    animation-duration: 2.5s;
-  }
-
-  .perfect-indicator-move {
-    transition-duration: 500ms;
-  }
-}
-
-/* ===============================
-   モバイル ナビゲーション（OS標準対応）
-   =============================== */
-
-/* 安全領域の確保 */
-@supports (padding: max(0px)) {
-  .safe-area-inset-bottom {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
-  }
-
-  .h-safe-area-inset-bottom {
-    height: max(0px, env(safe-area-inset-bottom));
-  }
-}
-
-/* リキッドグラス効果 */
-@supports (backdrop-filter: blur(20px)) {
-  .liquid-glass {
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    background: rgba(255, 255, 255, 0.72);
-  }
-}
-
-/* iOSスタイルのタブバー */
-.ios-tab-bar {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-top: 0.5px solid rgba(0, 0, 0, 0.1);
-}
-
-/* Androidスタイルのタブバー */
-.android-tab-bar {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(0, 0, 0, 0.12);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Windowsスタイルのタブバー */
-.windows-tab-bar {
-  background: rgba(248, 249, 250, 0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-}
-
-/* OS標準のセレクトボックス */
-.ios-select {
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  color: #1f2937;
-  font-size: 16px;
-  padding: 12px 16px;
-}
-
-.ios-select:focus {
-  border-color: #007aff;
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
-}
-
-.android-select {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  color: #1f2937;
-  font-size: 16px;
-  padding: 12px 16px;
-}
-
-.android-select:focus {
-  border-color: #1976d2;
-  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
-}
-
-.windows-select {
-  background: white;
-  border: 1px solid #d4d4d8;
-  border-radius: 4px;
-  color: #1f2937;
-  font-size: 14px;
-  padding: 8px 12px;
-}
-
-.windows-select:focus {
-  border-color: #0078d4;
-  box-shadow: 0 0 0 1px #0078d4;
-}
-
-/* セレクトボックスの矢印カスタマイズ */
-.ios-select::-webkit-calendar-picker-indicator,
-.android-select::-webkit-calendar-picker-indicator,
-.windows-select::-webkit-calendar-picker-indicator {
-  opacity: 0;
-}
-
-.ios-select::-webkit-inner-spin-button,
-.android-select::-webkit-inner-spin-button,
-.windows-select::-webkit-inner-spin-button {
-  display: none;
-}
-
-/* 疑似要素で矢印を追加 */
-.ios-select,
-.android-select {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 12px center;
-  background-repeat: no-repeat;
-  background-size: 16px;
-  padding-right: 40px;
-}
-
-.windows-select {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 8px center;
-  background-repeat: no-repeat;
-  background-size: 12px;
-  padding-right: 32px;
-}
-
-/* モバイルでのナビゲーション最適化 */
-@media (max-width: 640px) {
-  nav {
-    /* ホームインジケーターとの重なりを防止 */
-    padding-bottom: env(safe-area-inset-bottom, 0);
-  }
-
-  /* タップ領域の最適化 */
-  nav a {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* アクティブタブのハイライト */
-  nav a.active {
-    position: relative;
-  }
-
-  nav a.active::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 4px;
-    height: 4px;
-    background: currentColor;
-    border-radius: 50%;
-  }
-}
-
-/* ---------- IngredientList / modal theme helpers ---------- */
-
+/* IngredientList / Modal helpers */
 .ingredient-name {
   color: var(--color-text-primary);
   transition: color 220ms ease;
   font-weight: 600;
 }
 
-.ingredient-meta {
+.ingredient-meta,
+.ingredient-qty {
   color: var(--color-text-secondary);
   transition: color 220ms ease;
 }
 
-.ingredient-qty {
+.ingredient-row {
+  background: transparent;
+}
+
+.ingredient-expiry {
+  font-size: 0.85rem;
   color: var(--color-text-secondary);
 }
 
-/* menu button (More) */
+/* More button */
+.ingredient-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+}
+
+/* Menu button */
 .menu-button {
   color: var(--color-text-primary);
   background: transparent;
   border: 1px solid transparent;
-  transition:
-    background 180ms ease,
-    color 180ms ease;
+  transition: background 180ms ease, color 180ms ease;
 }
 
 .menu-button:hover {
   background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
-/* menu panel actions (edit / delete) */
+/* Menu panel actions */
 .menu-action {
-  transition:
-    background 160ms ease,
-    color 160ms ease;
+  transition: background 160ms ease, color 160ms ease;
   font-weight: 600;
 }
 
-/* edit / delete button styles */
+/* Edit/Delete action buttons */
 .edit-action {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--color-text-primary);
@@ -1013,111 +329,13 @@ input[type="date"] {
   color: #fff;
 }
 
-/* modal overlay & card (theme aware) */
-.modal-overlay {
-  pointer-events: auto;
-}
-
-.modal-backdrop {
-  background: rgba(0, 0, 0, 0.5);
-  position: absolute;
-  inset: 0;
-  backdrop-filter: blur(2px);
-}
-
-/* AddEditModal - inputs and buttons */
-
-/* badge / small text */
-.badge {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--color-text-primary);
-  padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
-  font-size: 12px;
-}
-
-/* responsive tweaks */
-@media (max-width: 640px) {
-  .modal-card {
-    padding: 1rem;
-    margin: 1rem;
-    max-width: calc(100vw - 2rem);
-    max-height: calc(100vh - 2rem);
-    overflow-y: auto;
-  }
-
-  /* モーダルの全画面表示対応 */
-  .modal-overlay {
-    padding: 0;
-  }
-
-  .modal-overlay .modal-card:not(.image-cropper-modal) {
-    width: 100vw;
-    height: 100vh;
-    max-width: 100vw;
-    max-height: 100vh;
-    border-radius: 0;
-    padding: 1.5rem;
-  }
-
-  /* ImageCropperModalは常にモーダル表示を維持 */
-  .modal-overlay .modal-card.image-cropper-modal {
-    width: min(382px, calc(100vw - 2rem));
-    height: auto;
-    max-width: 382px;
-    max-height: calc(100vh - 2rem);
-    border-radius: 1rem;
-    margin: 1rem;
-    padding: 0.75rem;
-  }
-}
-
-/* Accessibility: focus */
-.menu-button:focus,
-.menu-action:focus,
-.input-field:focus,
-.continue-btn:focus {
-  outline: 3px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  outline-offset: 3px;
-}
-
-/* ===============================
-   IngredientList / Modal - Theme-aware tweaks
-   =============================== */
-
-.ingredient-row {
-  background: transparent;
-}
-
-.ingredient-name {
-  font-size: 1rem;
-  line-height: 1.2;
-  color: var(--color-text-primary);
-}
-
-.ingredient-expiry,
-.ingredient-qty {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-}
-
-/* More button micro-tweak */
-.ingredient-more-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-}
-
-/* action menu */
+/* Action menu & buttons */
 .action-menu {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
 }
 
-/* basic action button (shared) */
 .action-btn {
   display: inline-flex;
   align-items: center;
@@ -1127,13 +345,10 @@ input[type="date"] {
   font-size: 0.9rem;
   font-weight: 600;
   border: 1px solid transparent;
-  transition:
-    transform 160ms ease,
-    background 180ms ease,
-    color 180ms ease;
+  transition: transform 160ms ease, background 180ms ease, color 180ms ease;
 }
 
-/* ライト／ダークでの edit/delete 変化（元の色を保持） */
+/* Light/Dark edit/delete variations */
 :root:not([data-theme="dark"]) .action-edit {
   background: rgba(255, 145, 77, 0.1);
   color: #ff7a2a;
@@ -1178,13 +393,27 @@ input[type="date"] {
   transform: translateY(-2px);
 }
 
-/* ラベル */
 .action-label {
   display: inline-block;
   line-height: 1;
 }
 
-/* react-datepicker helpers inside modal */
+@media (max-width: 640px) {
+  .action-label {
+    display: none;
+  }
+}
+
+/* Badge */
+.badge {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--color-text-primary);
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 12px;
+}
+
+/* react-datepicker helpers */
 .modal-card .react-datepicker__header,
 .modal-card .react-datepicker__current-month,
 .modal-card .react-datepicker__day-name,
@@ -1192,220 +421,120 @@ input[type="date"] {
   color: var(--color-text-primary) !important;
 }
 
-/* overlays (theme aware) */
-:root:not([data-theme="dark"]) .modal-overlay {
-  background: rgba(0, 0, 0, 0.45);
-}
-
-:root[data-theme="dark"] .modal-overlay {
-  background: rgba(0, 0, 0, 0.6);
-}
-
-/* small-screen tweak: hide action label on tiny screens */
+/* Mobile optimizations */
 @media (max-width: 640px) {
-  .action-label {
-    display: none;
+  .react-datepicker {
+    font-size: 14px;
+  }
+
+  .react-datepicker__header {
+    padding: 0.5rem;
+  }
+
+  .react-datepicker__day {
+    font-size: 12px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .react-datepicker__current-month {
+    font-size: 14px;
+  }
+
+  body {
+    font-size: 14px;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }
 
-/* ===============================
-   ページ遷移アニメーション（酔いにくい仕様）
-   =============================== */
+/* OS-specific select boxes */
+.ios-select {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #1f2937;
+  font-size: 16px;
+  padding: 12px 16px;
+}
 
-.page-transition-enter {
+.ios-select:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.android-select {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  color: #1f2937;
+  font-size: 16px;
+  padding: 12px 16px;
+}
+
+.android-select:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+.windows-select {
+  background: white;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  color: #1f2937;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+.windows-select:focus {
+  border-color: #0078d4;
+  box-shadow: 0 0 0 1px #0078d4;
+}
+
+/* Select arrow customization */
+.ios-select::-webkit-calendar-picker-indicator,
+.android-select::-webkit-calendar-picker-indicator,
+.windows-select::-webkit-calendar-picker-indicator {
   opacity: 0;
-  transform: translateX(4px);
 }
 
-.page-transition-enter-active {
-  opacity: 1;
-  transform: translateX(0);
-  transition:
-    opacity 0.15s ease-out,
-    transform 0.15s ease-out;
-}
-
-.page-transition-exit {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.page-transition-exit-active {
-  opacity: 0;
-  transform: translateX(-4px);
-  transition:
-    opacity 0.15s ease-in,
-    transform 0.15s ease-in;
-}
-
-/* 設定ページ用の微スライドアニメーション */
-.settings-page-enter {
-  opacity: 0;
-}
-
-.settings-page-enter-active {
-  opacity: 1;
-  transition: opacity 0.12s ease-out;
-}
-
-.settings-page-exit {
-  opacity: 1;
-}
-
-.settings-page-exit-active {
-  opacity: 0;
-  transition: opacity 0.12s ease-in;
-}
-
-/* モーダル用の微スライドアニメーション */
-.modal-enter {
-  opacity: 0;
-  transform: translateX(2px) scale(0.98);
-}
-
-.modal-enter-active {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-  transition:
-    opacity 0.15s ease-out,
-    transform 0.15s ease-out;
-}
-
-.modal-exit {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-}
-
-.modal-exit-active {
-  opacity: 0;
-  transform: translateX(-2px) scale(0.98);
-  transition:
-    opacity 0.15s ease-in,
-    transform 0.15s ease-in;
-}
-
-/* ===============================
-   スムーズなページ遷移アニメーション
-   =============================== */
-
-/* ページ全体のスムーズなレンダリング */
-html {
-  scroll-behavior: smooth;
-}
-
-/* リフローを最小化するための最適化 */
-* {
-  box-sizing: border-box;
-}
-
-/* 画像のスムーズな読み込み */
-img {
-  max-width: 100%;
-  height: auto;
-}
-
-/* スクロールバーの線を非表示にする */
-::-webkit-scrollbar {
+.ios-select::-webkit-inner-spin-button,
+.android-select::-webkit-inner-spin-button,
+.windows-select::-webkit-inner-spin-button {
   display: none;
 }
 
-/* ページ遷移時のスムーズなフェード */
-.page-transition-enter {
-  opacity: 0;
-  transform: scale(0.98) translateY(8px);
+.ios-select,
+.android-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 40px;
 }
 
-.page-transition-enter-active {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-  transition:
-    opacity 0.4s ease,
-    transform 0.4s ease;
+.windows-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 8px center;
+  background-repeat: no-repeat;
+  background-size: 12px;
+  padding-right: 32px;
 }
 
-.page-transition-exit {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-}
+/* ===============================
+   Alert Component
+   =============================== */
 
-.page-transition-exit-active {
-  opacity: 0;
-  transform: scale(1.02) translateY(-8px);
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-}
-
-/* ローディング状態の最適化 */
-.loading-skeleton {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: loading-shimmer 1.5s infinite;
-}
-
-@keyframes loading-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-/* ナビゲーションタブのスムーズなホバー効果 */
-.nav-tab-smooth {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.nav-tab-smooth:hover {
-  transform: scale(1.05);
-}
-
-.nav-tab-smooth:active {
-  transform: scale(0.95);
-}
-
-/* コンテンツのスムーズな表示 */
-.content-fade-in {
-  animation: contentFadeIn 0.5s ease-out;
-}
-
-@keyframes contentFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* モバイルでの最適化 */
-@media (max-width: 640px) {
-
-  .page-transition-enter-active,
-  .page-transition-exit-active {
-    transition-duration: 0.3s;
-  }
-
-  .content-fade-in {
-    animation-duration: 0.4s;
-  }
-}
-
-/* Alert Component Styles */
 .alert {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
   padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--surface-border);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease-in-out;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .alert-icon {
@@ -1414,119 +543,38 @@ img {
 }
 
 .alert-content {
-  flex: 1 1 0%;
+  flex: 1;
   min-width: 0;
 }
 
 .alert-message {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 500;
+  color: inherit;
 }
 
-.alert-action {
-  margin-top: 0.5rem;
-}
-
-/* Alert Types */
+/* Error Alert */
 .alert-error {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #7f1d1d;
+  background: color-mix(in srgb, var(--semantic-red) 8%, transparent);
+  border-color: color-mix(in srgb, var(--semantic-red) 25%, transparent);
+  color: var(--semantic-red);
 }
 
-.alert-error .alert-icon {
-  color: #dc2626;
-}
-
+/* Success Alert */
 .alert-success {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-  color: #14532d;
+  background: color-mix(in srgb, var(--semantic-green) 8%, transparent);
+  border-color: color-mix(in srgb, var(--semantic-green) 25%, transparent);
+  color: var(--semantic-green);
 }
 
-.alert-success .alert-icon {
-  color: #16a34a;
-}
-
+/* Warning Alert */
 .alert-warning {
-  background: #fffbeb;
-  border-color: #fde68a;
-  color: #78350f;
+  background: color-mix(in srgb, var(--semantic-orange) 8%, transparent);
+  border-color: color-mix(in srgb, var(--semantic-orange) 25%, transparent);
+  color: var(--semantic-orange);
 }
 
-.alert-warning .alert-icon {
-  color: #ca8a04;
-}
-
+/* Info Alert */
 .alert-info {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1e3a8a;
-}
-
-.alert-info .alert-icon {
-  color: #2563eb;
-}
-
-/* Alert hover effects */
-.alert:hover {
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -2px rgba(0, 0, 0, 0.1);
-}
-
-:root[data-theme="dark"] .alert-error {
-  background: rgba(127, 29, 29, 0.2);
-  border-color: #991b1b;
-  color: #fecaca;
-}
-
-:root[data-theme="dark"] .alert-error .alert-icon {
-  color: #f87171;
-}
-
-:root[data-theme="dark"] .alert-success {
-  background: rgba(20, 83, 45, 0.2);
-  border-color: #166534;
-  color: #bbf7d0;
-}
-
-:root[data-theme="dark"] .alert-success .alert-icon {
-  color: #4ade80;
-}
-
-:root[data-theme="dark"] .alert-warning {
-  background: rgba(120, 53, 15, 0.2);
-  border-color: #92400e;
-  color: #fde68a;
-}
-
-:root[data-theme="dark"] .alert-warning .alert-icon {
-  color: #facc15;
-}
-
-:root[data-theme="dark"] .alert-info {
-  background: rgba(30, 58, 138, 0.2);
-  border-color: #1e40af;
-  color: #bfdbfe;
-}
-
-:root[data-theme="dark"] .alert-info .alert-icon {
-  color: #60a5fa;
-}
-
-/* テーマ画像切り替え（Tailwindのdark:クラス代替） */
-.theme-light-img {
-  display: block;
-}
-.theme-dark-img {
-  display: none;
-}
-
-:root[data-theme="dark"] .theme-light-img {
-  display: none !important;
-}
-:root[data-theme="dark"] .theme-dark-img {
-  display: block !important;
+  background: color-mix(in srgb, var(--semantic-blue) 8%, transparent);
+  border-color: color-mix(in srgb, var(--semantic-blue) 25%, transparent);
+  color: var(--semantic-blue);
 }

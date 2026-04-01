@@ -113,12 +113,12 @@ export class SafeStorage {
       // localStorageのクリーンアップ
       if (typeof window !== 'undefined' && window.localStorage) {
         const keysToRemove: string[] = [];
-        
+
         Object.keys(localStorage).forEach(key => {
           // クリティカルキーは保持
-          if (!this.CRITICAL_KEYS.includes(key) && 
-              !key.startsWith(this.APP_KEYS_PREFIX + 'theme') &&
-              !key.startsWith(this.APP_KEYS_PREFIX + 'user-preferences')) {
+          if (!this.CRITICAL_KEYS.includes(key) &&
+            !key.startsWith(this.APP_KEYS_PREFIX + 'theme') &&
+            !key.startsWith(this.APP_KEYS_PREFIX + 'user-preferences')) {
             keysToRemove.push(key);
           }
         });
@@ -150,7 +150,6 @@ export class SafeStorage {
         }
       }
 
-      console.log('Emergency cleanup completed:', result);
     } catch (error) {
       result.errors.push(`Cleanup failed: ${error}`);
       result.success = false;
@@ -223,7 +222,7 @@ export class SafeStorage {
       }
 
       const backup: any = {};
-      
+
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith(this.APP_KEYS_PREFIX)) {
           try {
@@ -279,7 +278,7 @@ export class SafeStorage {
 export function useSafeStorage() {
   const clearCache = () => {
     const result = SafeStorage.emergencyCleanup();
-    console.log('Cache cleared:', result);
+    // console.log('Cache cleared:', result);
     return result;
   };
 

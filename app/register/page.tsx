@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "@/app/components/ThemeProvider";
-import { fadeInUp, springTransition, buttonTap } from "@/app/components/motion";
+import { fadeInUp, springTransition, buttonTap } from "@/lib/motion";
 import { Alert } from "@/app/components/Alert";
 
 function getErrorMessage(

@@ -14,10 +14,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
       authorization: {
         params: {
-          prompt: "consent",
-          access_type: "offline",
+          access_type: "online",
           response_type: "code",
-          hd: process.env.ALLOWED_DOMAIN,
+          // hd: process.env.ALLOWED_DOMAIN, // temporarily disabled for testing
         },
       },
       allowDangerousEmailAccountLinking: false,
@@ -49,24 +48,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ account, profile }) {
       if (account?.provider === "google") {
         const email = (profile as { email?: string })?.email?.toLowerCase()?.trim();
-
-        if (!email) {
-          console.log("[Google OAuth] メールアドレスを取得できませんでした");
-          return false;
-        }
+        if (!email) return false;
 
         let loginType = "login";
         try {
           const cookieStore = await cookies();
           loginType = cookieStore.get("google_auth_type")?.value ?? "login";
-        } catch {
-          console.log("[Google OAuth] Cookie読み取りエラー、login として処理");
-        }
-
-        const existingUser = await prisma.user.findUnique({
-          where: { email },
-          select: { id: true, status: true, emailVerified: true },
-        });
+        } catch { /* ignore */ }
 
         const existingAccount = await prisma.account.findFirst({
           where: {
@@ -76,9 +64,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           include: { user: true },
         });
 
+        const existingUser = await prisma.user.findUnique({
+          where: { email },
+          select: { id: true, status: true, emailVerified: true },
+        });
+
         if (loginType === "login") {
           if (existingAccount) {
             if (existingAccount.user.status !== "active") return false;
+            // Update tokens on each login
+            await prisma.account.update({
+              where: { id: existingAccount.id },
+              data: {
+                refresh_token: account.refresh_token,
+                access_token: account.access_token,
+                expires_at: account.expires_at,
+                token_type: account.token_type,
+                scope: account.scope,
+                id_token: account.id_token,
+                session_state: account.session_state as string | null,
+              },
+            });
             return true;
           }
           if (existingUser) {
@@ -154,13 +160,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             where: { id: token.sub },
             select: {
               plan: true,
-              cancelAtPeriodEnd: true,
-              stripeCurrentPeriodEnd: true,
               name: true,
               image: true,
-              accounts: {
-                select: { provider: true }
-              }
             },
           });
 
@@ -168,18 +169,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             const plan = dbUser.plan ?? "FREE";
             (session.user as { plan?: string }).plan = plan;
             (session.user as { isPro?: boolean }).isPro = plan === "PRO";
-            (session.user as { cancelAtPeriodEnd?: boolean }).cancelAtPeriodEnd = dbUser.cancelAtPeriodEnd;
-            (session.user as { stripeCurrentPeriodEnd?: Date | null }).stripeCurrentPeriodEnd = dbUser.stripeCurrentPeriodEnd;
-            (session.user as { accounts?: Array<{ provider: string }> }).accounts = dbUser.accounts;
 
             if (dbUser.name) session.user.name = dbUser.name;
             if (dbUser.image) session.user.image = dbUser.image;
             if (token.provider && typeof token.provider === "string") {
-              session.user.provider = token.provider;
+              (session.user as { provider?: string }).provider = token.provider;
             }
           }
         } catch {
-          console.error("Failed to fetch extended user data in session callback");
+          // Silently ignore session data fetch errors
         }
       }
       return session;

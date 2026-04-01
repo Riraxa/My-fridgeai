@@ -4,7 +4,8 @@
 // Falls back gracefully if image is unreadable.
 // NOW: Legacy function - use ocr-tesseract.ts for new implementation
 
-import { extractTextFromResponse } from "@/lib/openai";
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 
 export interface OcrResult {
   rawLines: string[];
@@ -33,51 +34,24 @@ export async function extractTextFromImage(
 - 読み取れない文字は「???」と表記してください
 - JSON形式ではなく、プレーンテキストで出力してください`;
 
-    // Use OpenAI's chat completions with image input
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30_000);
-
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Image}`,
-                  detail: "high",
-                },
-              },
-            ],
-          },
-        ],
-        max_tokens: 2000,
-        temperature: 0,
-      }),
-      signal: controller.signal,
+    const result = await generateText({
+      model: openai('gpt-4o-mini'),
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            {
+              type: 'image',
+              image: `data:${mimeType};base64,${base64Image}`,
+            },
+          ],
+        },
+      ],
+      temperature: 0,
     });
 
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`OpenAI Vision API error: ${res.status} ${errText}`);
-    }
-
-    const json = await res.json();
-    const text = extractTextFromResponse(json);
+    const text = result.text;
 
     if (!text || text.trim().length === 0) {
       return { rawLines: [], rawText: "", success: false, error: "テキストを抽出できませんでした" };

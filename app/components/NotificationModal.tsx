@@ -9,7 +9,7 @@ import {
   useTransform,
   PanInfo,
 } from "framer-motion";
-import { springTransition } from "./motion";
+import { springTransition } from "@/lib/motion";
 import { useRouter } from "next/navigation";
 
 interface Alert {

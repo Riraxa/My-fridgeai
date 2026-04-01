@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_IMPLICIT_INGREDIENTS } from "@/lib/constants/implicit-ingredients";
 
 /**
  * GET: Fetch user preferences
@@ -25,8 +26,17 @@ export async function GET() {
           comfortableMethods: [],
           avoidMethods: [],
           kitchenEquipment: ["ガスコンロ", "電子レンジ", "フライパン", "鍋", "IH"],
+          implicitIngredients: [...DEFAULT_IMPLICIT_INGREDIENTS],
         },
       });
+    }
+
+    // Ensure implicitIngredients has default value if null/undefined
+    if (!preferences.implicitIngredients || preferences.implicitIngredients.length === 0) {
+      preferences = {
+        ...preferences,
+        implicitIngredients: [...DEFAULT_IMPLICIT_INGREDIENTS],
+      };
     }
 
     return NextResponse.json({ preferences });
@@ -51,7 +61,7 @@ export async function POST(req: Request) {
     const userId = session.user.id;
     const body = await req.json();
 
-    const { cookingSkill, comfortableMethods, avoidMethods, kitchenEquipment, aiMessageEnabled } =
+    const { cookingSkill, comfortableMethods, avoidMethods, kitchenEquipment, aiMessageEnabled, implicitIngredients } =
       body;
 
     // Build update/create data, only including aiMessageEnabled if explicitly provided
@@ -67,6 +77,9 @@ export async function POST(req: Request) {
       data.kitchenEquipment = Array.isArray(kitchenEquipment) ? kitchenEquipment : [];
     }
     if (typeof aiMessageEnabled === "boolean") data.aiMessageEnabled = aiMessageEnabled;
+    if (implicitIngredients !== undefined) {
+      data.implicitIngredients = Array.isArray(implicitIngredients) ? implicitIngredients : [...DEFAULT_IMPLICIT_INGREDIENTS];
+    }
 
     const updated = await prisma.userPreferences.upsert({
       where: { userId },

@@ -3,8 +3,10 @@
 // Tesseract.js-based OCR service for receipt text extraction.
 // Falls back to OpenAI Vision when Tesseract fails or quality is low.
 
+import { generateObject } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { z } from 'zod';
 import Tesseract from 'tesseract.js';
-import { callOpenAIOnce, extractTextFromResponse } from "@/lib/openai";
 import sharp from 'sharp';
 
 export interface OcrResult {
@@ -142,23 +144,18 @@ export async function filterProductLinesWithAI(
 - 飲料: 牛乳、ジュース、お茶、コーヒー、アルコール
 - 調味料・その他: 調味料、スパイス、缶詰、冷凍食品
 
-出力形式（JSONのみ）:
-{
-  "productLines": ["正しい商品名1", "正しい商品名2"],
-  "nonFoodItems": ["除外したもの1"]
-}
-
 対象テキスト:
 ${likelyProducts.join('\n')}`;
 
-    const result = await callOpenAIOnce({
-      input: prompt,
-      max_output_tokens: 1000,
-      temperature: 0.1
-    }, 15_000);
-
-    const response = extractTextFromResponse(result);
-    const filtered = JSON.parse(response ?? '{"productLines": [], "nonFoodItems": []}');
+    const { object: filtered } = await generateObject({
+      model: openai('gpt-4o-mini'),
+      schema: z.object({
+        productLines: z.array(z.string()).describe('正しい商品名リスト'),
+        nonFoodItems: z.array(z.string()).describe('除外したものリスト'),
+      }),
+      prompt,
+      temperature: 0.1,
+    });
     
     console.log(`[AI Filter] Products: ${filtered.productLines.length}, Non-food: ${filtered.nonFoodItems.length}`);
     

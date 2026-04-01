@@ -1,5 +1,6 @@
 //lib/inventory.ts
 import { Ingredient } from "@prisma/client";
+import { isImplicitIngredient } from "@/lib/constants/implicit-ingredients";
 
 export interface RequiredIngredient {
   name: string;
@@ -78,10 +79,14 @@ export function normalizeAmount(amount: number, unit: string): number {
 
 /**
  * Check if the user has enough ingredients for a recipe.
+ * @param requiredIngredients - 必要な食材リスト
+ * @param userInventory - ユーザーの在庫
+ * @param customImplicitIngredients - カスタム暗黙食材（オプション）
  */
 export function checkIngredientAvailability(
   requiredIngredients: RequiredIngredient[],
   userInventory: Ingredient[],
+  customImplicitIngredients?: string[],
 ): IngredientAvailability {
   const available: IngredientMatch[] = [];
   const insufficient: IngredientMatch[] = [];
@@ -91,6 +96,17 @@ export function checkIngredientAvailability(
     // Skip if required ingredient is invalid
     if (!required?.name || typeof required.name !== "string") {
       console.warn("[Inventory] Skipping invalid ingredient:", required);
+      continue;
+    }
+
+    // 1. 暗黙食材なら常に利用可能とする
+    if (isImplicitIngredient(required.name, customImplicitIngredients)) {
+      available.push({
+        name: required.name,
+        required: { amount: required.amount, unit: required.unit },
+        inStock: { amount: "常に利用可能", unit: "implicit" },
+        status: "available",
+      });
       continue;
     }
 

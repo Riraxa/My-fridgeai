@@ -1,0 +1,422 @@
+/* ===============================
+   Utilities & Animations
+   =============================== */
+
+/* -------------------------------
+   Keyframes
+   ------------------------------- */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bounce-down {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(2px);
+  }
+}
+
+@keyframes notify-slide-down {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.03);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.25);
+  }
+}
+
+@keyframes loading-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* -------------------------------
+   Animation Utilities
+   ------------------------------- */
+
+.animate-notify-slide-down {
+  animation: notify-slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+.content-fade-in {
+  animation: contentFadeIn 0.5s ease-out;
+}
+
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading-shimmer 1.5s infinite;
+}
+
+/* -------------------------------
+   Page Transitions
+   ------------------------------- */
+
+.page-transition-enter {
+  opacity: 0;
+  transform: translateX(4px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+}
+
+.page-transition-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease-in, transform 0.15s ease-in;
+}
+
+/* Alternative page transition */
+.page-transition-enter-alt {
+  opacity: 0;
+  transform: scale(0.98) translateY(8px);
+}
+
+.page-transition-enter-active-alt {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.page-transition-exit-alt {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.page-transition-exit-active-alt {
+  opacity: 0;
+  transform: scale(1.02) translateY(-8px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Settings page transitions */
+.settings-page-enter {
+  opacity: 0;
+}
+
+.settings-page-enter-active {
+  opacity: 1;
+  transition: opacity 0.12s ease-out;
+}
+
+.settings-page-exit {
+  opacity: 1;
+}
+
+.settings-page-exit-active {
+  opacity: 0;
+  transition: opacity 0.12s ease-in;
+}
+
+/* Modal transitions */
+.modal-enter {
+  opacity: 0;
+  transform: translateX(2px) scale(0.98);
+}
+
+.modal-enter-active {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+}
+
+.modal-exit {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.modal-exit-active {
+  opacity: 0;
+  transform: translateX(-2px) scale(0.98);
+  transition: opacity 0.15s ease-in, transform 0.15s ease-in;
+}
+
+/* -------------------------------
+   Navigation Utilities
+   ------------------------------- */
+
+.nav-inactive {
+  color: var(--nav-inactive-text);
+  opacity: 0.7;
+}
+
+.nav-inactive:hover {
+  color: var(--color-text-primary);
+  opacity: 1;
+}
+
+.nav-glass {
+  background: var(--nav-glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--nav-glass-border);
+  transition: all 140ms ease;
+}
+
+.nav-glass-strong {
+  background: var(--nav-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--nav-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  transition: all 200ms ease;
+}
+
+.nav-glass--scrolling {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.nav-fixed-optimized {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: layout paint;
+}
+
+.nav-hidden {
+  transform: translateY(100%);
+}
+
+.perfect-indicator-move {
+  transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.icon-fade {
+  transition: all 300ms ease;
+}
+
+/* Nav item hover effect */
+.nav-item-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-item-hover::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.03) 50%, transparent 100%);
+  transition: left 600ms ease;
+  border-radius: 9999px;
+}
+
+.nav-item-hover:hover::before {
+  left: 100%;
+}
+
+.nav-tab-smooth {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-tab-smooth:hover {
+  transform: scale(1.05);
+}
+
+.nav-tab-smooth:active {
+  transform: scale(0.95);
+}
+
+/* -------------------------------
+   Glass Effects
+   ------------------------------- */
+
+.premium-dark-glass {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.liquid-glass {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+/* -------------------------------
+   Shadows & Effects
+   ------------------------------- */
+
+.drop-shadow-sm {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* -------------------------------
+   Safe Area (Notch/Home Indicator)
+   ------------------------------- */
+
+@supports (padding: max(0px)) {
+  .safe-area-inset-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  
+  .h-safe-area-inset-bottom {
+    height: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* -------------------------------
+   Mobile Optimizations
+   ------------------------------- */
+
+@media (max-width: 640px) {
+  /* Animation speed reduction for mobile */
+  .animate-pulse-subtle {
+    animation-duration: 2.5s;
+  }
+  
+  .perfect-indicator-move {
+    transition-duration: 500ms;
+  }
+  
+  .page-transition-enter-active,
+  .page-transition-exit-active {
+    transition-duration: 0.3s;
+  }
+  
+  .content-fade-in {
+    animation-duration: 0.4s;
+  }
+  
+  /* Nav tap targets */
+  nav a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Modern tab bars */
+  .modern-tab-bar,
+  .ios-tab-bar-modern,
+  .android-tab-bar-modern,
+  .windows-tab-bar-modern {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  
+  .nav-item-hover {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Text wrapping */
+  * {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  /* Prevent horizontal scroll */
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+  }
+}
+
+/* -------------------------------
+   OS-Specific Styles
+   ------------------------------- */
+
+/* iOS Tab Bar */
+.ios-tab-bar {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Android Tab Bar */
+.android-tab-bar {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Windows Tab Bar */
+.windows-tab-bar {
+  background: rgba(248, 249, 250, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Modern tab bars (transparent) */
+.modern-tab-bar,
+.ios-tab-bar-modern,
+.android-tab-bar-modern,
+.windows-tab-bar-modern {
+  background: transparent;
+}
+
+/* -------------------------------
+   Reduced Motion Support
+   ------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -22,10 +22,14 @@ export interface ConstraintValidationResult {
 /**
  * Strict モードの制約バリデーション
  * 生成された献立の全食材が在庫 or 暗黙食材に含まれるかチェックする。
+ * @param menu - 検証する献立
+ * @param userInventory - ユーザーの在庫
+ * @param customImplicitIngredients - カスタム暗黙食材（オプション）
  */
 export function validateStrictConstraints(
   menu: GeneratedMenu,
   userInventory: Ingredient[],
+  customImplicitIngredients?: string[],
 ): ConstraintValidationResult {
   const violations: ConstraintViolation[] = [];
 
@@ -48,7 +52,7 @@ export function validateStrictConstraints(
       if (!name) continue;
 
       // 1. 暗黙食材なら OK
-      if (isImplicitIngredient(ingredient.name)) {
+      if (isImplicitIngredient(ingredient.name, customImplicitIngredients)) {
         continue;
       }
 
@@ -79,10 +83,14 @@ export function validateStrictConstraints(
 
 /**
  * 3つの献立すべてに対して Strict 制約バリデーションを実行
+ * @param menus - 検証する3つの献立
+ * @param userInventory - ユーザーの在庫
+ * @param customImplicitIngredients - カスタム暗黙食材（オプション）
  */
 export function validateAllMenusStrict(
   menus: { main: GeneratedMenu; alternativeA: GeneratedMenu; alternativeB: GeneratedMenu },
   userInventory: Ingredient[],
+  customImplicitIngredients?: string[],
 ): {
   allValid: boolean;
   results: {
@@ -91,9 +99,9 @@ export function validateAllMenusStrict(
     alternativeB: ConstraintValidationResult;
   };
 } {
-  const mainResult = validateStrictConstraints(menus.main, userInventory);
-  const altAResult = validateStrictConstraints(menus.alternativeA, userInventory);
-  const altBResult = validateStrictConstraints(menus.alternativeB, userInventory);
+  const mainResult = validateStrictConstraints(menus.main, userInventory, customImplicitIngredients);
+  const altAResult = validateStrictConstraints(menus.alternativeA, userInventory, customImplicitIngredients);
+  const altBResult = validateStrictConstraints(menus.alternativeB, userInventory, customImplicitIngredients);
 
   return {
     allValid: mainResult.isValid && altAResult.isValid && altBResult.isValid,
