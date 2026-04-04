@@ -5,7 +5,7 @@
 // Strict モードでは、生成された献立が在庫 + 暗黙食材のみで構成されていることを検証する。
 
 import { isImplicitIngredient } from "@/lib/constants/implicit-ingredients";
-import type { GeneratedMenu } from "./menu-generator";
+import type { GeneratedMenu } from "@/lib/agents/schemas/menu";
 import type { Ingredient } from "@prisma/client";
 
 export interface ConstraintViolation {

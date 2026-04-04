@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
+// Helper to check if user is Pro
+async function isProUser(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { plan: true },
+  });
+  return user?.plan === "PRO";
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -41,39 +50,71 @@ export async function GET(
       );
     }
 
+    // 2分以上経過して進行中の場合は失敗（ゴースト生成）として扱う
+    const generationDate = new Date(generation.generatedAt).getTime();
+    const isStale = (generation.status === "processing" || generation.status === "pending") && 
+                    (Date.now() - generationDate > 120000);
+
+    if (isStale) {
+      await prisma.menuGeneration.update({
+        where: { id: id },
+        data: { status: "failed", progressStep: "failed" },
+      });
+      return NextResponse.json({
+        success: true,
+        status: "failed",
+        progressStep: "failed",
+        error: "生成がタイムアウトしました。サーバーの再起動等で処理が中断された可能性があります。もう一度お試しください。"
+      });
+    }
+
+    // Check Pro status
+    const isPro = await isProUser(userId);
+
+    // Prepare response data
+    let responseData: any = null;
+    if (generation.status === "completed") {
+      // Clone nutritionInfo to avoid mutating original
+      const nutritionData = JSON.parse(JSON.stringify(generation.nutritionInfo));
+
+      // Mask costEfficiency for non-Pro users
+      if (nutritionData?.scores && !isPro) {
+        nutritionData.scores.main.costEfficiency = undefined;
+        nutritionData.scores.altA.costEfficiency = undefined;
+      }
+
+      responseData = {
+        menuGenerationId: generation.id,
+        menus: {
+          main: generation.mainMenu,
+          alternativeA: generation.alternativeA,
+          alternativeB: generation.alternativeB,
+        },
+        availability: {
+          main: reconstructAvailability(
+            (generation.usedIngredients as any)?.main,
+            (generation.shoppingList as any)?.main,
+          ),
+          altA: reconstructAvailability(
+            (generation.usedIngredients as any)?.altA,
+            (generation.shoppingList as any)?.altA,
+          ),
+          altB: reconstructAvailability(
+            (generation.usedIngredients as any)?.altB,
+            (generation.shoppingList as any)?.altB,
+          ),
+        },
+        usedIngredients: generation.usedIngredients,
+        shoppingList: generation.shoppingList,
+        nutrition: nutritionData,
+      };
+    }
+
     return NextResponse.json({
       success: true,
       status: generation.status,
       progressStep: generation.progressStep,
-      data:
-        generation.status === "completed"
-          ? {
-            menuGenerationId: generation.id,
-            menus: {
-              main: generation.mainMenu,
-              alternativeA: generation.alternativeA,
-              alternativeB: generation.alternativeB,
-            },
-            // Reconstruct availability for frontend
-            availability: {
-              main: reconstructAvailability(
-                (generation.usedIngredients as any)?.main,
-                (generation.shoppingList as any)?.main,
-              ),
-              altA: reconstructAvailability(
-                (generation.usedIngredients as any)?.altA,
-                (generation.shoppingList as any)?.altA,
-              ),
-              altB: reconstructAvailability(
-                (generation.usedIngredients as any)?.altB,
-                (generation.shoppingList as any)?.altB,
-              ),
-            },
-            usedIngredients: generation.usedIngredients,
-            shoppingList: generation.shoppingList,
-            nutrition: generation.nutritionInfo,
-          }
-          : null,
+      data: responseData,
     });
   } catch (error: any) {
     console.error("Status Check Error:", error);

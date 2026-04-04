@@ -1,4 +1,4 @@
-// lib/ai/menu-stream-handler.ts
+import { calculateScores } from "@/lib/scoring/calculateScores";
 import { prisma } from "@/lib/prisma";
 import { checkIngredientAvailability } from "@/lib/inventory";
 import { incrementUserLimit } from "@/lib/aiLimit";
@@ -6,9 +6,99 @@ import { validateAllMenusStrict } from "@/lib/ai/constraint-validator";
 import { sendPushToMultiple } from "@/lib/push";
 import type { ConstraintMode } from "@/types";
 
-/**
- * AIによって生成された献立データを検証し、DBを更新し、付帯処理（栄養計算、通知等）を行う共通関数
- */
+// 2案形式の献立データ型
+interface TwoPlanMenuData {
+  mainPlan?: {
+    title: string;
+    reason: string;
+    tags: string[];
+    dishes: any[];
+    role: string;
+    // scores removed - calculated server-side
+  };
+  alternativePlan?: {
+    title: string;
+    reason: string;
+    tags: string[];
+    dishes: any[];
+    role: string;
+    specializationReason: string;
+    // scores removed - calculated server-side
+  };
+  lightSuggestion?: {
+    text: string;
+    label: string;
+    confidence: number;
+    hint?: string;
+  };
+  comparison?: {
+    mainPlan?: {
+      inventoryUsage?: number;
+      costEfficiency?: number;
+      healthScore?: number;
+      timeEfficiency?: number;
+    };
+    alternativePlan?: {
+      inventoryUsage?: number;
+      costEfficiency?: number;
+      healthScore?: number;
+      timeEfficiency?: number;
+    };
+    summary?: {
+      mainPlanStrength: string;
+      alternativePlanStrength: string;
+    };
+  };
+
+  main?: any;
+  alternativeA?: any;
+  alternativeB?: any;
+}
+
+export function normalizeMenuData(menus: TwoPlanMenuData): {
+  main: any;
+  alternativeA: any;
+  alternativeB: any;
+  lightSuggestion: any;
+  comparison: any;
+} {
+  // 2案形式を検出
+  if (menus.mainPlan && menus.alternativePlan) {
+    return {
+      main: {
+        title: menus.mainPlan.title,
+        reason: menus.mainPlan.reason,
+        tags: menus.mainPlan.tags,
+        dishes: menus.mainPlan.dishes,
+        role: menus.mainPlan.role,
+      },
+      alternativeA: {
+        title: menus.alternativePlan.title,
+        reason: menus.alternativePlan.reason,
+        tags: menus.alternativePlan.tags,
+        dishes: menus.alternativePlan.dishes,
+        role: menus.alternativePlan.role,
+        specializationReason: menus.alternativePlan.specializationReason,
+      },
+      alternativeB: menus.lightSuggestion ? {
+        text: menus.lightSuggestion.text,
+        label: menus.lightSuggestion.label,
+        confidence: menus.lightSuggestion.confidence,
+        hint: menus.lightSuggestion.hint,
+      } : undefined,
+      lightSuggestion: menus.lightSuggestion,
+      comparison: menus.comparison,
+    };
+  }
+
+  return {
+    main: menus.main,
+    alternativeA: menus.alternativeA,
+    alternativeB: menus.alternativeB,
+    lightSuggestion: null,
+    comparison: null,
+  };
+}
 export async function finalizeMenuGeneration(
   generationId: string,
   userId: string,
@@ -17,9 +107,35 @@ export async function finalizeMenuGeneration(
   options: { servings: number; budget: number | null; mode: ConstraintMode }
 ) {
   try {
-    console.log(`[MenuStreamHandler] Finalizing generation ${generationId}`);
+    const normalized = normalizeMenuData(menus);
+    const { main, alternativeA, alternativeB, lightSuggestion, comparison } = normalized;
 
-    // 1. ユーザーのカスタム暗黙食材を取得
+    // === 即座に完了ステータスを設定（ユーザーに速く結果を表示）===
+    // 最小限のデータのみを即座に更新 - 大きなJSONフィールドは後で
+    const quickUpdatePromise = prisma.menuGeneration.update({
+      where: { id: generationId },
+      data: {
+        status: "completed",
+        progressStep: "completed",
+        mainMenu: main as any,
+        alternativeA: alternativeA as any,
+        alternativeB: alternativeB as any,
+      },
+    });
+    
+    const dbTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("DB update timeout")), 3000)
+    );
+    
+    try {
+      await Promise.race([quickUpdatePromise, dbTimeoutPromise]);
+      console.log(`[MenuStream] Status updated to completed for ${generationId}`);
+    } catch (dbError) {
+      console.error(`[MenuStream] Quick update failed:`, dbError);
+      // 失敗しても続行 - 後続の更新で上書きされる
+    }
+
+    // === 以下、バックグラウンドで詳細計算を実行 ===
     const userPrefs = await prisma.userPreferences.findUnique({
       where: { userId },
       select: { 
@@ -27,16 +143,16 @@ export async function finalizeMenuGeneration(
         implicitIngredients: true,
       },
     });
+    
     const allImplicitIngredients = [
       ...(userPrefs?.implicitIngredients ?? []),
       ...(userPrefs?.customImplicitIngredients ?? []),
     ];
 
-    // 2. Strict モードのバリデーション
+    // 3. Strict モードのバリデーション
     if (options.mode === "strict") {
       const constraintResult = validateAllMenusStrict(menus, ingredients, allImplicitIngredients);
       if (!constraintResult.allValid) {
-        console.warn(`[MenuStreamHandler] Strict constraint violations detected`);
         await prisma.menuGeneration.update({
           where: { id: generationId },
           data: { status: "failed" },
@@ -45,80 +161,122 @@ export async function finalizeMenuGeneration(
       }
     }
 
-    // 3. 在庫チェック
+    // 4. 在庫チェック
     const mainDetails = checkIngredientAvailability(
-      (menus.main?.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
+      (main?.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
       ingredients,
       allImplicitIngredients
     );
-    const altADetails = menus.alternativeA
+    const altADetails = alternativeA
       ? checkIngredientAvailability(
-          (menus.alternativeA.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
-          ingredients,
-          allImplicitIngredients
-        )
-      : mainDetails;
-    const altBDetails = menus.alternativeB
-      ? checkIngredientAvailability(
-          (menus.alternativeB.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
+          (alternativeA.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
           ingredients,
           allImplicitIngredients
         )
       : mainDetails;
 
-    // 4. 栄養計算
-    let nutritionInfo = {
-      main: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
-      altA: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
-      altB: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
-    };
+    // 5. 栄養計算
+    let nutritionInfo: any;
     try {
       const { evaluateNutrition } = await import("@/lib/nutrition");
+      // タイムアウト付きで栄養計算（5秒以内）
+      const nutritionPromise = Promise.all([
+        evaluateNutrition(main?.dishes ?? []),
+        alternativeA ? evaluateNutrition(alternativeA?.dishes ?? []) : Promise.resolve(null),
+      ]);
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Nutrition calculation timeout")), 5000)
+      );
+      
+      const [mainNutrition, altANutrition] = await Promise.race([
+        nutritionPromise,
+        timeoutPromise,
+      ]) as [any, any];
+      
+      // スコアを取得（AIが計算したスコアを使用、なければデフォルト値）
+      const mainScores = menus.comparison?.mainPlan || {};
+      const altScores = menus.comparison?.alternativePlan || {};
+      
       nutritionInfo = {
-        main: evaluateNutrition(menus.main?.dishes ?? []),
-        altA: evaluateNutrition(menus.alternativeA?.dishes ?? []),
-        altB: evaluateNutrition(menus.alternativeB?.dishes ?? []),
-      } as any;
+        main: mainNutrition,
+        altA: altANutrition || mainNutrition,
+        lightSuggestion,
+        comparison,
+        // AI計算スコアまたはデフォルト値
+        scores: {
+          main: {
+            inventoryUsage: mainScores.inventoryUsage ?? 75,
+            costEfficiency: mainScores.costEfficiency ?? 75,
+            healthScore: mainScores.healthScore ?? 75,
+            timeEfficiency: mainScores.timeEfficiency ?? undefined,
+          },
+          altA: {
+            inventoryUsage: altScores.inventoryUsage ?? 70,
+            costEfficiency: altScores.costEfficiency ?? 70,
+            healthScore: altScores.healthScore ?? 70,
+            timeEfficiency: altScores.timeEfficiency ?? undefined,
+          },
+        },
+      };
     } catch (e) {
-      console.warn("[MenuStreamHandler] Nutrition calculation failed:", e);
+      nutritionInfo = {
+        main: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
+        altA: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
+        lightSuggestion,
+        comparison,
+        scores: {
+          main: {
+            inventoryUsage: menus.comparison?.mainPlan?.inventoryUsage ?? 75,
+            costEfficiency: menus.comparison?.mainPlan?.costEfficiency ?? 75,
+            healthScore: menus.comparison?.mainPlan?.healthScore ?? 75,
+            timeEfficiency: menus.comparison?.mainPlan?.timeEfficiency ?? undefined,
+          },
+          altA: {
+            inventoryUsage: menus.comparison?.alternativePlan?.inventoryUsage ?? 70,
+            costEfficiency: menus.comparison?.alternativePlan?.costEfficiency ?? 70,
+            healthScore: menus.comparison?.alternativePlan?.healthScore ?? 70,
+            timeEfficiency: menus.comparison?.alternativePlan?.timeEfficiency ?? undefined,
+          },
+        },
+      };
     }
 
-    // 5. DB更新
-    await prisma.menuGeneration.update({
+    // 6. スコア計算（非同期・サーバー側）
+    void calculateScores(generationId).catch((err) => {
+      console.error(`[MenuStream] Score calculation failed: ${err}`);
+    });
+
+    // 7. 詳細データをDBに更新（既存レコードにマージ）
+    void prisma.menuGeneration.update({
       where: { id: generationId },
       data: {
-        status: "completed",
-        progressStep: "completed",
-        mainMenu: menus.main as any,
-        alternativeA: menus.alternativeA as any,
-        alternativeB: menus.alternativeB as any,
         nutritionInfo: nutritionInfo as any,
         usedIngredients: {
           main: mainDetails.available,
           altA: altADetails.available,
-          altB: altBDetails.available,
         } as any,
         shoppingList: {
           main: mainDetails.missing.concat(mainDetails.insufficient),
           altA: altADetails.missing.concat(altADetails.insufficient),
-          altB: altBDetails.missing.concat(altBDetails.insufficient),
         } as any,
       },
+    }).then(() => {
+      console.log(`[MenuStream] Full update completed for ${generationId}`);
+    }).catch((err) => {
+      console.error(`[MenuStream] Full update failed:`, err);
     });
 
-    // 6. カウントアップ
-    await incrementUserLimit(userId, "AI_MENU");
-
-    // 7. プッシュ通知
-    await notifyUser(userId, menus.main?.dishes?.[0]?.name);
+    // 8. カウントアップとプッシュ通知
+    void incrementUserLimit(userId, "AI_MENU").catch(() => {});
+    void notifyUser(userId, main?.dishes?.[0]?.name);
 
     return { success: true };
   } catch (error) {
-    console.error("[MenuStreamHandler] Error in finalizeMenuGeneration:", error);
     await prisma.menuGeneration.update({
       where: { id: generationId },
       data: { status: "failed" },
-    }).catch(console.error);
+    }).catch(() => {});
     return { success: false, error: (error as Error).message };
   }
 }
@@ -142,6 +300,6 @@ async function notifyUser(userId: string, mainDishName?: string) {
       url: "/menu/generate",
     });
   } catch (pushError) {
-    console.error("[MenuStreamHandler] Push notification failed:", pushError);
+    // Silent fail for push notification
   }
 }

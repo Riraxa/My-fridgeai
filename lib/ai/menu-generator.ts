@@ -1,8 +1,18 @@
-//lib/ai/menu-generator.ts
+// lib/ai/menu-generator.ts
 import { Ingredient, UserPreferences } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { ConstraintMode } from "@/types";
-import { generateMenusAgent, generateWeeklyPlanAgent } from "@/lib/agents/fridge-agent";
+import { 
+  generateMenusAgent, 
+  generateWeeklyPlanAgent, 
+  generateLightMenusAgent,
+  type IngredientInput,
+  type UserContext,
+  type LightMenuGenerationResult,
+  type MenuGenerationResult
+} from "@/lib/agents/fridge-agent";
+
+export type { LightMenuGenerationResult };
 
 type IngredientWithProduct = Ingredient & {
   product?: {
@@ -16,253 +26,133 @@ type IngredientWithProduct = Ingredient & {
   } | null;
 };
 
-export interface GeneratedMenu {
-  title: string;
-  reason: string;
-  tags: string[];
-  dishes: {
-    type: string;
-    name: string;
-    cookingTime: number;
-    difficulty: number;
-    ingredients: {
-      name: string;
-      amount: number;
-      unit: string;
-    }[];
-    steps: string[];
-    tips: string;
-    nutrition?: {
-      calories: number;
-      protein: number;
-      fat: number;
-      carbs: number;
-      salt?: number;
-    };
-  }[];
-}
-
-export interface MenuGenerationResult {
-  main: GeneratedMenu;
-  alternativeA: GeneratedMenu;
-  alternativeB: GeneratedMenu;
-}
-
-type TasteLifestyleMode = {
-  timePriority?: string;
-  dishwashingAvoid?: boolean;
-  singlePan?: boolean;
-};
-
-type TasteJson = {
-  tasteScores?: Record<string, number>;
-  lifestyle?: {
-    weekdayMode?: TasteLifestyleMode;
-    weekendMode?: TasteLifestyleMode;
-    defaultMode?: TasteLifestyleMode;
-  };
-  freeText?: string;
-  equipment?: string[];
-  preferredMethods?: string[];
-  recentGenrePenalty?: Record<string, number>;
-};
+// --- Shared Helpers ---
 
 /**
- * Generate 3 menu patterns using OpenAI
+ * AIが必要とする共通のユーザーコンテキストを取得・構築します。
+ */
+async function getGenerationContext(
+  userId: string, 
+  options?: { servings?: number; budget?: number | null; mode?: ConstraintMode }
+): Promise<UserContext> {
+  const [preferences, allergies, restrictions] = await Promise.all([
+    prisma.$queryRaw<UserPreferences[]>`SELECT * FROM "UserPreferences" WHERE "userId" = ${userId} LIMIT 1`.then(rows => rows[0] || null),
+    prisma.userAllergy.findMany({ where: { userId } }),
+    prisma.userRestriction.findMany({ where: { userId } }),
+  ]);
+
+  const taste = (preferences?.tasteJson as any) ?? {};
+  
+  return {
+    userId,
+    servings: options?.servings ?? 1,
+    budget: options?.budget ?? null,
+    mode: options?.mode ?? "flexible",
+    cookingSkill: (preferences?.cookingSkill ?? "intermediate") as any,
+    allergies: allergies.map((a) => a.allergen),
+    restrictions: restrictions.map((r) => ({ type: r.type, note: r.note ?? undefined })),
+    taste: {
+      tasteScores: taste.tasteScores,
+      lifestyle: taste.lifestyle,
+      freeText: taste.freeText,
+      equipment: taste.equipment,
+      preferredMethods: taste.preferredMethods,
+      recentGenrePenalty: taste.recentGenrePenalty,
+    },
+    preferences: {
+      kitchenEquipment: preferences?.kitchenEquipment as string[] | undefined,
+      comfortableMethods: preferences?.comfortableMethods as string[] | undefined,
+      avoidMethods: preferences?.avoidMethods as string[] | undefined,
+    },
+    aiMessageEnabled: Boolean(preferences?.aiMessageEnabled),
+    implicitIngredients: [
+      ...(preferences?.implicitIngredients as string[] | undefined ?? []),
+      ...(preferences?.customImplicitIngredients as string[] | undefined ?? [])
+    ],
+  };
+}
+
+/**
+ * DBの食材モデルをAIエージェント用の入力形式に変換します。
+ */
+function mapToAgentIngredients(ingredients: Ingredient[]): IngredientInput[] {
+  return ingredients.map((i) => ({
+    id: i.id,
+    name: i.name,
+    amount: i.amount ?? undefined,
+    unit: i.unit ?? undefined,
+    amountLevel: i.amountLevel ?? undefined,
+    expirationDate: i.expirationDate ?? undefined,
+    ingredientType: (i as any).ingredientType ?? "raw",
+  }));
+}
+
+// --- Generation Services ---
+
+/**
+ * フル詳細版の献立生成。
  */
 export async function generateMenus(
   ingredients: IngredientWithProduct[],
   userId: string,
   options?: { servings?: number; budget?: number | null; mode?: ConstraintMode },
 ): Promise<MenuGenerationResult> {
-  const [preferences, allergies, restrictions] = await Promise.all([
-    prisma
-      .$queryRaw<UserPreferences[]>`SELECT * FROM "UserPreferences" WHERE "userId" = ${userId} LIMIT 1`
-      .then((rows) => (rows.length > 0 ? rows[0] : null)),
-    prisma.userAllergy.findMany({ where: { userId } }),
-    prisma.userRestriction.findMany({ where: { userId } }),
-  ]);
-
-  const servings = options?.servings ?? 1;
-  const budget = options?.budget ?? null;
-  const constraintMode: ConstraintMode = options?.mode ?? "flexible";
-
-  const taste = (preferences?.tasteJson as TasteJson | null | undefined) ?? {};
-
-  // デフォルト食材選択とカスタム食材を取得
-  const implicitIngredients = (preferences?.implicitIngredients as string[] | undefined) ?? [];
-  const customImplicitIngredients = (preferences?.customImplicitIngredients as string[] | undefined) ?? [];
-  const allImplicitIngredients = [...implicitIngredients, ...customImplicitIngredients];
-
-  const agentIngredients = ingredients.map((i) => ({
-    id: i.id,
-    name: i.name,
-    amount: i.amount ?? undefined,
-    unit: i.unit ?? undefined,
-    amountLevel: i.amountLevel ?? undefined,
-    expirationDate: i.expirationDate ?? undefined,
-    ingredientType:
-      ((i as unknown) as {
-        ingredientType?: "raw" | "processed_base" | "instant_complete";
-      }).ingredientType ?? "raw",
-  }));
-
-  const agentContext = {
-    userId,
-    servings,
-    budget,
-    mode: constraintMode,
-    cookingSkill: (preferences?.cookingSkill ?? "intermediate") as
-      | "beginner"
-      | "intermediate"
-      | "advanced",
-    allergies: allergies.map((a) => a.allergen),
-    restrictions: restrictions.map((r) => ({ type: r.type, note: r.note ?? undefined })),
-    taste: {
-      tasteScores: taste.tasteScores,
-      lifestyle: taste.lifestyle,
-      freeText: taste.freeText,
-      equipment: taste.equipment,
-      preferredMethods: taste.preferredMethods,
-      recentGenrePenalty: taste.recentGenrePenalty,
-    },
-    preferences: {
-      kitchenEquipment:
-        (preferences?.kitchenEquipment as string[] | undefined) ?? undefined,
-      comfortableMethods:
-        (preferences?.comfortableMethods as string[] | undefined) ?? undefined,
-      avoidMethods: (preferences?.avoidMethods as string[] | undefined) ?? undefined,
-    },
-    aiMessageEnabled: Boolean(preferences?.aiMessageEnabled),
-    // AIに暗黙食材リストを伝える（在庫チェック不要の食材）
-    implicitIngredients: allImplicitIngredients,
-  };
-
-  return await generateMenusAgent(agentIngredients, agentContext);
+  const context = await getGenerationContext(userId, options);
+  const agentIngredients = mapToAgentIngredients(ingredients);
+  return await generateMenusAgent(agentIngredients, context);
 }
 
 /**
- * Generate a 7-day weekly meal plan in a SINGLE AI call
+ * 1週間分の夕食献立を一括生成。
  */
 export async function generateWeeklyPlanAI(
   ingredients: Ingredient[],
   preferences: UserPreferences | null,
-  _expiringSoon: Ingredient[],
-): Promise<unknown[]> {
-  const userId = preferences?.userId;
-  
-  // アレルギー・制限・暗黙食材を取得
-  const [allergies, restrictions] = userId ? await Promise.all([
-    prisma.userAllergy.findMany({ where: { userId } }),
-    prisma.userRestriction.findMany({ where: { userId } }),
-  ]) : [[], []];
-  
-  const implicitIngredients = (preferences?.implicitIngredients as string[] | undefined) ?? [];
-  const customImplicitIngredients = (preferences?.customImplicitIngredients as string[] | undefined) ?? [];
-  const allImplicitIngredients = [...implicitIngredients, ...customImplicitIngredients];
-
-  const agentIngredients = ingredients.map((i) => ({
-    id: i.id,
-    name: i.name,
-    amount: i.amount ?? undefined,
-    unit: i.unit ?? undefined,
-    amountLevel: i.amountLevel ?? undefined,
-    expirationDate: i.expirationDate ?? undefined,
-    ingredientType:
-      ((i as unknown) as {
-        ingredientType?: "raw" | "processed_base" | "instant_complete";
-      }).ingredientType ?? "raw",
-  }));
-
-  const taste = (preferences?.tasteJson as TasteJson | null | undefined) ?? {};
-  const agentContext = {
-    userId: preferences?.userId ?? "unknown",
-    servings: 1,
-    budget: null,
-    mode: "flexible" as const,
-    cookingSkill: (preferences?.cookingSkill ?? "intermediate") as
-      | "beginner"
-      | "intermediate"
-      | "advanced",
-    allergies: allergies.map((a) => a.allergen),
-    restrictions: restrictions.map((r) => ({ type: r.type, note: r.note ?? undefined })),
-    taste: {
-      tasteScores: taste.tasteScores,
-      lifestyle: taste.lifestyle,
-      freeText: taste.freeText,
-      equipment: taste.equipment,
-      preferredMethods: taste.preferredMethods,
-      recentGenrePenalty: taste.recentGenrePenalty,
-    },
-    preferences: {
-      kitchenEquipment:
-        (preferences?.kitchenEquipment as string[] | undefined) ?? undefined,
-      comfortableMethods:
-        (preferences?.comfortableMethods as string[] | undefined) ?? undefined,
-      avoidMethods: (preferences?.avoidMethods as string[] | undefined) ?? undefined,
-    },
-    aiMessageEnabled: Boolean(preferences?.aiMessageEnabled),
-    implicitIngredients: allImplicitIngredients,
-  };
-
-  const week = await generateWeeklyPlanAgent(agentIngredients, agentContext);
-  return week as unknown[];
+): Promise<any[]> {
+  const userId = preferences?.userId ?? "unknown";
+  const context = await getGenerationContext(userId);
+  const agentIngredients = mapToAgentIngredients(ingredients);
+  return await generateWeeklyPlanAgent(agentIngredients, context);
 }
 
 /**
- * In-memory cache for menu generation results
- * Cache key: hash of ingredients + servings + budget + mode
+ * 軽量版献立生成（高速・低コスト）。
+ * ストリーミング対応。AIによる客観的スコア評価を含む。
+ * 最新版 2案（Main & Alternative）比較形式。
  */
-interface MenuCacheEntry {
-  ts: number;
-  value: MenuGenerationResult;
-}
-
-const menuCache = new Map<string, MenuCacheEntry>();
-const MENU_CACHE_TTL_MS = 1000 * 60 * 15; // 15 minutes
-
-function createMenuCacheKey(
+export async function generateLightMenus(
   ingredients: IngredientWithProduct[],
-  options?: { servings?: number; budget?: number | null; mode?: string },
-): string {
-  const ingredientHash = ingredients
-    .map((i) => `${i.id}:${i.amount}:${i.expirationDate?.toISOString() ?? "none"}`)
-    .sort()
-    .join("|");
-  return `${ingredientHash}:${options?.servings ?? 1}:${options?.budget ?? "none"}:${options?.mode ?? "flexible"}`;
+  userId: string,
+  options?: { servings?: number; budget?: number | null; mode?: ConstraintMode },
+  onThoughtsUpdate?: (thoughts: string[]) => void,
+): Promise<LightMenuGenerationResult> {
+  const context = await getGenerationContext(userId, options);
+  const agentIngredients = mapToAgentIngredients(ingredients);
+
+  // AIによる生成を実行（スコア算出もAIに任せる）
+  return await generateLightMenusAgent(agentIngredients, context, onThoughtsUpdate);
 }
 
-/**
- * Generate menus with caching support
- * Uses parallel generation with in-memory caching
- */
+// 互換性維持
+export const generateLightMenusStream = generateLightMenus;
+
+// --- Cache ---
+
+const menuCache = new Map<string, { ts: number; value: MenuGenerationResult }>();
+const MENU_CACHE_TTL = 15 * 60 * 1000;
+
 export async function generateMenusCached(
   ingredients: IngredientWithProduct[],
   userId: string,
   options?: { servings?: number; budget?: number | null; mode?: ConstraintMode },
 ): Promise<{ result: MenuGenerationResult; fromCache: boolean }> {
-  const cacheKey = createMenuCacheKey(ingredients, options);
-  const cached = menuCache.get(cacheKey);
+  // ソートしてキーを作成（順序に依存しないように）
+  const sortedIds = [...ingredients].sort((a, b) => a.id.localeCompare(b.id)).map(i => i.id).join('|');
+  const key = `${sortedIds}:${options?.servings}:${options?.budget}:${options?.mode}`;
+  const cached = menuCache.get(key);
+  if (cached && Date.now() - cached.ts < MENU_CACHE_TTL) return { result: cached.value, fromCache: true };
 
-  if (cached && Date.now() - cached.ts < MENU_CACHE_TTL_MS) {
-    console.log("[MenuCache] Cache hit for key:", cacheKey.slice(0, 50) + "...");
-    return { result: cached.value, fromCache: true };
-  }
-
-  console.log("[MenuCache] Cache miss, generating menus...");
   const result = await generateMenus(ingredients, userId, options);
-
-  menuCache.set(cacheKey, { ts: Date.now(), value: result });
-
-  // Cleanup old entries periodically
-  if (menuCache.size > 100) {
-    const now = Date.now();
-    for (const [key, entry] of menuCache.entries()) {
-      if (now - entry.ts > MENU_CACHE_TTL_MS) {
-        menuCache.delete(key);
-      }
-    }
-  }
-
+  menuCache.set(key, { ts: Date.now(), value: result });
   return { result, fromCache: false };
 }

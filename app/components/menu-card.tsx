@@ -68,6 +68,11 @@ export default function MenuCard({
   const formatIngredientDetail = (ingredient: IngredientStatus) => {
     const requiredAmount = `${ingredient.required.amount}${ingredient.required.unit}`;
 
+    // 暗黙食材（常に利用可能な調味料など）はシンプルに表示
+    if (ingredient.inStock?.unit === "implicit") {
+      return `${ingredient.name}: ${requiredAmount}`;
+    }
+
     switch (ingredient.status) {
       case "available":
         const stockAmount = ingredient.inStock

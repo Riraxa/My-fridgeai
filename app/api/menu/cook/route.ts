@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calculateInventoryUpdates } from "@/lib/inventory";
 import { addHours } from "date-fns";
+import { normalizeIngredientKey } from "@/lib/taste/normalizeIngredientKey";
+import { isTasteLearningEnabled } from "@/lib/featureFlags";
 
 export async function POST(req: Request) {
   try {
@@ -95,7 +97,16 @@ export async function POST(req: Request) {
         await tx.ingredient.update({ where: { id: op.id }, data: op.data });
       }
       for (const op of del) {
-        await tx.ingredient.delete({ where: { id: op.id } });
+        try {
+          await tx.ingredient.delete({ where: { id: op.id } });
+        } catch (e: any) {
+          // 既に削除されている場合は無視（race condition対応）
+          if (e.code === 'P2025') {
+            console.log(`[Cook] Ingredient ${op.id} already deleted, skipping`);
+          } else {
+            throw e;
+          }
+        }
       }
 
       // Create History
@@ -130,6 +141,64 @@ export async function POST(req: Request) {
           } as any,
         },
       });
+
+      // TasteEvent記録（利用した食材を"used"イベントとして記録）
+      if (isTasteLearningEnabled()) {
+        const uniqueIngredients = new Map<string, { name: string; amount: number }>();
+        
+        // 重複を排除して集計
+        for (const ing of usedIngredientsList) {
+          if (!ing || !ing.name) continue;
+          const key = normalizeIngredientKey(ing.name);
+          const existing = uniqueIngredients.get(key);
+          if (existing) {
+            existing.amount += ing.amount || 0;
+          } else {
+            uniqueIngredients.set(key, { name: ing.name, amount: ing.amount || 0 });
+          }
+        }
+
+        // 各食材をTasteEventとして記録（30分集約ウィンドウ内）
+        for (const [key, data] of uniqueIngredients) {
+          try {
+            const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+            
+            // 既存イベントを検索（30分以内の同一イベント）
+            const existingEvent = await tx.tasteEvent.findFirst({
+              where: {
+                userId,
+                ingredientKey: key,
+                eventType: "used",
+                createdAt: { gte: thirtyMinutesAgo },
+              },
+            });
+
+            if (existingEvent) {
+              // 集約: weight加算
+              const newWeight = Math.min(existingEvent.weight + 1.0, 10);
+              await tx.tasteEvent.update({
+                where: { id: existingEvent.id },
+                data: { weight: newWeight },
+              });
+            } else {
+              // 新規作成
+              await tx.tasteEvent.create({
+                data: {
+                  userId,
+                  mealPlanResultId: menuGenerationId,
+                  ingredientKey: key,
+                  eventType: "used",
+                  weight: 1.0,
+                  source: "cook",
+                },
+              });
+            }
+          } catch (e) {
+            // TasteEvent記録失敗は全体の失敗にしない
+            console.error("[TasteEvent] Failed to record:", key, e);
+          }
+        }
+      }
     });
 
     return NextResponse.json({

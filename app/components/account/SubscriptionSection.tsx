@@ -133,7 +133,9 @@ export default function SubscriptionSection({ displaySession, isSyncing }: Subsc
               <ul className="text-sm space-y-1 text-muted-foreground">
                 <li>✨ 1日の献立生成数が3回にUP</li>
                 <li>📅 1週間分の献立を一括作成</li>
-                <li>🍽️ 最大8人前まで生成可能</li>
+                <li>📊 献立ごとの「節約度」スコア表示</li>
+                <li>🥗 栄養バランスの詳細評価・アドバイス</li>
+                <li>🥚 基本食材の管理・カスタマイズ</li>
                 <li>💰 1食あたりの予算を指定可能</li>
                 <li>🥕 期限切れ食材を優先消費</li>
               </ul>

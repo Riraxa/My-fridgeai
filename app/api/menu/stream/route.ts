@@ -1,12 +1,16 @@
 // app/api/menu/stream/route.ts
-import { streamText } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { checkUserLimit } from "@/lib/aiLimit";
-import { finalizeMenuGeneration } from "@/lib/ai/menu-stream-handler";
+import { checkUserLimit, incrementUserLimit } from "@/lib/aiLimit";
 import type { ConstraintMode } from "@/types";
 import { NextResponse } from "next/server";
+import { after } from "next/server";
+import { generateLightMenusStream, type LightMenuGenerationResult } from "@/lib/ai/menu-generator";
+import { checkIngredientAvailability } from "@/lib/inventory";
+import { sendPushToMultiple } from "@/lib/push";
+import { validateAllMenusStrict } from "@/lib/ai/constraint-validator";
+import { DEFAULT_IMPLICIT_INGREDIENTS } from "@/lib/constants/implicit-ingredients";
+import { Ingredient } from "@prisma/client";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -32,11 +36,9 @@ export async function POST(req: Request) {
     }
 
     // 2. ユーザープラン、在庫、設定の取得
-    const [user, dbIngredients, allergies, restrictions, preferences] = await Promise.all([
+    const [user, dbIngredients, preferences] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
       prisma.ingredient.findMany({ where: { userId } }),
-      prisma.userAllergy.findMany({ where: { userId } }),
-      prisma.userRestriction.findMany({ where: { userId } }),
       prisma.userPreferences.findUnique({ where: { userId } }),
     ]);
 
@@ -48,36 +50,34 @@ export async function POST(req: Request) {
     }
 
     const isPro = user?.plan === "PRO";
-    
+
     // 3. オプションのバリデーション
     servings = servings || 1;
     budget = isPro ? (budget ?? null) : null;
     const constraintMode: ConstraintMode = mode ?? "flexible";
-
-    // 3.5. キャッシュ用ハッシュの計算 (Prisma必須項目のため)
-    const crypto = await import("crypto");
-    const sortedIngredients = [...dbIngredients].sort((a, b) => a.id.localeCompare(b.id));
-    const cachePayload = {
-      ingredients: sortedIngredients.map((i) => ({
-        id: i.id,
-        amount: i.amount,
-        amountLevel: i.amountLevel,
-        expiry: i.expirationDate?.toISOString(),
-      })),
-      prefs: preferences?.tasteJson,
-      servings,
-      budget,
-    };
-    const requestHash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify(cachePayload))
-      .digest("hex");
     
+    // 3.8. 既存の生成リクエストがあればキャンセル（多重実行防止・ゴースト対策）
+    try {
+      await prisma.menuGeneration.updateMany({
+        where: {
+          userId,
+          status: { in: ["processing", "pending"] },
+        },
+        data: {
+          status: "failed",
+          progressStep: "cancelled",
+        },
+      });
+    } catch (e) {
+      // 失敗しても新規生成は止めない
+    }
+
     // 4. 保留中のレコードを作成
     const generation = await prisma.menuGeneration.create({
       data: {
         userId,
-        status: "pending",
+        status: "processing",
+        progressStep: "preparing",
         mainMenu: {} as any,
         alternativeA: {} as any,
         alternativeB: {} as any,
@@ -86,98 +86,223 @@ export async function POST(req: Request) {
         shoppingList: {} as any,
         servings,
         budget: budget ?? undefined,
-        requestHash, // 必須項目
+        requestHash: "streaming-" + Date.now(), // 簡易ハッシュ
         generatedAt: new Date(),
       },
     });
 
-    // 5. プロンプト生成
-    const allergenList = allergies.map((a) => a.label ?? a.allergen).join(", ");
-    const restrictionNote = restrictions.map((r) => `${r.type}${r.note ? `: ${r.note}` : ""}`).join("; ");
-    const cookingSkill = preferences?.cookingSkill ?? "intermediate";
-
-    const ingredientList = dbIngredients
-      .map((i) => {
-        let q = i.amount ? ` (${i.amount}${i.unit ?? ""})` : (i.amountLevel ? ` (${i.amountLevel})` : "");
-        return `- ${i.name}${q}`;
-      })
-      .join("\n");
-
-    const prompt = `あなたはプロの献立プランナーです。
-冷蔵庫にある食材を最大限に活用し、実用的で美味しい家庭料理の献立を提案してください。
-
-# CRITICAL SAFETY RULES
-1. NEVER suggest recipes containing these allergens: ${allergenList || "None"}.
-2. Adhere to these dietary restrictions: ${restrictionNote || "None"}.
-3. ユーザーの料理スキル: ${cookingSkill}
-
-# GENERATION SETTINGS
-- Servings: ${servings} person(s)
-- Budget Goal: ${budget ? `approx ${budget} yen` : "ignore cost"}
-
-# 手持ち食材
-${ingredientList}
-
-# 出力ガイドライン
-1. まず、今回の献立の狙いや工夫点（思考プロセス）を日本語で4つほど簡潔に箇条書きで述べてください。
-2. 次に、それに基づいた献立データを以下のJSON形式で出力してください。
-
-\`\`\`json
-{
-  "main": {
-    "title": "献立名",
-    "reason": "選定理由",
-    "tags": ["和食", "使い切り"],
-    "dishes": [{
-      "type": "主菜",
-      "name": "料理名",
-      "cookingTime": 20,
-      "difficulty": 2,
-      "ingredients": [{"name": "食材名", "amount": 200, "unit": "g"}],
-      "steps": ["手順1", "手順2"],
-      "tips": "コツ"
-    }]
-  },
-  "alternativeA": { /* 同様の形式 */ },
-  "alternativeB": { /* 同様の形式 */ }
-}
-\`\`\`
-
-重要: JSONは最後に出力し、必ず有効な形式にしてください。`;
-
-    const result = streamText({
-      model: openai("gpt-4o-mini"),
-      prompt,
-      onFinish: async (event) => {
-        try {
-          const jsonMatch = event.text.match(/```json\s*([\s\S]*?)\s*```/);
-          const jsonStr = jsonMatch ? jsonMatch[1] : event.text.match(/\{[\s\S]*\}/)?.[0];
-          
-          if (jsonStr) {
-            const parsed = JSON.parse(jsonStr);
-            console.log(`[Stream] Finished. Finalizing generation ${generation.id}`);
-            await finalizeMenuGeneration(generation.id, userId, parsed, dbIngredients, { servings, budget, mode: constraintMode });
-          } else {
-            throw new Error("JSON not found in AI response");
-          }
-        } catch (e) {
-          console.error("[Stream] Finalization error:", e);
-          await prisma.menuGeneration.update({
-            where: { id: generation.id },
-            data: { status: "failed" },
-          }).catch(console.error);
-        }
-      },
+    // 5. バックグラウンドでAI生成を実行（タブを閉じても継続）
+    after(async () => {
+      await processMenuGeneration(
+        generation.id,
+        userId,
+        dbIngredients,
+        { servings, budget, mode: constraintMode },
+        "streaming",
+        isPro,
+        preferences
+      );
     });
 
-    return result.toTextStreamResponse({
-      headers: {
-        "x-menu-generation-id": generation.id,
-        "Cache-Control": "no-cache",
-      },
+    // 6. 即座にgenerationIdを返却
+    return NextResponse.json({
+      success: true,
+      generationId: generation.id,
+      status: "processing",
     });
   } catch (error: any) {
-    console.error("[Stream Menu] Error:", error);
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    console.error("[MenuStream] POST Error:", error);
+    return NextResponse.json(
+      { error: error.message || "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+// バックグラウンドで献立生成を処理
+async function processMenuGeneration(
+  generationId: string,
+  userId: string,
+  dbIngredients: any[],
+  options: { servings: number; budget: number | null; mode: ConstraintMode },
+  requestHash: string,
+  isPro: boolean,
+  preferences: any
+) {
+  const startTime = Date.now();
+  console.log(`>>>> [MenuStream] START: ${generationId} (UserId: ${userId}, Mode: ${options.mode})`);
+
+  try {
+    // 1. 準備中
+    await prisma.menuGeneration.update({
+      where: { id: generationId },
+      data: { progressStep: "preparing" },
+    });
+    console.log(`[MenuStream] Step 1: Preparing (Ingredients: ${dbIngredients.length})`);
+
+    const ingredients = dbIngredients.map((i) => ({ ...i, product: null }));
+
+    // 2. AI生成（ストリーミング）
+    await prisma.menuGeneration.update({
+      where: { id: generationId },
+      data: { progressStep: "generating" },
+    });
+
+    let menus: LightMenuGenerationResult;
+    try {
+      console.log(`[MenuStream] Step 2: Calling AI Agent...`);
+      menus = await generateLightMenusStream(
+        ingredients as any,
+        userId,
+        options,
+        (thoughts) => {
+          // 思考プロセスの更新（非同期・非ブロッキング）
+          prisma.menuGeneration.update({
+            where: { id: generationId },
+            data: { thoughts: thoughts as any } as any,
+          }).catch(() => {});
+        }
+      );
+      console.log(`[MenuStream] Step 2: AI returned successfully in ${Date.now() - startTime}ms`);
+    } catch (aiError: any) {
+      console.error(`[MenuStream] AI Generation FATAL Error:`, aiError);
+      throw aiError;
+    }
+
+    if (!menus?.mainPlan) {
+      throw new Error("AI returned no main plan");
+    }
+
+    // 2.5 Strict モードのバリデーション
+    if (options.mode === "strict") {
+      console.log(`[MenuStream] Step 2.5: Validating STRICT mode...`);
+      const allImplicit = [
+        ...DEFAULT_IMPLICIT_INGREDIENTS,
+        ...(preferences?.customImplicitIngredients || [])
+      ];
+      const validationInput = {
+        main: menus.mainPlan as any,
+        alternativeA: menus.alternativePlan as any,
+        alternativeB: menus.alternativePlan as any,
+      };
+      
+      const constraintResult = validateAllMenusStrict(validationInput, ingredients as any, allImplicit);
+      if (!constraintResult.allValid) {
+        console.warn("[MenuStream] Strict validation FAILED:", JSON.stringify(constraintResult.results));
+        await prisma.menuGeneration.update({
+          where: { id: generationId },
+          data: { status: "failed", progressStep: "failed" },
+        });
+        return;
+      }
+      console.log(`[MenuStream] Step 2.5: STRICT validation PASSED`);
+    }
+
+    // 3. 食材可用性チェック
+    console.log(`[MenuStream] Step 3: Checking availability & Calculating...`);
+    await prisma.menuGeneration.update({
+      where: { id: generationId },
+      data: { progressStep: "calculating" },
+    });
+    
+    const mainDetails = checkIngredientAvailability(
+      (menus.mainPlan.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
+      ingredients
+    );
+
+    const altADetails = menus.alternativePlan?.dishes
+      ? checkIngredientAvailability(
+          (menus.alternativePlan.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
+          ingredients
+        )
+      : mainDetails;
+
+    // 4. 栄養計算
+    await prisma.menuGeneration.update({
+      where: { id: generationId },
+      data: { progressStep: "validating" },
+    });
+
+    let nutritionInfo: any = {
+      main: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
+      altA: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
+      altB: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
+    };
+
+    if (isPro) {
+      try {
+        const { evaluateNutrition } = await import("@/lib/nutrition");
+        nutritionInfo = {
+          main: evaluateNutrition((menus.mainPlan.dishes || []) as any),
+          altA: evaluateNutrition((menus.alternativePlan?.dishes || []) as any),
+          altB: evaluateNutrition((menus.alternativePlan?.dishes || []) as any),
+        };
+      } catch (e) {
+        console.warn("[MenuStream] Nutrition evaluation failed:", e);
+      }
+    }
+
+    // 5. DB保存
+    console.log(`[MenuStream] Step 5: Saving to Database...`);
+    await prisma.menuGeneration.update({
+      where: { id: generationId },
+      data: {
+        status: "completed",
+        progressStep: "completed",
+        mainMenu: menus.mainPlan as any,
+        alternativeA: menus.alternativePlan as any,
+        alternativeB: menus.alternativePlan as any, 
+        nutritionInfo: {
+          ...nutritionInfo,
+          summary: menus.comparison?.summary
+        } as any,
+        usedIngredients: {
+          main: mainDetails,
+          altA: altADetails,
+          altB: altADetails,
+        } as any,
+        shoppingList: {
+          main: mainDetails.missing.concat(mainDetails.insufficient),
+          altA: altADetails.missing.concat(altADetails.insufficient),
+          altB: altADetails.missing.concat(altADetails.insufficient),
+        } as any,
+        generatedAt: new Date(),
+      },
+    });
+
+    // 6. カウントアップ
+    await incrementUserLimit(userId, "AI_MENU");
+
+    // 7. プッシュ通知
+    try {
+      const pushSubscriptions = await prisma.pushSubscription.findMany({
+        where: { userId, isActive: true },
+      });
+      if (pushSubscriptions.length > 0) {
+        const subscriptions = pushSubscriptions.map((sub) => ({
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth },
+        }));
+        await sendPushToMultiple(subscriptions, {
+          title: "🍳 献立が完成しました！",
+          body: `「${menus.mainPlan.name}」などの献立をご用意しました。`,
+          tag: "menu-complete",
+          url: "/menu/generate",
+        });
+      }
+    } catch (e) {}
+
+    console.log(`<<<< [MenuStream] ALL COMPLETED in ${Date.now() - startTime}ms`);
+
+  } catch (error: any) {
+    console.error(`!!!! [MenuStream] FATAL ERROR:`, error);
+    try {
+      await prisma.menuGeneration.update({
+        where: { id: generationId },
+        data: { status: "failed", progressStep: "failed" },
+      });
+    } catch (e) {
+      console.error("[MenuStream] Emergency DB update failed:", e);
+    }
   }
 }

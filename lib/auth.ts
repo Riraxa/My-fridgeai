@@ -203,7 +203,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 
-  debug: false,
+  debug: true,
   secret: process.env.NEXTAUTH_SECRET,
   trustHost: true,
 });

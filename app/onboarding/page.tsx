@@ -9,16 +9,16 @@ import { useFridge } from "@/app/components/FridgeProvider";
 type Step = "items" | "safety" | "equipment" | "cookware" | "generate";
 
 const QUICK_ITEMS = [
-  { name: "牛乳", amount: 1, unit: "L", category: "冷蔵" },
-  { name: "卵", amount: 10, unit: "個", category: "冷蔵" },
+  { name: "卵", amount: 6, unit: "個", category: "冷蔵" },
+  { name: "豚バラ肉", amount: 200, unit: "g", category: "冷蔵" },
+  { name: "鶏むね肉", amount: 300, unit: "g", category: "冷蔵" },
+  { name: "米", amount: 1, unit: "kg", category: "その他" },
   { name: "玉ねぎ", amount: 2, unit: "個", category: "野菜" },
-  { name: "人参", amount: 2, unit: "本", category: "野菜" },
-  { name: "米", amount: 2, unit: "kg", category: "その他" },
-  { name: "パン", amount: 1, unit: "袋", category: "その他" },
-  { name: "カレールー", amount: 1, unit: "箱", category: "加工食品" },
+  { name: "人参", amount: 1, unit: "本", category: "野菜" },
+  { name: "じゃがいも", amount: 2, unit: "個", category: "野菜" },
+  { name: "キャベツ", amount: 1/4, unit: "個", category: "野菜" },
+  { name: "長ネギ", amount: 1, unit: "本", category: "野菜" },
   { name: "醤油", amount: 1, unit: "本", category: "調味料" },
-  { name: "味噌", amount: 1, unit: "パック", category: "調味料" },
-  { name: "豆腐", amount: 1, unit: "丁", category: "冷蔵" },
 ];
 
 function OnboardingPage() {

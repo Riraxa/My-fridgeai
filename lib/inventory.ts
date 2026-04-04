@@ -30,11 +30,56 @@ export interface UsedIngredient {
 
 /**
  * Normalize amount to a base unit for comparison
+ * Optionally accepts ingredient name for accurate unit conversion
  */
-export function normalizeAmount(amount: number, unit: string): number {
+export function normalizeAmount(amount: number, unit: string, ingredientName?: string): number {
   if (!unit || typeof unit !== "string") return amount;
 
   const normalizedUnit = unit.toLowerCase();
+
+  // 食材ごとの標準的な重さ（個数系単位換算用）
+  const itemWeights: Record<string, number> = {
+    '卵': 50,
+    '玉ねぎ': 200,
+    'たまねぎ': 200,
+    '玉葱': 200,
+    '人参': 150,
+    'にんじん': 150,
+    'じゃがいも': 150,
+    'トマト': 150,
+    'とまと': 150,
+    'ミニトマト': 15,
+    'キャベツ': 1000,
+    'レタス': 400,
+    '大根': 1000,
+    'だいこん': 1000,
+    'きゅうり': 100,
+    '胡瓜': 100,
+    'ピーマン': 30,
+    'なす': 80,
+    'ナス': 80,
+    'りんご': 300,
+    'バナナ': 150,
+    'みかん': 100,
+    '豆腐': 350,
+    'とうふ': 350,
+    '納豆': 50,
+    'パン': 60,
+    '食パン': 60,
+    '牛乳': 1000,
+  };
+
+  // 食材名からマッチする重さを探す
+  let standardWeight = 100; // デフォルト 100g
+  if (ingredientName) {
+    const normalizedName = ingredientName.toLowerCase().trim();
+    for (const [name, weight] of Object.entries(itemWeights)) {
+      if (normalizedName.includes(name.toLowerCase())) {
+        standardWeight = weight;
+        break;
+      }
+    }
+  }
 
   const unitMap: Record<string, number> = {
     kg: 1000,
@@ -52,25 +97,28 @@ export function normalizeAmount(amount: number, unit: string): number {
     tsp: 5,
     カップ: 200,
     cup: 200,
-    個: 1, // "個" is standard for some but ambiguous. Treat as 1.
-    piece: 1,
-    slice: 1,
+    // 個数系単位は食材に応じた重さを使用
+    個: standardWeight,
+    piece: standardWeight,
+    slice: 15, // スライスは薄いので15g程度
 
     // 拡張単位変換 (全て g/ml 換算の目安)
     丁: 350,   // 豆腐 1丁 ≈ 300-400g
     cho: 350,
     束: 200,   // ほうれん草など 1束 ≈ 200g
     bunch: 200,
-    袋: 100,   // きのこ、カット野菜など 1袋 ≈ 100g (かなり変動ありだが目安として)
+    袋: 100,   // きのこ、カット野菜など 1袋 ≈ 100g
     bag: 100,
     合: 150,   // 米 1合 = 150g
     go: 150,
     升: 1500,  // 米 1升 = 1.5kg
     sho: 1500,
-    パック: 200, // 肉・魚 1パック (小) ≈ 200g と仮定
+    パック: 200, // 肉・魚 1パック (小) ≈ 200g
     pack: 200,
-    本: 150,   // 人参・大根など。変動大きいが目安。
-    玉: 200,   // 玉ねぎ1個など。キャベツだと1kgだが... AIがg提案するため補助的。
+    本: 150,   // 人参・大根など
+    玉: standardWeight,   // 玉ねぎ1個など（食材に応じた重さ）
+    枚: ingredientName?.toLowerCase().includes('肉') ? 20 : 15, // 肉なら20g
+    切れ: 80,  // 魚の切り身
   };
 
   const factor = unitMap[normalizedUnit];
@@ -111,15 +159,27 @@ export function checkIngredientAvailability(
     }
 
     // Find matching ingredient in inventory
-    // Stricter matching: Exact match or Prefix match (long enough) to avoid false positives like "鶏肉" matching "鶏ガラスープ" incorrectly if not careful
-    // User requested: s === r || s.startsWith(r) || r.startsWith(s)
+    // More flexible matching: exact match, prefix match, or suffix match
     const stock = userInventory.find((i) => {
       if (!i.name || typeof i.name !== "string") return false;
       if (!required.name || typeof required.name !== "string") return false;
 
       const s = i.name.toLowerCase().trim();
       const r = required.name.toLowerCase().trim();
-      return s === r || s.startsWith(r) || r.startsWith(s);
+      
+      // Exact match
+      if (s === r) return true;
+      
+      // Prefix match (e.g., "パン" matches "食パン")
+      if (s.startsWith(r) || r.startsWith(s)) return true;
+      
+      // Suffix match (e.g., "パン" matches "フランスパン")
+      if (s.endsWith(r) || r.endsWith(s)) return true;
+      
+      // Contains match for partial matches (e.g., "牛乳" matches "調整牛乳")
+      if (s.includes(r) || r.includes(s)) return true;
+      
+      return false;
     });
 
     if (!stock) {
@@ -133,10 +193,11 @@ export function checkIngredientAvailability(
 
     // Logic for "Specific Amount" management
     if (stock.amount !== null && stock.amount > 0) {
-      const stockNormalized = normalizeAmount(stock.amount, stock.unit ?? "");
+      const stockNormalized = normalizeAmount(stock.amount, stock.unit ?? "", stock.name);
       const requiredNormalized = normalizeAmount(
         required.amount,
         required.unit,
+        required.name,
       );
 
       if (stockNormalized >= requiredNormalized) {
@@ -233,8 +294,8 @@ export function calculateInventoryUpdates(
 
     if (stock.amount !== null) {
       // Numeric update with normalization
-      const stockNormalized = normalizeAmount(stock.amount, stock.unit ?? "");
-      const usedNormalized = normalizeAmount(used.amount, used.unit);
+      const stockNormalized = normalizeAmount(stock.amount, stock.unit ?? "", stock.name);
+      const usedNormalized = normalizeAmount(used.amount, used.unit, used.name);
 
       const newAmountNormalized = stockNormalized - usedNormalized;
 

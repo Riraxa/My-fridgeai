@@ -3,16 +3,30 @@ import { NextResponse } from "next/server";
 import { generateObject } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 /**
  * getRecipeDetail (single-call)
- * - preferHighQuality flag selects gpt-4o; default uses gpt-4o-mini
- * - only 1 OpenAI call; if it fails (429/quota/timeout) -> immediate deterministic fallback
- * - returns normalized recipe object for frontend
+ * - Uses gpt-4o-mini for all users (fast and capable for single recipes)
+ * - Returns normalized recipe object for frontend
  */
 
 export async function POST(req: Request) {
   try {
+    // 1. Authentication & Plan Check
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    let isPro = false;
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { plan: true },
+      });
+      isPro = user?.plan === "PRO";
+    }
+
     const bodyRaw = await req.json().catch(() => ({}));
     const title = typeof bodyRaw.title === "string" ? bodyRaw.title : "";
     const fridgeItems = Array.isArray(bodyRaw.fridgeItems)
@@ -21,6 +35,13 @@ export async function POST(req: Request) {
     const itemsToUse = Array.isArray(bodyRaw.itemsToUse)
       ? bodyRaw.itemsToUse
       : [];
+    // 軽量献立から渡される詳細な食材情報
+    const ingredients = Array.isArray(bodyRaw.ingredients)
+      ? bodyRaw.ingredients
+      : [];
+    const description = typeof bodyRaw.description === "string" ? bodyRaw.description : "";
+    const cookingTime = Number(bodyRaw.cookingTime) || 20;
+    const difficulty = Number(bodyRaw.difficulty) || 2;
     const allowAny = !!bodyRaw.allowAny || bodyRaw.mode === "omakase";
     const servings = Math.max(1, Number(bodyRaw.servings ?? 1));
 
@@ -34,31 +55,67 @@ export async function POST(req: Request) {
     const fridgeText = fridgeItems.length ? fridgeItems.join(", ") : "なし";
     const mustUseText = itemsToUse.length ? itemsToUse.join(", ") : "なし";
     const modeInstruction = allowAny
-      ? `おまかせ: 登録済み食材（${fridgeText}）を優先して使用してください。必要な不足は grocery_additions に列挙してください。`
+      ? `おまかせ: 登録済み食材（${fridgeText}）を優先して使用してください。`
       : `指定: 以下の必須食材（${mustUseText}）を必ず使用してください。`;
 
-    // Compact, targeted prompt to minimize token cost
-    const prompt = `
-あなたは家庭料理のプロです。次の条件に従って、"${title}" の**再現性のある最小限のJSONレシピ**を1つ返してください。
-- ${modeInstruction}
-- 人数: ${servings}人
-- 各食材は 1人分あたり quantity_per_serving を数値で、unit を g/ml/個/tbsp/tsp 等で示してください。
-- 必要なら grocery_additions（不足食材）を配列で返してください。
-- steps は配列。ステップ内に所要時間が分かれば括弧で示してください（例: "炒める（約5分）"）。
-- 出力は余分なテキストなしで **JSONオブジェクト** のみを返してください。
+    // ingredientsがある場合はそれを使用（分量を厳守させる）
+    const ingredientsText = ingredients.length
+      ? ingredients.map((ing: any) =>
+        `- ${ing.name}: 合計 ${ing.amount}${ing.unit || 'g'}（${servings}人分合計）`.trim()
+      ).join("\n")
+      : null;
 
-出力例（参考）:
+    const ingredientSection = ingredientsText
+      ? `## 使用食材リスト（以下の分量を${servings}人分の合計として厳守してください）\n${ingredientsText}\n`
+      : ``;
+
+    const descriptionSection = description
+      ? `## 料理の説明・コンセプト\n${description}\n`
+      : ``;
+
+    // 強化されたプロンプト
+    const prompt = `
+あなたは一流のプロ料理人です。次の条件に従って、"${title}" の**詳細で再現性の高いJSONレシピ**を1つ返してください。
+
+# 条件
+- ${modeInstruction}
+- 人数: ${servings}人分
+${ingredientSection}${descriptionSection}
+- 目標調理時間: ${cookingTime}分以内
+- 難易度目標: ${difficulty === 1 ? '低（初心者向け）' : difficulty === 2 ? '中（一般的）' : '高（こだわり）'}
+
+# 出力ルール
+- **食材の分量整合性**: 
+  - 上記「使用食材リスト」に記載された分量は、${servings}人分の『合計量』です。
+  - JSON内の "ingredients" 配列では、必ず「1人分あたりの分量 (quantity_per_serving)」を計算して数値で入力してください。
+  - "total_quantity" は quantity_per_serving × ${servings} と一致させてください。
+- **調理手順 (steps)**: 
+  - 3点程度の簡略すぎる手順は厳禁です。プロの視点で、美味しく作るための具体的な工程を5〜10ステップで記述してください。
+  - ステップ内に目安時間を括弧で示してください（例: "玉ねぎを飴色になるまで中火で炒める（約8分）"）。
+- **タイマー (timers)**: 
+  - 手順の中で時間を計る必要があるステップには必ずタイマーを設定してください。
+- **コツ (tips)**: 
+  - 料理の質を一段上げるプロのアドバイスを3つ以上記述してください。
+
+# JSON構成案
 {
-  "title":"文字列",
-  "servings": 2,
-  "time_minutes": 30,
-  "difficulty":"低",
-  "ingredients":[{"name":"玉ねぎ","quantity_per_serving":50,"unit":"g","total_quantity":100,"optional":false}],
-  "steps":["切る（約5分）","炒める（約10分）"],
-  "timers":[{"step":1,"seconds":600,"label":"炒める"}],
-  "tips":["短いコツ"],
-  "grocery_additions":["牛乳"],
-  "nutrition_estimate": {}
+  "title": "${title}",
+  "servings": ${servings},
+  "time_minutes": 数値,
+  "difficulty": "低" | "中" | "高",
+  "ingredients": [
+    {
+      "name": "食材名",
+      "quantity_per_serving": 1人分の数値,
+      "unit": "単位",
+      "total_quantity": 合計数値,
+      "optional": boolean
+    }
+  ],
+  "steps": ["手順1（約x分）", "手順2（約y分）", ...],
+  "timers": [{"step": 0, "seconds": 300, "label": "手順1のタイマー"}],
+  "tips": ["プロのコツ1", "プロのコツ2", "プロのコツ3"],
+  "grocery_additions": ["足りない場合に買い足すべき食材名"]
 }
 `;
 
@@ -91,26 +148,28 @@ export async function POST(req: Request) {
         model: openai('gpt-4o-mini'),
         schema: RecipeSchema,
         prompt,
-        temperature: 0.12,
+        temperature: 0.3, // 創造性を少し高めて画一的な手順を避ける
+        maxOutputTokens: 2500, 
       });
 
-      console.log("[getRecipeDetail] generated:", JSON.stringify(parsed).slice(0, 800));
+      console.log("[getRecipeDetail] generated successfully");
 
       const recipe = normalizeParsedRecipe(parsed, title, servings, JSON.stringify(parsed));
       return NextResponse.json({ recipe, raw: JSON.stringify(parsed), fallback: false });
     } catch (err: any) {
       console.warn(
-        "getRecipeDetail: OpenAI call failed:",
+        "getRecipeDetail: OpenAI call failed or validation failed. Falling back.",
         err?.status ?? err?.message ?? err,
       );
-      // immediate fallback — do not retry
+
+      // AIが失敗した場合の高品質なフォールバック
       const fallback = makeFallbackRecipe(
         title,
         servings,
-        itemsToUse,
-        fridgeItems,
+        ingredients.length > 0 ? ingredients : itemsToUse.map((name: string) => ({ name, amount: 1, unit: "個" })),
+        description
       );
-      // If OpenAI gave explicit quota error, surface that for UI to show a polite message
+
       const details = err?.raw ?? err?.message ?? String(err);
       return NextResponse.json(
         { recipe: fallback, fallback: true, details },
@@ -118,10 +177,10 @@ export async function POST(req: Request) {
       );
     }
   } catch (err: any) {
-    console.error("getRecipeDetail fatal:", err);
+    console.error("getRecipeDetail fatal error:", err);
     return NextResponse.json(
       {
-        error: "レシピ生成に失敗しました",
+        error: "レシピ生成中に致命的なエラーが発生しました",
         details: err?.message ?? String(err),
       },
       { status: 500 },
@@ -129,45 +188,47 @@ export async function POST(req: Request) {
   }
 }
 
-/** Helpers — keep deterministic and robust **/
-
+/** 
+ * 高品質なフォールバックレシピ生成
+ * AIが利用できない場合でも、可能な限り入力された材料を反映させる
+ */
 function makeFallbackRecipe(
   title: string,
   servings: number,
-  mustUse: string[],
-  fridgeItems: string[],
+  ingredients: any[],
+  description: string,
 ) {
-  const main = mustUse.length
-    ? mustUse.slice(0, 4)
-    : fridgeItems.length
-      ? fridgeItems.slice(0, 4)
-      : ["卵", "野菜"];
   return {
     title: title || "簡易レシピ",
-    description: "AIが利用できないため簡易レシピを生成しました。",
+    description: description || "AIが一時的に利用できないため、標準的な手順で構成しました。",
     servings,
-    time_minutes: 25,
+    time_minutes: 20,
     difficulty: "低",
-    ingredients: main.map((n: string) => ({
-      name: n,
-      quantity_per_serving: 1,
-      unit: "個",
-      total_quantity: 1 * servings,
+    ingredients: ingredients.map((ing: any) => ({
+      name: ing.name,
+      quantity_per_serving: (Number(ing.amount) || 1) / servings,
+      unit: ing.unit || "個",
+      total_quantity: Number(ing.amount) || servings,
       optional: false,
-      substitutes: [],
       notes: "",
     })),
     steps: [
-      "材料を揃える（約5分）",
-      "炒める（約10分）",
-      "味付けして完成（約10分）",
+      "材料をすべて計量し、下準備を整える（約5分）",
+      "食材を火の通りにくいものから順に適切に切り分ける（約5分）",
+      "熱したフライパンまたは鍋で、具材を丁寧に炒め合わせる（約5分）",
+      "全体の味を確認しながら、調味料で好みの味に整える（約2分）",
+      "器に美しく盛り付け、熱いうちにお召し上がりください（約3分）",
     ],
-    timers: [{ step: 1, seconds: 600, label: "炒める" }],
-    tips: ["まずは少量の塩で味をみて調整すること"],
-    pitfalls: [],
-    storage: "当日中に食べてください",
+    timers: [{ step: 2, seconds: 300, label: "加熱調理" }],
+    tips: [
+      "強火で一気に仕上げることで、食材の食感を活かすことができます。",
+      "味付けは薄めから始め、最後に調整するのが美味しく作るコツです。",
+      "盛り付けの際に彩りを意識すると、より食欲をそそる仕上がりになります。"
+    ],
+    pitfalls: ["焦がさないよう、火加減に注意してください。"],
+    storage: "冷蔵保存で1〜2日以内にお召し上がりください。",
     allergy_warnings: [],
-    grocery_additions: [], // user can add manually if needed
+    grocery_additions: [],
     nutrition_estimate: {},
   };
 }
@@ -215,28 +276,28 @@ function normalizeParsedRecipe(
 
   const ingredients = Array.isArray(parsed.ingredients)
     ? parsed.ingredients.map((ing: any) => {
-        const name = String(ing?.name ?? ing ?? "").trim();
-        const qps = toNumberOrUndefined(
-          ing?.quantity_per_serving ?? ing?.qps ?? ing?.quantityPerServing,
-        );
-        const unit = String(ing?.unit ?? "個");
-        const total = toNumberOrUndefined(
-          ing?.total_quantity ??
-            ing?.totalQuantity ??
-            (qps !== undefined ? qps * servings : undefined),
-        );
-        return {
-          name,
-          quantity_per_serving: qps ?? 0,
-          unit,
-          total_quantity: total ?? (qps ? qps * servings : 0),
-          optional: !!ing?.optional,
-          substitutes: Array.isArray(ing?.substitutes)
-            ? ing.substitutes.map(String)
-            : [],
-          notes: ing?.notes ?? "",
-        };
-      })
+      const name = String(ing?.name ?? ing ?? "").trim();
+      const qps = toNumberOrUndefined(
+        ing?.quantity_per_serving ?? ing?.qps ?? ing?.quantityPerServing,
+      );
+      const unit = String(ing?.unit ?? "個");
+      const total = toNumberOrUndefined(
+        ing?.total_quantity ??
+        ing?.totalQuantity ??
+        (qps !== undefined ? qps * servings : undefined),
+      );
+      return {
+        name,
+        quantity_per_serving: qps ?? 0,
+        unit,
+        total_quantity: total ?? (qps ? qps * servings : 0),
+        optional: !!ing?.optional,
+        substitutes: Array.isArray(ing?.substitutes)
+          ? ing.substitutes.map(String)
+          : [],
+        notes: ing?.notes ?? "",
+      };
+    })
     : [];
 
   const steps = Array.isArray(parsed.steps) ? parsed.steps.map(String) : [];

@@ -283,6 +283,7 @@ model WeeklyMenuGeneration {
 model MenuGeneration {
   id              String           @id @default(cuid())
   userId          String
+  householdId     String?          // 追加: 世帯単位の集計用（nullable for migration）
   status          String           @default("completed")
   progressStep    String           @default("preparing")
   mainMenu        Json
@@ -300,9 +301,20 @@ model MenuGeneration {
   cookingHistory  CookingHistory[]
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  inventoryUsageRate Float?       // 0.0 - 1.0
+  costEfficiencyScore Int?          
+  healthScore         Int?          
+  totalScore          Int?          
+  scoreVersion        String?       
+  scoredAt            DateTime?     
+
+  thoughts            Json?
+  tasteProfileSnapshot Json?        
+
   @@index([userId, generatedAt])
   @@index([status], map: "idx_menugeneration_status")
   @@index([progressStep], map: "idx_menugeneration_progress")
+  @@index([householdId])           // 追加: 世帯検索用
 }
 
 model CookingHistory {
@@ -407,6 +419,41 @@ model PushSubscription {
 
   @@index([userId])
   @@index([isActive])
+}
+
+// 好み学習イベントテーブル
+model TasteEvent {
+  id                String   @id @default(cuid())
+  userId            String
+  householdId       String?  // 世帯単位の集計用（nullable）
+  mealPlanResultId  String?  // MenuGeneration.id 参照
+  ingredientKey     String   // 正規化された食材キー
+  eventType         String   // 'used' | 'skipped' | 'liked' | 'disliked' | 'repeated' | 'removed'
+  weight            Float    @default(1.0)
+  source            String   // 'cook' | 'manual' | 'feedback' | 'inference'
+  createdAt         DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([householdId, createdAt])
+  @@index([ingredientKey])
+  @@index([eventType])
+}
+
+// ユーザーターストプロファイルテーブル
+model UserTasteProfile {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  householdId               String?  // 世帯単位の集計用（nullable）
+  favoriteIngredients       String[] @default([])
+  dislikedIngredients       String[] @default([])
+  favoriteCookingStyles     String[] @default([])
+  dislikedCookingStyles     String[] @default([])
+  favoriteProcessedProducts String[] @default([])
+  updatedAt                 DateTime @updatedAt
+  version                   Int      @default(1)
+
+  @@index([householdId])
+  @@index([updatedAt])
 }
 
 enum PlanType {

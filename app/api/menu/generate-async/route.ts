@@ -86,15 +86,12 @@ export async function POST(req: Request) {
       servings = 1;
     }
 
-    // Free Plan Limit: Max 3 servings, No Budget allowed
+    // Free Plan: Max 8 servings (same as Pro), No Budget allowed
     if (!isPro) {
-      if (servings > 3) {
+      if (servings > 8) {
         return NextResponse.json(
-          {
-            error:
-              "Freeプランでは最大3人前までです。Proプランにアップグレードすると最大8人前まで指定できます。",
-          },
-          { status: 403 },
+          { error: "一度に生成できるのは最大8人前までです。" },
+          { status: 400 },
         );
       }
       budget = null;

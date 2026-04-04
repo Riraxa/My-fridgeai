@@ -6,6 +6,7 @@ import "./globals.css";
 import SessionWrapper from "./SessionWrapper";
 import { ThemeProvider } from "@/app/components/ThemeProvider";
 import { FridgeProvider } from "@/app/components/FridgeProvider";
+import { Toaster } from "sonner";
 import ErrorBoundary from "@/app/components/error-boundary";
 
 const geistSans = Geist({
@@ -112,6 +113,7 @@ export default function RootLayout({
                 {/* ✅ ここで全体を包む！ */}
                 {children}
                 <NavBarContainer />
+                <Toaster position="top-center" richColors />
               </FridgeProvider>
             </ThemeProvider>
           </SessionWrapper>

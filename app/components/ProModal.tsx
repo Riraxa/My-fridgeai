@@ -75,35 +75,39 @@ export default function ProModal({ open, onClose }: ProModalProps) {
               borderRadius: "0.75rem",
             }}
           >
-            <p className="font-bold mb-2">
-              Proにすると、できることが広がります
-            </p>
+            <p className="font-bold mb-2">Proにすると、できることが広がります</p>
             <ul
-              className="list-disc list-inside space-y-1 text-sm"
+              className="list-none space-y-2 text-sm"
               style={{ color: "var(--color-text-secondary)" }}
             >
-              <li>
-                AI献立生成が{" "}
-                <span className="font-bold" style={{ color: "var(--accent)" }}>
-                  1日3回
-                </span>{" "}
-                まで使える
+              <li className="flex items-center gap-2">
+                <span>✨</span>
+                <span>AI献立生成が<span className="font-bold" style={{ color: "var(--accent)" }}>1日3回</span>まで使える</span>
               </li>
-              <li>
-                食材登録数{" "}
-                <span className="font-bold" style={{ color: "var(--accent)" }}>
-                  無制限
-                </span>{" "}
-                （Freeは100件まで）
+              <li className="flex items-center gap-2">
+                <span>📅</span>
+                <span>1週間分の献立を一括作成</span>
               </li>
-              <li>
-                家族で冷蔵庫を{" "}
-                <span className="font-bold" style={{ color: "var(--accent)" }}>
-                  共有
-                </span>{" "}
-                できる
+              <li className="flex items-center gap-2">
+                <span>📊</span>
+                <span>献立ごとの「節約度」スコア表示</span>
               </li>
-              <li>期限優先・栄養バランス重視の献立提案</li>
+              <li className="flex items-center gap-2">
+                <span>🥗</span>
+                <span>栄養バランスの詳細評価・アドバイス</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span>🥚</span>
+                <span>基本食材の管理・カスタマイズ</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span>💰</span>
+                <span>1食あたりの予算を指定可能</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span>🥕</span>
+                <span>期限切れ食材を優先消費</span>
+              </li>
             </ul>
           </div>
 

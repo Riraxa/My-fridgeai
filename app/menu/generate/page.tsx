@@ -2,8 +2,10 @@
 //app/menu/generate/page.tsx
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import MenuCard from "@/app/components/menu-card";
+import { useState, useEffect, useRef, Suspense, useCallback } from "react";
+import MenuResultCard from "@/app/components/menu/MenuResultCard";
+import MenuComparisonBar from "@/app/components/menu/MenuComparisonBar";
+import MenuLightSuggestion from "@/app/components/menu/MenuLightSuggestion";
 import ErrorBoundary from "@/app/components/error-boundary";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -32,7 +34,332 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useFridge } from "@/app/components/FridgeProvider";
 import { toast } from "sonner";
 import { Toggle } from "@/app/components/ui/Toggle";
-import { DEFAULT_IMPLICIT_INGREDIENTS } from "@/lib/constants/implicit-ingredients";
+
+// ==================== レベル2: コンテキスト連動型メッセージシステム ====================
+
+// 検出可能な在庫パターン型
+type InventoryPattern = 
+  | 'lowInventory'      // 食材が少ない
+  | 'hasExpiring'       // 期限間近食材あり
+  | 'vegetableHeavy'    // 野菜が多い
+  | 'proteinHeavy'      // 肉・魚が多い
+  | 'hasBudget'         // 予算設定あり
+  | 'strictMode'        // 厳格モード
+  | 'largeServings'     // 大人数
+  | 'constraintHeavy'; // 制約が厳しい（lowInventory + largeServingsなどの組み合わせ）
+
+// パターン別優先メッセージ（必ず最初に表示される）- 各パターン3つの言い換えを用意
+const PRIORITY_MESSAGES: Record<InventoryPattern, string[]> = {
+  constraintHeavy: [
+    "限られた食材で大人数分の最適解を探索中...",
+    "少ない在庫から大家族を満足させる構成を模索中...",
+    "厳しい制約条件下で創造的な解を探求中...",
+  ],
+  lowInventory: [
+    "限られた食材で最適な組み合わせを模索中...",
+    "少ない在庫から最大の価値を引き出す工夫を検討中...",
+    "手持ち食材を余すことなく活用するプランを構築中...",
+  ],
+  hasExpiring: [
+    "期限間近の食材を優先的に活用するプランを検討中...",
+    "食品ロスを減らす効率的な使い切り順序を立案中...",
+    "鮮度が高い順に食材を活かすタイムラインを設計中...",
+  ],
+  vegetableHeavy: [
+    "野菜を中心とした栄養バランスを調整中...",
+    "食物繊維とビタミンの最適配分を計算中...",
+    "ヘルシーな野菜メインの献立構成を検討中...",
+  ],
+  proteinHeavy: [
+    "たんぱく質を効率的に活用する献立を設計中...",
+    "肉・魚の鮮度を活かす最適な調理法を選定中...",
+    "高タンパクなバランスの取れた献立を立案中...",
+  ],
+  hasBudget: [
+    "予算内で最適な食材配分を計算中...",
+    "コスパ重視の献立構成を模索中...",
+    "予算と満足感のバランスを最適化中...",
+  ],
+  strictMode: [
+    "厳格な制約条件での最適解を探索中...",
+    "指定された食材のみで完結するレシピを検討中...",
+    "在庫のみを使用した創造的なアレンジを研究中...",
+  ],
+  largeServings: [
+    "大家族でも満足できる量とバランスを計算中...",
+    "大人数調理の効率化と味の均一性を確保中...",
+    "多人数向けのボリューム感と栄養バランスを調整中...",
+  ],
+};
+
+// 献立特徴予測メッセージ（結果との整合性強化用）- 表現を弱めて断定を避ける
+const MENU_CHARACTERISTIC_MESSAGES: Record<string, string[]> = {
+  // 入力条件から予測される献立特徴（途中表示用 - 柔らかい表現）
+  japanesePredicted: [
+    "和食のバランスも考慮しながら構成を調整中...",
+    "日本の伝統的な要素も取り入れながら検討中...",
+    "和の食材の組み合わせも視野に入れて設計中...",
+  ],
+  costPredicted: [
+    "予算のバランスも考慮しながら食材を選定中...",
+    "コスパも意識しながら工夫を検討中...",
+    "節約しつつ栄養バランスも保つ方向で構築中...",
+  ],
+  timePredicted: [
+    "調理時間も考慮しながら効率的な手順を設計中...",
+    "時短の観点も取り入れながら立案中...",
+    "並行調理の可能性も視野に入れてスケジュール作成中...",
+  ],
+  simplePredicted: [
+    "シンプルな調理法も視野に入れながら構成を検討中...",
+    "手間を抑えつつ満足感も出せる方向で模索中...",
+    "最小限の工程で美味しさを追求する方向で調整中...",
+  ],
+};
+
+// 生成完了後の確定メッセージ（結果と整合 - 過剰断定を避けた柔軟な表現）
+const MENU_CHARACTERISTIC_CONFIRMED: Record<string, string[]> = {
+  japaneseConfirmed: [
+    "和食のバランスを意識した構成に仕上げました",
+    "日本の伝統的な要素を取り入れた献立に決定しました",
+    "和の食材を活かした構成で完成しました",
+  ],
+  costConfirmed: [
+    "コスパを意識した構成に仕上げました",
+    "予算のバランスを考慮した献立に決定しました",
+    "節約しつつ栄養バランスも保った構成で完成しました",
+  ],
+  timeConfirmed: [
+    "比較的短時間で調理できる構成に仕上げました",
+    "効率的な調理手順を意識した献立に決定しました",
+    "時短の観点も取り入れた構成で完成しました",
+  ],
+  simpleConfirmed: [
+    "シンプルな調理法で素材の味を活かした構成に仕上げました",
+    "手間を抑えつつ満足感のある献立に決定しました",
+    "最小限の調理工程で美味しさを追求した構成で完成しました",
+  ],
+};
+
+
+// パターンプリオリティ順（高いほど先に表示、競合時は高優先度が勝つ）
+const PATTERN_PRIORITY: InventoryPattern[] = [
+  'constraintHeavy',  // 最優先：矛盾する制約の組み合わせ
+  'hasExpiring',      // 期限間近は緊急
+  'strictMode',       // 厳格モードは意識してる
+  'largeServings',    // 大人数は難易度が上がる
+  'lowInventory',     // 少ない食材
+  'hasBudget',        // 予算制約
+  'vegetableHeavy',   // 野菜多め
+  'proteinHeavy',     // 肉魚多め
+];
+
+/**
+ * 入力条件から献立特徴を予測する関数
+ * 結果との整合性を高めるため、生成前に予測メッセージを表示
+ */
+function predictMenuCharacteristics(
+  patterns: InventoryPattern[],
+  options: {
+    strictMode: boolean;
+    hasBudget: boolean;
+    lowInventory: boolean;
+    largeServings: boolean;
+  }
+): string[] {
+  const predictedMessages: string[] = [];
+  const { strictMode, hasBudget, lowInventory, largeServings } = options;
+
+  // 予測ロジック：入力条件から献立の特徴を予測
+  
+  // 1. シンプル予測（strictMode + lowInventory）
+  if (strictMode || lowInventory) {
+    const simpleMessages = MENU_CHARACTERISTIC_MESSAGES.simplePredicted ?? [];
+    if (simpleMessages.length > 0) {
+      const selected = simpleMessages[Math.floor(Math.random() * simpleMessages.length)];
+      if (selected) predictedMessages.push(selected);
+    }
+  }
+
+  // 2. コスパ予測（hasBudget）
+  if (hasBudget) {
+    const costMessages = MENU_CHARACTERISTIC_MESSAGES.costPredicted ?? [];
+    if (costMessages.length > 0) {
+      const selected = costMessages[Math.floor(Math.random() * costMessages.length)];
+      if (selected) predictedMessages.push(selected);
+    }
+  }
+
+  // 3. 時短予測（largeServings - 大人数は時短が重要）
+  if (largeServings) {
+    const timeMessages = MENU_CHARACTERISTIC_MESSAGES.timePredicted ?? [];
+    if (timeMessages.length > 0) {
+      const selected = timeMessages[Math.floor(Math.random() * timeMessages.length)];
+      if (selected) predictedMessages.push(selected);
+    }
+  }
+
+  // 4. 和食予測（デフォルトで和食ベースが多い傾向）
+  // 特定の条件がない場合は和食を予測（実際の生成結果と整合しやすい）
+  if (!hasBudget && !lowInventory && predictedMessages.length === 0) {
+    const japaneseMessages = MENU_CHARACTERISTIC_MESSAGES.japanesePredicted ?? [];
+    if (japaneseMessages.length > 0) {
+      const selected = japaneseMessages[Math.floor(Math.random() * japaneseMessages.length)];
+      if (selected) predictedMessages.push(selected);
+    }
+  }
+
+  return predictedMessages;
+}
+
+/**
+ * 生成完了後の確定メッセージを生成
+ * 予測→確定の流れで一貫性を持たせる
+ */
+function generateConfirmedMessage(
+  patterns: InventoryPattern[],
+  options: {
+    strictMode: boolean;
+    hasBudget: boolean;
+    lowInventory: boolean;
+    largeServings: boolean;
+  }
+): string | null {
+  const { strictMode, hasBudget, lowInventory, largeServings } = options;
+  const confirmedMessages: string[] = [];
+
+  // 1. シンプル確定（strictMode + lowInventory）
+  if (strictMode || lowInventory) {
+    const simpleMessages = MENU_CHARACTERISTIC_CONFIRMED.simpleConfirmed ?? [];
+    if (simpleMessages.length > 0) {
+      const selected = simpleMessages[Math.floor(Math.random() * simpleMessages.length)];
+      if (selected) confirmedMessages.push(selected);
+    }
+  }
+
+  // 2. コスパ確定（hasBudget）
+  if (hasBudget) {
+    const costMessages = MENU_CHARACTERISTIC_CONFIRMED.costConfirmed ?? [];
+    if (costMessages.length > 0) {
+      const selected = costMessages[Math.floor(Math.random() * costMessages.length)];
+      if (selected) confirmedMessages.push(selected);
+    }
+  }
+
+  // 3. 時短確定（largeServings - 大人数は時短が重要）
+  if (largeServings) {
+    const timeMessages = MENU_CHARACTERISTIC_CONFIRMED.timeConfirmed ?? [];
+    if (timeMessages.length > 0) {
+      const selected = timeMessages[Math.floor(Math.random() * timeMessages.length)];
+      if (selected) confirmedMessages.push(selected);
+    }
+  }
+
+  // 4. 和食確定（デフォルト）
+  if (!hasBudget && !lowInventory && confirmedMessages.length === 0) {
+    const japaneseMessages = MENU_CHARACTERISTIC_CONFIRMED.japaneseConfirmed ?? [];
+    if (japaneseMessages.length > 0) {
+      const selected = japaneseMessages[Math.floor(Math.random() * japaneseMessages.length)];
+      if (selected) confirmedMessages.push(selected);
+    }
+  }
+
+  // 最初の確定メッセージを返す（または複数を結合）
+  if (confirmedMessages.length > 0) {
+    return confirmedMessages[0] ?? null;
+  }
+  return null;
+}
+
+
+// 食材カテゴリ判定用キーワード
+const VEGETABLE_KEYWORDS = ['野菜', 'にんじん', '人参', 'たまねぎ', '玉ねぎ', '玉葱', 'ピーマン', 'パプリカ', 'なす', 'ナス', 'きゅうり', '胡瓜', 'トマト', 'とまと', 'レタス', 'キャベツ', '白菜', 'ほうれん草', 'ホウレン草', '小松菜', 'ブロッコリー', 'ブロッコリ', 'カリフラワー', 'かぼちゃ', '南瓜', '大根', 'だいこん', 'ごぼう', '牛蒡', 'れんこん', '蓮根', 'もやし', 'モヤシ', '豆苗', 'しいたけ', '椎茸', 'しめじ', 'エノキ', 'えのき', 'マッシュルーム', 'キノコ', 'きのこ'];
+const PROTEIN_KEYWORDS = ['肉', '鶏', '豚', '牛', '魚', '鮭', 'サケ', 'さけ', '鮪', 'マグロ', 'まぐろ', '鰹', 'カツオ', 'かつお', '鯖', 'サバ', 'さば', '鯛', 'タイ', 'たい', '鱈', 'タラ', 'たら', '鰤', 'ブリ', 'ぶり', '鮃', 'ヒラメ', 'ひらめ', '鰈', 'カレイ', 'かれい', '海老', 'エビ', 'えび', '蟹', 'カニ', 'かに', '烏賊', 'イカ', 'いか', '蛸', 'タコ', 'たこ', '豆腐', 'とうふ', '豆富', '卵', 'たまご', '玉子'];
+
+/**
+ * 在庫パターンを検出する関数
+ */
+function detectInventoryPatterns(
+  ingredients: Array<{ name: string; expirationDate?: string | null }>,
+  options: {
+    inventoryCount: number;
+    expiringCount: number;
+    servings: number;
+    budget: number | null;
+    strictMode: boolean;
+  }
+): InventoryPattern[] {
+  const patterns: InventoryPattern[] = [];
+  const { inventoryCount, expiringCount, servings, budget, strictMode } = options;
+
+  // 1. 基本パターン検出
+  if (inventoryCount <= 5) patterns.push('lowInventory');
+  if (expiringCount > 0) patterns.push('hasExpiring');
+  if (budget !== null) patterns.push('hasBudget');
+  if (strictMode) patterns.push('strictMode');
+  if (servings >= 5) patterns.push('largeServings');
+
+  // 2. 食材カテゴリ分析
+  const vegCount = ingredients.filter(i => 
+    VEGETABLE_KEYWORDS.some(k => i.name.includes(k))
+  ).length;
+  const proteinCount = ingredients.filter(i => 
+    PROTEIN_KEYWORDS.some(k => i.name.includes(k))
+  ).length;
+
+  if (vegCount >= inventoryCount * 0.5 && inventoryCount > 0) {
+    patterns.push('vegetableHeavy');
+  }
+  if (proteinCount >= inventoryCount * 0.5 && inventoryCount > 0) {
+    patterns.push('proteinHeavy');
+  }
+
+  // 3. 競合パターンの検出（最優先）
+  // lowInventory + largeServings = 制約が厳しい状況
+  if (patterns.includes('lowInventory') && patterns.includes('largeServings')) {
+    patterns.push('constraintHeavy');
+  }
+
+  // 優先順位でソートして返す
+  return patterns.sort((a, b) => {
+    const indexA = PATTERN_PRIORITY.indexOf(a);
+    const indexB = PATTERN_PRIORITY.indexOf(b);
+    return indexA - indexB;
+  });
+}
+
+/**
+ * パターンに基づいた優先メッセージリストを生成
+ * 重要パターンは必ず先頭に、残りはシャッフル
+ */
+function generateContextAwareMessages(
+  patterns: InventoryPattern[],
+  allGeneralMessages: string[]
+): string[] {
+  // 1. 優先メッセージを収集（優先順位順）
+  const priorityMessages: string[] = [];
+  for (const pattern of patterns) {
+    const messages = PRIORITY_MESSAGES[pattern];
+    if (messages && messages.length > 0) {
+      // 各パターンからランダムに1つ選ぶ
+      const selected = messages[Math.floor(Math.random() * messages.length)];
+      if (selected) {
+        priorityMessages.push(selected);
+      }
+    }
+  }
+
+  // 2. 一般メッセージをシャッフル
+  const shuffledGeneral = [...allGeneralMessages].sort(() => Math.random() - 0.5);
+
+  // 3. 結合：優先メッセージ（強制表示）→ 一般メッセージ
+  // 優先メッセージは必ず先頭に来る（重複除去）
+  const uniquePriorities = [...new Set(priorityMessages)];
+  
+  return [...uniquePriorities, ...shuffledGeneral];
+}
+
+// ================================================================================
 
 // Helper to calculate total cooking time from dishes
 const calculateCookingTime = (dishes: { cookingTime?: number }[]) => {
@@ -70,6 +397,102 @@ interface RecipeDetail {
   tips: string[];
   pitfalls?: string[];
   storage?: string;
+  timers?: { step: number; seconds: number; label: string }[];
+  grocery_additions?: string[];
+}
+
+// 思考プロセスを抽出する関数（セーフティフィルタ付き）
+function extractThoughts(text: string): string[] {
+  const thoughts: string[] = [];
+  const lines = text.split('\n');
+  
+  // 禁止ワードリスト（信頼低下を招く可能性のある表現）
+  const forbiddenPatterns = [
+    /\b(馬鹿|バカ|アホ|死ね|消えろ|クソ|ファック|fuck|shit)\b/i,
+    /\b(無理|不可能|失敗|ダメ|駄目|出来ない)\s*(絶対|絶対に|完全に)\b/i,
+    /\b(誰でも|簡単に|楽勝|余裕|カス)\b/i,
+    /\b(適当|なんでもいい|適当に)\b/i,
+  ];
+  
+  // AIの思考らしい表現パターン
+  const thinkingPatterns = [
+    /(?:考え|検討|計算|分析|確認|調整|模索|設計|立案|算出|構築|探索|発見|考案|提案|アレンジ|研究|活用|活用|最適化)/,
+    /(?:について|を|について|の|しながら|つつ|から|をもとに)/,
+  ];
+  
+  // フォールバックメッセージ（AI思考が取得できない場合）
+  const fallbackMessages = [
+    "冷蔵庫の在庫を確認中...",
+    "期限間近の食材を優先的に活用するプランを検討中...",
+    "栄養バランスを計算中...",
+    "調理手順の難易度を見積もり中...",
+    "食材の組み合わせの相性をチェック中...",
+    "主菜・副菜・汁物のバランスを調整中...",
+    "調理時間を短縮する工夫を考案中...",
+    "在庫を無駄にしないアイデアを研究中...",
+    "家族みんなが喜ぶメニューをアレンジ中...",
+    "季節に合った食材の活用法を提案中...",
+    "ヘルシーで満足感のある組み合わせを設計中...",
+  ];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // 1. 箇条書きパターンを検出（従来通り）
+    if (trimmed.startsWith('-') || trimmed.startsWith('・')) {
+      const thought = trimmed.replace(/^[-・]\s*/, '').trim();
+      if (thought && 
+          thought.length > 5 && 
+          !thought.includes('```') && 
+          !thought.includes('mainPlan') &&
+          !thought.includes('alternativePlan') &&
+          !forbiddenPatterns.some(p => p.test(thought))) {
+        thoughts.push(thought);
+      }
+      continue;
+    }
+    
+    // 2. 自然な文章パターンを検出（新規）
+    // 「〜中...」「〜を考える」「〜を検討」などの思考表現
+    if (trimmed.length > 10 && trimmed.length < 100) {
+      // 不適切なパターンを除外
+      if (forbiddenPatterns.some(p => p.test(trimmed))) continue;
+      
+      // JSONマーカーやコードっぽいものを除外
+      if (trimmed.includes('```') || 
+          trimmed.includes('mainPlan') ||
+          trimmed.includes('alternativePlan') ||
+          trimmed.includes('{') || 
+          trimmed.includes('}') ||
+          trimmed.startsWith('//')) continue;
+      
+      // 思考らしい表現を含むかチェック
+      const hasThinkingPattern = thinkingPatterns.some(p => p.test(trimmed));
+      
+      // 「です」「ます」や丁寧語、または思考動詞を含む文章
+      const isNaturalThought = (trimmed.includes('です') || 
+                                 trimmed.includes('ます') ||
+                                 trimmed.includes('中...') ||
+                                 trimmed.includes('考え') ||
+                                 trimmed.includes('検討') ||
+                                 trimmed.includes('分析') ||
+                                 trimmed.includes('確認') ||
+                                 trimmed.includes('調整'));
+      
+      if (hasThinkingPattern || isNaturalThought) {
+        thoughts.push(trimmed);
+      }
+    }
+  }
+  
+  // AIの思考が取得できなかった場合、フォールバックメッセージを返す
+  if (thoughts.length === 0) {
+    // タイムスタンプに基づいて異なるメッセージを選択
+    const timeIndex = Math.floor(Date.now() / 3000) % fallbackMessages.length;
+    return fallbackMessages.slice(timeIndex, timeIndex + 3);
+  }
+  
+  return thoughts.slice(0, 6); // 最大6個まで
 }
 
 function MenuGeneratePage() {
@@ -86,6 +509,13 @@ function MenuGeneratePage() {
   const [streamingText, setStreamingText] = useState("");
   const [thoughtStream, setThoughtStream] = useState<string[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [currentThoughtIndex, setCurrentThoughtIndex] = useState(0);
+  const [detectedPatterns, setDetectedPatterns] = useState<InventoryPattern[]>([]);
+  const [priorityMessageCount, setPriorityMessageCount] = useState(0);
+  const shuffledMessagesRef = useRef<string[]>([]);
+  
+  // ポーリング制御用のref
+  const pollControllerRef = useRef<{ isActive: boolean; worker?: Worker }>({ isActive: false });
   
   // Use session plan if available, otherwise fallback to null (loading)
   const sessionIsPro = !!(session?.user && (session.user as any).plan === "PRO");
@@ -121,6 +551,7 @@ function MenuGeneratePage() {
 
   const [inventoryCount, setInventoryCount] = useState<number | null>(null);
   const [expiringCount, setExpiringCount] = useState<number | null>(null);
+  const [ingredients, setIngredients] = useState<Array<{ name: string; expirationDate?: string | null }>>([]);
 
   // ステップ管理 (レシピ取得)
   const [retrievingDishName, setRetrievingDishName] = useState<string | null>(null);
@@ -173,7 +604,7 @@ function MenuGeneratePage() {
         `${ingredients.length}件の食材を買い物リストに追加しました`,
       );
     } catch (error) {
-      console.error("買い物リストへの追加に失敗しました:", error);
+      // Silent fail for shopping list
       toast.error("買い物リストへの追加に失敗しました");
     }
   };
@@ -201,7 +632,7 @@ function MenuGeneratePage() {
           localStorage.removeItem("menuGenerationState");
         }
       } catch (e) {
-        console.error("Failed to restore state:", e);
+        // Silent fail for state restore
         localStorage.removeItem("menuGenerationState");
       }
     }
@@ -213,7 +644,7 @@ function MenuGeneratePage() {
         const parsed = JSON.parse(savedResult);
         setGenerated(parsed);
       } catch (e) {
-        console.error("Failed to restore generated menu:", e);
+        // Silent fail for menu restore
         sessionStorage.removeItem("menuGeneratedResult");
       }
     }
@@ -235,11 +666,125 @@ function MenuGeneratePage() {
     }
   }, [loading, currentGenerationId]);
 
+  const pollForCompletion = useCallback((generationId: string) => {
+    // 既存のWorkerがあれば確実に終了
+    if (pollControllerRef.current.worker) {
+      pollControllerRef.current.worker.terminate();
+      pollControllerRef.current.worker = undefined;
+    }
+    
+    pollControllerRef.current.isActive = true;
+    
+    // Web Workerを作成してバックグラウンドポーリング
+    const worker = new Worker('/polling-worker.js');
+    
+    // タイムアウト処理（5分）
+    const timeoutId = setTimeout(() => {
+      worker.terminate();
+      pollControllerRef.current.worker = undefined;
+      pollControllerRef.current.isActive = false;
+      setError("献立生成がタイムアウトしました。再試行してください。");
+      setLoading(false);
+      setCurrentGenerationId(null);
+      localStorage.removeItem("menuGenerationState");
+    }, 5 * 60 * 1000);
+    
+    worker.onmessage = (e) => {
+      const { type, status, data, error } = e.data;
+      
+      if (type === 'status') {
+        if (data?.progressStep) {
+          setCurrentProgressStep(data.progressStep as string);
+        }
+        
+        if (status === 'completed') {
+          clearTimeout(timeoutId);
+          
+          // APIレスポンスのネスト構造を正しく処理
+          // data = { success, status, progressStep, data: { menuGenerationId, menus, ... } }
+          const responseData = data?.data;
+          
+          if (!responseData) {
+            setError("献立データが見つかりませんでした");
+            setLoading(false);
+            setCurrentGenerationId(null);
+            localStorage.removeItem("menuGenerationState");
+            worker.terminate();
+            pollControllerRef.current.worker = undefined;
+            pollControllerRef.current.isActive = false;
+            return;
+          }
+          
+          const confirmedMessage = generateConfirmedMessage(detectedPatterns, {
+            strictMode,
+            hasBudget: !!(enableBudget && budget),
+            lowInventory: (inventoryCount ?? 0) <= 5,
+            largeServings: servings >= 5,
+          });
+          
+          if (confirmedMessage) {
+            setThoughtStream((prev) => [...prev, confirmedMessage]);
+          }
+          
+          setGenerated(responseData);
+          setIsStreaming(false); // 確実にストリーミング状態をリセット
+          sessionStorage.setItem("menuGeneratedResult", JSON.stringify(responseData));
+          setUsage((prev) => prev ? { ...prev, today: prev.today + 1, remaining: Math.max(0, prev.remaining - 1) } : null);
+          setLoading(false);
+          setCurrentGenerationId(null);
+          localStorage.removeItem("menuGenerationState");
+          pollControllerRef.current.isActive = false;
+          worker.terminate();
+          pollControllerRef.current.worker = undefined;
+          
+        } else if (status === 'failed') {
+          clearTimeout(timeoutId);
+          
+          if (strictMode) {
+            setInsufficientError(true);
+          } else {
+            setError("献立生成に失敗しました。再試行してください。");
+          }
+          
+          setLoading(false);
+          setIsStreaming(false); // 確実にストリーミング状態をリセット
+          setCurrentGenerationId(null);
+          localStorage.removeItem("menuGenerationState");
+          pollControllerRef.current.isActive = false;
+          worker.terminate();
+          pollControllerRef.current.worker = undefined;
+        }
+      } else if (type === 'error') {
+        clearTimeout(timeoutId);
+        // エラーが続く場合のみ表示（一時的エラーは無視）
+        // Workerは継続してポーリングを試行
+      }
+    };
+    
+    worker.onerror = (err) => {
+      clearTimeout(timeoutId);
+      setError("通信エラーが発生しました。ページを更新して再試行してください。");
+      setLoading(false);
+      setCurrentGenerationId(null);
+      pollControllerRef.current.isActive = false;
+      worker.terminate();
+      pollControllerRef.current.worker = undefined;
+    };
+    
+    worker.postMessage({
+      type: 'start',
+      generationId,
+      url: '/api/menu/status',
+      interval: 500
+    });
+    
+    pollControllerRef.current.worker = worker;
+  }, [detectedPatterns, strictMode, enableBudget, budget, inventoryCount, servings]);
+
   // ページ可視性の監視
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && loading && currentGenerationId) {
-        // タブが再びアクティブになったらポーリングを再開
+      if (!document.hidden && loading && currentGenerationId && !pollControllerRef.current.isActive) {
         pollForCompletion(currentGenerationId);
       }
     };
@@ -249,7 +794,18 @@ function MenuGeneratePage() {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [loading, currentGenerationId]);
+  }, [loading, currentGenerationId, pollForCompletion]);
+
+  // コンポーネントアンマウント時のクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (pollControllerRef.current.worker) {
+        pollControllerRef.current.worker.terminate();
+        pollControllerRef.current.worker = undefined;
+      }
+      pollControllerRef.current.isActive = false;
+    };
+  }, []);
 
   // ブラウザの戻る操作をブロック
   useEffect(() => {
@@ -328,7 +884,7 @@ function MenuGeneratePage() {
           setUsage(userData.usage);
         }
       } catch (e) {
-        console.error("Failed to fetch user data", e);
+        // Silent fail for user data fetch
       } finally {
         // Only set loading false if session also finished
         if (sessionStatus !== "loading") {
@@ -342,6 +898,7 @@ function MenuGeneratePage() {
           const data = await res.json();
           const ingredients = data.items ?? [];
           setInventoryCount(ingredients.length);
+          setIngredients(ingredients);
 
           const now = new Date();
           const count = ingredients.filter((i: { expirationDate?: string }) => {
@@ -354,7 +911,7 @@ function MenuGeneratePage() {
           setExpiringCount(count);
         }
       } catch (e) {
-        console.error("Failed to fetch data", e);
+        // Silent fail for ingredients fetch
       }
     }
     fetchData();
@@ -365,14 +922,188 @@ function MenuGeneratePage() {
     setIsNavBarVisible(true);
   }, [setIsNavBarVisible]);
 
+  // Rotate fallback messages during loading when no AI thoughts available
+  useEffect(() => {
+    if (!loading || thoughtStream.length > 0) return;
+    
+    // カテゴリ別の思考メッセージ（より多様で面白い内容）
+    const thinkingCategories = {
+      analysis: [
+        "冷蔵庫の在庫データを解析中...",
+        "食材の鮮度パターンを分析中...",
+        "調理履歴から好みを学習中...",
+        "残り食材の最適活用率を計算中...",
+        "食材の相性マトリックスを構築中...",
+      ],
+      planning: [
+        "今日の献立コンセプトを立案中...",
+        "主菜・副菜・汁物の黄金比を模索中...",
+        "ワンプレートの彩りバランスを設計中...",
+        "献立のストーリー性を構築中...",
+        "食卓のシーン別最適解を算出中...",
+      ],
+      creativity: [
+        "意外な食材コンビの可能性を探索中...",
+        "新しい調理法のアイデアを閃き中...",
+        "レトロ料理のモダンアレンジを考案中...",
+        "世界の料理手法を融合中...",
+        "在庫食材の隠し味活用法を発見中...",
+      ],
+      practical: [
+        "調理時間の最適スケジュールを立案中...",
+        "洗い物を減らす工夫を検討中...",
+        "作り置き可能な副菜を選定中...",
+        "翌日のお弁当活用プランを検討中...",
+        "冷蔵庫の空きスペースを意識した買い足し案を作成中...",
+      ],
+      wellness: [
+        "栄養素の相乗効果を計算中...",
+        "季節の体調管理に適した食材を選定中...",
+        "消化負担の少ない献立バランスを調整中...",
+        "たんぱく質の効率的摂取プランを設計中...",
+        "食物繊維の最適配分を計算中...",
+      ],
+    };
+    
+    // 全カテゴリからランダムに選んでシャッフル
+    const allMessages = Object.values(thinkingCategories).flat();
+    
+    // 在庫パターンを検出
+    const ingredientList = ingredients;
+    const patterns = detectInventoryPatterns(ingredientList, {
+      inventoryCount: inventoryCount ?? 0,
+      expiringCount: expiringCount ?? 0,
+      servings,
+      budget: enableBudget && budget ? Number(budget) : null,
+      strictMode,
+    });
+    setDetectedPatterns(patterns);
+    
+    // 献立特徴を予測（結果との整合性強化）
+    const predictedMessages = predictMenuCharacteristics(patterns, {
+      strictMode,
+      hasBudget: !!(enableBudget && budget),
+      lowInventory: (inventoryCount ?? 0) <= 5,
+      largeServings: servings >= 5,
+    });
+    
+    // コンテキスト連動型メッセージを生成
+    const contextAwareMessages = generateContextAwareMessages(patterns, allMessages);
+    
+    // 優先メッセージ + 予測メッセージ + 一般メッセージの順で結合
+    // 予測メッセージは優先メッセージの直後に挿入（結果整合のため）
+    const priorityCount = patterns.length;
+    const finalMessages = [
+      ...contextAwareMessages.slice(0, priorityCount), // 優先メッセージ
+      ...predictedMessages, // 予測メッセージ（結果整合）
+      ...contextAwareMessages.slice(priorityCount), // 一般メッセージ
+    ];
+    
+    shuffledMessagesRef.current = finalMessages;
+    setPriorityMessageCount(priorityCount + predictedMessages.length); // 優先+予測メッセージ数を記録
+    
+    // 優先メッセージを必ず最初に表示（最初は0番目から開始）
+    setCurrentThoughtIndex(0);
+    
+    const interval = setInterval(() => {
+      setCurrentThoughtIndex((prev) => {
+        const next = (prev + 1) % contextAwareMessages.length;
+        // 優先メッセージ範囲内を循環するか、全体を循環
+        return next;
+      });
+    }, 2500 + Math.random() * 1000); // 2.5〜3.5秒でランダム間隔
+    
+    return () => clearInterval(interval);
+  }, [loading, thoughtStream.length, ingredients, inventoryCount, expiringCount, servings, budget, strictMode]);
+
+  const handleSelectMenu = async (menuType: string, menuData: any) => {
+    if (!menuData) return;
+    
+    setSelectedMenuType(menuType);
+    setSelectedMenuData(menuData);
+    setLoadingRecipe(true);
+    setErrorRecipe(null);
+    setRecipeDetails([]);
+    setCurrentDishIndex(0);
+    setIsNavBarVisible(false);
+
+    const dishCount = menuData.dishes?.length || 0;
+    setTotalDishes(dishCount);
+
+    try {
+      const details: RecipeDetail[] = [];
+      const servings_num = Number(servings) || 1;
+
+      for (let i = 0; i < menuData.dishes.length; i++) {
+        const dish = menuData.dishes[i];
+        setRecipeProgressStep(`fetching-dish-${i + 1}`);
+        setRetrievingDishName(dish.name);
+        
+        // SSoT化により、最初から手順(steps)が含まれている想定
+        const recipeDetail: RecipeDetail = {
+          title: dish.name,
+          description: dish.description || menuData.description || "",
+          servings: servings_num,
+          time_minutes: dish.cookingTime || 20,
+          difficulty: dish.difficulty === 1 ? "低" : dish.difficulty === 2 ? "中" : "高",
+          ingredients: dish.ingredients?.map((ing: any) => ({
+            name: ing.name,
+            quantity_per_serving: (Number(ing.amount) || 0) / servings_num,
+            unit: ing.unit || "個",
+            total_quantity: Number(ing.amount) || 0,
+            optional: false,
+          })) || [],
+          // 手順がない場合はフォールバックを表示（基本的には存在するはず）
+          steps: dish.steps && dish.steps.length > 0 
+            ? dish.steps 
+            : [
+                "材料をすべて計量し、下準備を整える",
+                "食材を適切に切り分ける",
+                "熱したフライパンまたは鍋で調理する",
+                "味を整える",
+                "器に盛り付ける"
+              ],
+          tips: dish.tips ? (Array.isArray(dish.tips) ? dish.tips : [dish.tips]) : [],
+          timers: [],
+          grocery_additions: [],
+        };
+        
+        // UI更新のための微小なウェイト
+        await new Promise(resolve => setTimeout(resolve, 100));
+        details.push(recipeDetail);
+      }
+      setRecipeDetails(details);
+    } catch (e) {
+      console.error("[handleSelectMenu] Error:", e);
+      setErrorRecipe("レシピの表示中にエラーが発生しました。");
+    } finally {
+      setLoadingRecipe(false);
+      setRetrievingDishName(null);
+      setRecipeProgressStep("fetching-dish-1");
+    }
+  };
+
   const handleGenerate = async () => {
+    // 既に生成中の場合は新規生成をブロック
+    if (loading || currentGenerationId) {
+      toast.info("献立生成中です。完了までお待ちください。", {
+        id: "generation-in-progress",
+      });
+      return;
+    }
+    
     setLoading(true);
     setIsStreaming(true);
     setStreamingText("");
     setThoughtStream([]);
     setError(null);
+    setGenerated(null);
+
+    let generationIdForPolling: string | null = null;
+    const eventSourceRef = { current: null as EventSource | null };
 
     try {
+      // 1. 献立生成リクエスト（即座にgenerationIdが返る）
       const res = await fetch("/api/menu/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -388,217 +1119,95 @@ function MenuGeneratePage() {
         throw new Error(errorData.error ?? "生成の開始に失敗しました");
       }
 
-      // レスポンスヘッダーから生成IDを取得
-      const generationId = res.headers.get("x-menu-generation-id");
-      if (generationId) {
-        setCurrentGenerationId(generationId);
-        localStorage.setItem(
-          "menuGenerationState",
-          JSON.stringify({
-            loading: true,
-            currentGenerationId: generationId,
-            timestamp: Date.now(),
-          }),
-        );
+      const data = await res.json();
+      const generationId = data.generationId;
+      
+      if (!generationId) {
+        throw new Error("生成IDが取得できませんでした");
       }
 
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error("Stream reader not available");
+      generationIdForPolling = generationId;
+      setCurrentGenerationId(generationId);
+      localStorage.setItem(
+        "menuGenerationState",
+        JSON.stringify({
+          loading: true,
+          currentGenerationId: generationId,
+          timestamp: Date.now(),
+        }),
+      );
 
-      let fullText = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        fullText += chunk;
-        setStreamingText(fullText);
+      // 2. SSE接続で進捗を受信
+      await new Promise<void>((resolve, reject) => {
+        eventSourceRef.current = new EventSource(`/api/menu/stream/${generationId}`);
         
-        // 思考プロセスの箇条書きを抽出 (行単位で処理)
-        if (chunk.includes('\n')) {
-           const allLines = fullText.split('\n');
-           const bullets = allLines.filter(l => {
-             const trimmed = l.trim();
-             return trimmed.startsWith('-') || trimmed.startsWith('・');
-           });
-           setThoughtStream(bullets.map(l => l.trim().replace(/^[-・]\s*/, '')));
-        }
-      }
-
-      setIsStreaming(false);
-
-      // ストリーミング終了後、バックエンドの finalize を待つためにポーリングを開始
-      if (generationId) {
-        pollForCompletion(generationId);
-      }
+        eventSourceRef.current.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+              case "connected":
+                // 接続成功
+                break;
+                
+              case "progress":
+                // 進捗更新
+                if (data.thoughts && Array.isArray(data.thoughts)) {
+                  setThoughtStream(data.thoughts);
+                }
+                setStreamingText(data.thoughts?.join("\n") || "");
+                break;
+                
+              case "complete":
+                // 完了
+                if (data.menus) {
+                  const result = {
+                    menuGenerationId: generationId,
+                    menus: data.menus,
+                    nutrition: data.nutrition,
+                    usedIngredients: data.usedIngredients,
+                  };
+                  setGenerated(result);
+                  sessionStorage.setItem("menuGeneratedResult", JSON.stringify(result));
+                }
+                setIsStreaming(false);
+                setLoading(false);
+                setCurrentGenerationId(null);
+                localStorage.removeItem("menuGenerationState");
+                eventSourceRef.current?.close();
+                resolve();
+                break;
+                
+              case "error":
+                // エラー
+                throw new Error(data.error || "献立生成に失敗しました");
+                
+              case "timeout":
+                // タイムアウト
+                throw new Error(data.message || "接続がタイムアウトしました");
+            }
+          } catch (e) {
+            reject(e);
+          }
+        };
+        
+        eventSourceRef.current.onerror = (error) => {
+          console.error("[SSE] Error:", error);
+          eventSourceRef.current?.close();
+          reject(new Error("SSE接続エラー"));
+        };
+      });
+      
     } catch (err: unknown) {
+      console.error("[handleGenerate] Error:", err);
       setError(err instanceof Error ? err.message : "エラーが発生しました");
       setLoading(false);
       setIsStreaming(false);
       setCurrentGenerationId(null);
       localStorage.removeItem("menuGenerationState");
-    }
-  };
-
-  const pollForCompletion = async (generationId: string) => {
-    const maxAttempts = 60; // 最大5分（60回 × 5秒）
-    let attempts = 0;
-
-    const poll = async () => {
-      // ページが非表示の場合でもポーリングは続ける（即座タブ移動対策）
-      attempts++;
-
-      try {
-        const statusRes = await fetch(`/api/menu/status/${generationId}`);
-
-        if (!statusRes.ok) {
-          throw new Error("ステータス確認に失敗しました");
-        }
-
-        const statusData = await statusRes.json();
-
-        // 進捗ステップを更新
-        if (statusData.progressStep) {
-          setCurrentProgressStep(statusData.progressStep);
-        }
-
-        if (statusData.status === "completed") {
-          // 生成完了
-          setGenerated(statusData.data);
-          sessionStorage.setItem(
-            "menuGeneratedResult",
-            JSON.stringify(statusData.data),
-          );
-          setUsage((prev) =>
-            prev
-              ? {
-                ...prev,
-                today: prev.today + 1,
-                remaining: Math.max(0, prev.remaining - 1),
-              }
-              : null,
-          );
-          setLoading(false);
-          setCurrentGenerationId(null);
-          localStorage.removeItem("menuGenerationState");
-        } else if (statusData.status === "failed") {
-          // Strict モードで生成失敗 → INSUFFICIENT_INVENTORY を疑う
-          if (strictMode) {
-            setInsufficientError(true);
-            setLoading(false);
-            setCurrentGenerationId(null);
-            localStorage.removeItem("menuGenerationState");
-            return;
-          }
-          throw new Error("献立生成に失敗しました");
-        } else if (
-          statusData.status === "pending" ||
-          statusData.status === "processing"
-        ) {
-          // まだ処理中
-          if (attempts < maxAttempts) {
-            setTimeout(poll, 5000); // 5秒后再試行
-          } else {
-            throw new Error("生成がタイムアウトしました");
-          }
-        }
-      } catch (pollError: unknown) {
-        setError(pollError instanceof Error ? pollError.message : "ポーリングエラーが発生しました");
-        setLoading(false);
-        setCurrentGenerationId(null);
-        localStorage.removeItem("menuGenerationState");
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
       }
-    };
-
-    // 開始ポーリング
-    poll();
-  };
-
-  const handleSelectMenu = async (type: string) => {
-    if (!generated?.menuGenerationId || loadingRecipe) return;
-
-    // Get the selected menu data
-    let menuData;
-    if (type === "main") menuData = generated.menus.main;
-    else if (type === "altA") menuData = generated.menus.alternativeA;
-    else menuData = generated.menus.alternativeB;
-
-    setSelectedMenuType(type);
-    setSelectedMenuData(menuData);
-    setLoadingRecipe(true);
-    setErrorRecipe(null);
-    setRecipeDetails([]);
-    setCurrentDishIndex(0);
-    setIsNavBarVisible(false);
-
-    // 料理数を設定
-    const dishCount = menuData.dishes?.length || 0;
-    setTotalDishes(dishCount);
-
-    // Fetch recipe details for each dish
-    try {
-      const details: RecipeDetail[] = [];
-      for (let i = 0; i < menuData.dishes.length; i++) {
-        const dish = menuData.dishes[i];
-        
-        // 進捗ステップを更新
-        const stepNumber = i + 1;
-        setRecipeProgressStep(`fetching-dish-${stepNumber}`);
-        setRetrievingDishName(dish.name);
-        
-        try {
-          const res = await fetch("/api/getRecipeDetail", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: dish.name,
-              servings: servings,
-            }),
-          });
-
-          if (
-            !res.ok ||
-            !res.headers.get("content-type")?.includes("application/json")
-          ) {
-            throw new Error(`Failed to fetch recipe for ${dish.name}`);
-          }
-
-          const data = await res.json();
-          if (data.recipe) {
-            details.push(data.recipe);
-          }
-        } catch (dishError) {
-          console.error("Failed to fetch dish detail:", dish.name, dishError);
-          // Add a fallback recipe from dish data
-          details.push({
-            title: dish.name,
-            description: dish.description ?? "",
-            servings: servings,
-            time_minutes: dish.cookingTime ?? 20,
-            difficulty: "中",
-            ingredients:
-              dish.ingredients?.map((ing: { name: string; amount: number; unit: string }) => ({
-                name: ing.name,
-                quantity_per_serving: ing.amount / servings,
-                unit: ing.unit,
-                total_quantity: ing.amount,
-                optional: false,
-              })) ?? [],
-            steps: dish.steps ?? ["材料を準備する", "調理する", "盛り付ける"],
-            tips: dish.tips ? [dish.tips] : [],
-          });
-        }
-      }
-      setRecipeDetails(details);
-    } catch (e) {
-      console.error("Failed to fetch recipe details", e);
-      setErrorRecipe("レシピの取得に失敗しました。再試行してください。");
-    } finally {
-      setLoadingRecipe(false);
-      setRetrievingDishName(null);
-      setRecipeProgressStep("fetching-dish-1");
     }
   };
 
@@ -767,143 +1376,177 @@ function MenuGeneratePage() {
                 </p>
               </div>
 
-              {/* Constraint Mode Toggle */}
-              <div className="max-w-md mx-auto mb-4">
-                <div className="bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)]">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium flex items-center gap-2 text-[var(--color-text-primary)] cursor-pointer">
-                      {strictMode ? (
-                        <Lock size={16} className="text-[var(--accent)]" />
-                      ) : (
-                        <Unlock size={16} className="text-[var(--color-text-muted)]" />
-                      )}
-                      冷蔵庫内の食材のみで献立を生成
-                    </label>
-                    <Toggle
-                      checked={strictMode}
-                      onChange={() => setStrictMode(!strictMode)}
-                    />
-                  </div>
-
-                  <p className="text-xs text-[var(--color-text-muted)] mt-2">
-                    {strictMode
-                      ? "ONの場合、現在の在庫にある食材のみで献立を生成します（基本調味料は含まれます）"
-                      : "OFFの場合、在庫食材を優先しつつ、不足分を一部許可します"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Conditions UI */}
-              <div className="max-w-md mx-auto mb-8 space-y-4 text-left">
-                {/* Servings */}
-                <div className="bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)]">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-medium flex items-center gap-2 text-[var(--color-text-primary)]">
-                      <Users size={16} className="text-[var(--accent)]" />
-                      人数
-                    </label>
-                    <span className="text-sm font-bold text-[var(--color-text-primary)]">
-                      {servings}人前
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="8"
-                    value={servings}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (val > 8) {
-                        toast("最大8人前までです", {
-                          description:
-                            "8人以上の献立は分割して生成してください。",
-                        });
-                        setServings(8);
-                      } else {
-                        setServings(val);
-                      }
-                    }}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
-                  />
-                  <div className="flex justify-between text-xs text-[var(--color-text-muted)] mt-1">
-                    <span>1人</span>
-                    <span>8人</span>
-                  </div>
-                </div>
-
-                {/* Budget (Pro Only) */}
-                <div className={`bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)] overflow-hidden relative ${!isPro ? "min-h-[200px]" : ""}`}>
-                  {!isPro && (
-                    <div className="absolute inset-0 bg-[var(--background)]/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-6 text-center">
-                      <div className="bg-amber-500 text-white p-3 rounded-2xl mb-3 shadow-xl shadow-amber-100">
-                        <Coins size={24} />
+              {/* Constraint Mode Toggle - Hidden during loading */}
+              {/* Constraint Mode Toggle - Hidden during loading */}
+              {!loading && (
+                <>
+                  <div className="max-w-md mx-auto mb-4">
+                    <div className="bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)]">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium flex items-center gap-2 text-[var(--color-text-primary)] cursor-pointer">
+                          {strictMode ? (
+                            <Lock size={16} className="text-[var(--accent)]" />
+                          ) : (
+                            <Unlock size={16} className="text-[var(--color-text-muted)]" />
+                          )}
+                          冷蔵庫内の食材のみで献立を生成
+                        </label>
+                        <Toggle
+                          checked={strictMode}
+                          onChange={() => setStrictMode(!strictMode)}
+                        />
                       </div>
-                      <h3 className="text-base font-extrabold mb-1 text-[var(--color-text-primary)]">
-                        1食あたりの予算設定
-                      </h3>
-                      <p className="text-xs text-slate-500 mb-4">
-                        Proプランで予算を設定できます。コスパ重視や特別な日の献立を調整できます。
+
+                      <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                        {strictMode
+                          ? "ONの場合、現在の在庫にある食材のみで献立を生成します（基本調味料は含まれます）"
+                          : "OFFの場合、在庫食材を優先しつつ、不足分を一部許可します"}
                       </p>
-                      <button
-                        onClick={() => router.push("/settings/account")}
-                        className="bg-amber-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-amber-100 hover:scale-105 active:scale-95 transition text-sm"
-                      >
-                        Proにアップグレード
-                      </button>
                     </div>
-                  )}
-                  <div inert={!isPro || undefined} className={!isPro ? "pointer-events-none" : ""}>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-medium flex items-center gap-2 text-[var(--color-text-primary)]">
-                        <Coins size={16} className="text-[var(--accent)]" />
-                        1食あたりの予算
-                        <span className="text-[10px] bg-[var(--accent)] text-white px-1.5 py-0.5 rounded-full">
-                          Pro
+                  </div>
+
+                  {/* Conditions UI */}
+                  <div className="max-w-md mx-auto mb-8 space-y-4 text-left">
+                    {/* Servings */}
+                    <div className="bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)]">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium flex items-center gap-2 text-[var(--color-text-primary)]">
+                          <Users size={16} className="text-[var(--accent)]" />
+                          人数
+                        </label>
+                        <span className="text-sm font-bold text-[var(--color-text-primary)]">
+                          {servings}人前
                         </span>
-                      </label>
-                      <Toggle
-                        checked={enableBudget}
-                        onChange={() => {
-                          setEnableBudget(!enableBudget);
-                          if (!enableBudget && !budget) setBudget(500);
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="8"
+                        value={servings}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (val > 8) {
+                            toast("最大8人前までです", {
+                              description:
+                                "8人以上の献立は分割して生成してください。",
+                            });
+                            setServings(8);
+                          } else {
+                            setServings(val);
+                          }
                         }}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
                       />
+                      <div className="flex justify-between text-xs text-[var(--color-text-muted)] mt-1">
+                        <span>1人</span>
+                        <span>8人</span>
+                      </div>
                     </div>
 
-                    {enableBudget && (
-                      <div className="mt-3 animate-in fade-in slide-in-from-top-2">
-                        <div className="relative">
-                          <input
-                            type="number"
-                            value={budget}
-                            onChange={(e) =>
-                              setBudget(
-                                e.target.value === ""
-                                  ? ""
-                                  : parseInt(e.target.value),
-                              )
-                            }
-                            placeholder="例: 500"
-                            className="w-full p-2 pl-3 pr-8 border border-[var(--surface-border)] rounded bg-[var(--card-bg)] focus:ring-2 focus:ring-[var(--accent)] focus:outline-none no-spinner"
-                          />
-                          <span className="absolute right-3 top-2.5 text-sm text-[var(--color-text-muted)]">
-                            円/人
-                          </span>
+                    {/* Budget (Pro Only) */}
+                    <div className={`bg-[var(--surface-bg)] rounded-lg p-4 border border-[var(--surface-border)] overflow-hidden relative ${!isPro ? "min-h-[200px]" : ""}`}>
+                      {!isPro && (
+                        <div className="absolute inset-0 bg-[var(--background)]/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-6 text-center">
+                          <div className="bg-amber-500 text-white p-3 rounded-2xl mb-3 shadow-xl shadow-amber-100">
+                            <Coins size={24} />
+                          </div>
+                          <h3 className="text-base font-extrabold mb-1 text-[var(--color-text-primary)]">
+                            1食あたりの予算設定
+                          </h3>
+                          <p className="text-xs text-slate-500 mb-4">
+                            Proプランで予算を設定できます。コスパ重視や特別な日の献立を調整できます。
+                          </p>
+                          <button
+                            onClick={() => router.push("/settings/account")}
+                            className="bg-amber-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-amber-100 hover:scale-105 active:scale-95 transition text-sm"
+                          >
+                            Proにアップグレード
+                          </button>
                         </div>
-                        <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                          ※あくまで目安として考慮されます
-                        </p>
+                      )}
+                      <div inert={!isPro || undefined} className={!isPro ? "pointer-events-none" : ""}>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-sm font-medium flex items-center gap-2 text-[var(--color-text-primary)]">
+                            <Coins size={16} className="text-[var(--accent)]" />
+                            1食あたりの予算
+                            <span className="text-[10px] bg-[var(--accent)] text-white px-1.5 py-0.5 rounded-full">
+                              Pro
+                            </span>
+                          </label>
+                          <Toggle
+                            checked={enableBudget}
+                            onChange={() => {
+                              setEnableBudget(!enableBudget);
+                              if (!enableBudget && !budget) setBudget(500);
+                            }}
+                          />
+                        </div>
+
+                        {enableBudget && (
+                          <div className="mt-3 animate-in fade-in slide-in-from-top-2">
+                            <div className="relative">
+                              <input
+                                type="number"
+                                value={budget}
+                                onChange={(e) =>
+                                  setBudget(
+                                    e.target.value === ""
+                                      ? ""
+                                      : parseInt(e.target.value),
+                                  )
+                                }
+                                placeholder="例: 500"
+                                className="w-full p-2 pl-3 pr-8 border border-[var(--surface-border)] rounded bg-[var(--card-bg)] focus:ring-2 focus:ring-[var(--accent)] focus:outline-none no-spinner"
+                              />
+                              <span className="absolute right-3 top-2.5 text-sm text-[var(--color-text-muted)]">
+                                円/人
+                              </span>
+                            </div>
+                            <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                              ※あくまで目安として考慮されます
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {loading && (
+                <div className="max-w-md mx-auto mb-8">
+                  {/* 設定サマリー（生成中は読み取り専用表示） */}
+                  <div className="mb-4 p-4 bg-[var(--surface-bg)] rounded-xl border border-[var(--surface-border)]">
+                    <div className="flex items-center gap-2 mb-3 text-[var(--color-text-secondary)]">
+                      <Lock size={16} className="text-[var(--accent)]" />
+                      <span className="text-xs font-medium uppercase tracking-wider">設定内容</span>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[var(--color-text-muted)]">モード:</span>
+                        <span className="font-medium text-[var(--color-text-primary)]">
+                          {strictMode ? "冷蔵庫内の食材のみで生成" : "一部許可モード"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[var(--color-text-muted)]">人数:</span>
+                        <span className="font-medium text-[var(--color-text-primary)]">{servings}人前</span>
+                      </div>
+                      {enableBudget && Number(budget) > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[var(--color-text-muted)]">予算:</span>
+                          <span className="font-medium text-[var(--color-text-primary)]">{budget}円/人</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <button
                 onClick={handleGenerate}
                 disabled={loading}
-                className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${loading ? "cursor-not-allowed" : ""
-                  }`}
+                className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${loading ? "cursor-not-allowed" : ""}`}
                 style={{
                   background: loading
                     ? "color-mix(in srgb, var(--accent) 70%, transparent)"
@@ -944,23 +1587,25 @@ function MenuGeneratePage() {
                   <div className="relative mb-6 flex justify-center">
                     <motion.div
                       animate={{
-                        y: [0, -8, 0],
-                        scale: [1, 1.05, 1],
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1],
+                        filter: [
+                          "hue-rotate(0deg) brightness(1)",
+                          "hue-rotate(30deg) brightness(1.2)",
+                          "hue-rotate(-30deg) brightness(1.2)",
+                          "hue-rotate(0deg) brightness(1)"
+                        ]
                       }}
                       transition={{
-                        duration: 3,
+                        duration: 4,
                         repeat: Infinity,
                         ease: "easeInOut",
                       }}
+                      style={{
+                        filter: "drop-shadow(0 0 20px var(--accent))"
+                      }}
                     >
-                      <ChefHat size={56} className="text-[var(--accent)] opacity-90" />
-                    </motion.div>
-                    <motion.div
-                      className="absolute -top-2 right-1/4 text-xl"
-                      animate={{ opacity: [0, 1, 0], y: [0, -10, 0] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      💡
+                      <ChefHat size={56} className="text-[var(--accent)]" />
                     </motion.div>
                   </div>
 
@@ -991,10 +1636,21 @@ function MenuGeneratePage() {
                           </motion.div>
                         ))
                       ) : (
-                        <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] animate-pulse">
-                          <span className="text-[var(--accent)]">›</span>
-                          <span>冷蔵庫の在庫をスキャン中...</span>
-                        </div>
+                        <AnimatePresence mode="wait">
+                          <motion.div
+                            key={currentThoughtIndex}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -5 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]"
+                          >
+                            <span className="text-[var(--accent)]">›</span>
+                            <span>
+                              {shuffledMessagesRef.current[currentThoughtIndex] ?? "献立を生成中..."}
+                            </span>
+                          </motion.div>
+                        </AnimatePresence>
                       )}
                       
                       {isStreaming && (
@@ -1136,94 +1792,114 @@ function MenuGeneratePage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <MenuCard
-                  _type="main"
-                  menu={{
-                    name: generated.menus.main?.title ?? "献立",
-                    description: generated.menus.main?.reason ?? "",
-                    cookingTime: calculateCookingTime(
-                      generated.menus.main?.dishes ?? [],
-                    ),
-                    difficulty: calculateDifficulty(
-                      generated.menus.main?.dishes ?? [],
-                    ),
-                    calories: generated.nutrition?.main?.total?.calories
-                      ? `${Math.round(generated.nutrition.main.total.calories)} kcal`
-                      : "N/A",
-                    dishes: generated.menus.main?.dishes ?? [],
-                  }}
-                  availability={
-                    generated.availability?.main ?? {
-                      available: [],
-                      missing: [],
-                      insufficient: [],
+              {/* 2案 + 比較 + 軽量サジェストの表示 */}
+              <div className="space-y-6">
+                {/* メインカードエリア */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* バランス最適案 */}
+                  <MenuResultCard
+                    type="main"
+                    menu={{
+                      name: generated.menus.main?.title ?? "献立",
+                      description: generated.menus.main?.reason ?? "",
+                      cookingTime: calculateCookingTime(
+                        generated.menus.main?.dishes ?? [],
+                      ),
+                      difficulty: calculateDifficulty(
+                        generated.menus.main?.dishes ?? [],
+                      ),
+                      dishes: generated.menus.main?.dishes ?? [],
+                      role: generated.menus.main?.role ?? "balanced",
+                    }}
+                    scores={{
+                      inventoryUsage: generated.nutrition?.scores?.main?.inventoryUsage ?? 75,
+                      costEfficiency: generated.nutrition?.scores?.main?.costEfficiency ?? 75,
+                      healthScore: generated.nutrition?.scores?.main?.healthScore ?? 75,
+                      timeEfficiency: generated.nutrition?.scores?.main?.timeEfficiency,
+                    }}
+                    availability={
+                      generated.usedIngredients?.main ?? {
+                        available: [],
+                        missing: [],
+                        insufficient: [],
+                      }
                     }
-                  }
-                  nutrition={generated.nutrition?.main}
-                  onSelect={() => handleSelectMenu("main")}
-                  isBest={true}
+                    nutrition={generated.nutrition?.main}
+                    onSelect={() => handleSelectMenu("main", generated.menus.main)}
+                    isBest={true}
+                    isPro={isPro === true}
+                    onAddToShoppingList={handleAddToShoppingList}
+                  />
+
+                  {/* 特化案 */}
+                  <MenuResultCard
+                    type="alternative"
+                    menu={{
+                      name: generated.menus.alternativeA?.title ?? "代替案",
+                      description: generated.menus.alternativeA?.reason ?? "",
+                      cookingTime: calculateCookingTime(
+                        generated.menus.alternativeA?.dishes ?? [],
+                      ),
+                      difficulty: calculateDifficulty(
+                        generated.menus.alternativeA?.dishes ?? [],
+                      ),
+                      dishes: generated.menus.alternativeA?.dishes ?? [],
+                      role: generated.menus.alternativeA?.role ?? "timeOptimized",
+                      specializationReason: generated.menus.alternativeA?.specializationReason,
+                    }}
+                    scores={{
+                      inventoryUsage: generated.nutrition?.scores?.altA?.inventoryUsage ?? 70,
+                      costEfficiency: generated.nutrition?.scores?.altA?.costEfficiency ?? 70,
+                      healthScore: generated.nutrition?.scores?.altA?.healthScore ?? 70,
+                      timeEfficiency: generated.nutrition?.scores?.altA?.timeEfficiency,
+                    }}
+                    availability={
+                      generated.usedIngredients?.altA ?? {
+                        available: [],
+                        missing: [],
+                        insufficient: [],
+                      }
+                    }
+                    nutrition={generated.nutrition?.altA}
+                    onSelect={() => handleSelectMenu("altA", generated.menus.alternativeA)}
+                    isPro={isPro === true}
+                    onAddToShoppingList={handleAddToShoppingList}
+                  />
+                </div>
+
+                {/* 比較バー */}
+                <MenuComparisonBar
+                  comparison={{
+                    mainPlan: {
+                      inventoryUsage: generated.menus.main?.scores?.inventoryUsage ?? 75,
+                      costEfficiency: generated.menus.main?.scores?.costEfficiency ?? 75,
+                      healthScore: generated.menus.main?.scores?.healthScore ?? 75,
+                      timeEfficiency: generated.menus.main?.scores?.timeEfficiency,
+                    },
+                    alternativePlan: {
+                      inventoryUsage: generated.menus.alternativeA?.scores?.inventoryUsage ?? 70,
+                      costEfficiency: generated.menus.alternativeA?.scores?.costEfficiency ?? 70,
+                      healthScore: generated.menus.alternativeA?.scores?.healthScore ?? 70,
+                      timeEfficiency: generated.menus.alternativeA?.scores?.timeEfficiency,
+                    },
+                    summary: generated.nutrition?.comparison?.summary,
+                  }}
+                  mainRole={generated.menus.main?.role ?? "balanced"}
+                  alternativeRole={generated.menus.alternativeA?.role ?? "timeOptimized"}
                   isPro={isPro === true}
-                  onAddToShoppingList={handleAddToShoppingList}
                 />
 
-                <MenuCard
-                  _type="altA"
-                  menu={{
-                    name: generated.menus.alternativeA?.title ?? "代替案A",
-                    description: generated.menus.alternativeA?.reason ?? "",
-                    cookingTime: calculateCookingTime(
-                      generated.menus.alternativeA?.dishes ?? [],
-                    ),
-                    difficulty: calculateDifficulty(
-                      generated.menus.alternativeA?.dishes ?? [],
-                    ),
-                    calories: generated.nutrition?.altA?.total?.calories
-                      ? `${Math.round(generated.nutrition.altA.total.calories)} kcal`
-                      : "N/A",
-                    dishes: generated.menus.alternativeA?.dishes ?? [],
-                  }}
-                  availability={
-                    generated.availability?.altA ?? {
-                      available: [],
-                      missing: [],
-                      insufficient: [],
-                    }
-                  }
-                  nutrition={generated.nutrition?.altA}
-                  onSelect={() => handleSelectMenu("altA")}
-                  isPro={isPro === true}
-                  onAddToShoppingList={handleAddToShoppingList}
-                />
-
-                <MenuCard
-                  _type="altB"
-                  menu={{
-                    name: generated.menus.alternativeB?.title ?? "代替案B",
-                    description: generated.menus.alternativeB?.reason ?? "",
-                    cookingTime: calculateCookingTime(
-                      generated.menus.alternativeB?.dishes ?? [],
-                    ),
-                    difficulty: calculateDifficulty(
-                      generated.menus.alternativeB?.dishes ?? [],
-                    ),
-                    calories: generated.nutrition?.altB?.total?.calories
-                      ? `${Math.round(generated.nutrition.altB.total.calories)} kcal`
-                      : "N/A",
-                    dishes: generated.menus.alternativeB?.dishes ?? [],
-                  }}
-                  availability={
-                    generated.availability?.altB ?? {
-                      available: [],
-                      missing: [],
-                      insufficient: [],
-                    }
-                  }
-                  nutrition={generated.nutrition?.altB}
-                  onSelect={() => handleSelectMenu("altB")}
-                  isPro={isPro === true}
-                  onAddToShoppingList={handleAddToShoppingList}
-                />
+                {/* 軽量サジェスト */}
+                {generated.nutrition?.lightSuggestion && (
+                  <MenuLightSuggestion
+                    suggestion={{
+                      text: generated.nutrition.lightSuggestion.text,
+                      label: generated.nutrition.lightSuggestion.label,
+                      confidence: generated.nutrition.lightSuggestion.confidence,
+                      hint: generated.nutrition.lightSuggestion.hint,
+                    }}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -1268,8 +1944,34 @@ function MenuGeneratePage() {
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-4 pb-32">
                 {loadingRecipe ? (
-                  <div className="text-center py-16 px-4">
-                    <div className="relative mb-8 flex justify-center">
+                  <div className="mt-8 max-w-lg mx-auto">
+                    {/* 設定サマリー（生成中は読み取り専用表示） */}
+                    <div className="mb-6 p-4 bg-[var(--surface-bg)] rounded-xl border border-[var(--surface-border)]">
+                      <div className="flex items-center gap-2 mb-3 text-[var(--color-text-secondary)]">
+                        <Lock size={16} className="text-[var(--accent)]" />
+                        <span className="text-xs font-medium uppercase tracking-wider">設定内容</span>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[var(--color-text-muted)]">モード:</span>
+                          <span className="font-medium text-[var(--color-text-primary)]">
+                            {strictMode ? "冷蔵庫内の食材のみで生成" : "一部許可モード"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[var(--color-text-muted)]">人数:</span>
+                          <span className="font-medium text-[var(--color-text-primary)]">{servings}人前</span>
+                        </div>
+                        {enableBudget && Number(budget) > 0 && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[var(--color-text-muted)]">予算:</span>
+                            <span className="font-medium text-[var(--color-text-primary)]">{budget}円/人</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="relative mb-6 flex justify-center">
                       {/* 書き込み中のアニメーション */}
                       <motion.div
                         animate={{
@@ -1375,7 +2077,7 @@ function MenuGeneratePage() {
                           <div className="flex gap-4 mt-3 text-sm text-[var(--color-text-secondary)]">
                             <span className="flex items-center gap-1">
                               <Clock size={14} />
-                              {currentRecipe.time_minutes}分
+                              {recipeDetails.reduce((sum, r) => sum + (r.time_minutes || 0), 0)}分（合計）
                             </span>
                             <span>難易度: {currentRecipe.difficulty}</span>
                             <span>{currentRecipe.servings}人前</span>
@@ -1471,7 +2173,7 @@ function MenuGeneratePage() {
                     </p>
                     <div className="flex flex-col gap-3">
                       <button
-                        onClick={() => handleSelectMenu(selectedMenuType as string)}
+                        onClick={() => handleSelectMenu(selectedMenuType as string, selectedMenuData)}
                         className="w-full py-3 bg-[var(--accent)] text-white rounded-xl font-bold shadow-md hover:opacity-90 transition"
                       >
                         再取得する

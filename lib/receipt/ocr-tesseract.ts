@@ -148,7 +148,7 @@ export async function filterProductLinesWithAI(
 ${likelyProducts.join('\n')}`;
 
     const { object: filtered } = await generateObject({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-5.4-nano'),
       schema: z.object({
         productLines: z.array(z.string()).describe('正しい商品名リスト'),
         nonFoodItems: z.array(z.string()).describe('除外したものリスト'),

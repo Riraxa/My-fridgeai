@@ -47,7 +47,6 @@ export async function generateWeeklyMenus(
     aiResults = await generateWeeklyPlanAI(
       initialInventory,
       preferences,
-      expiringSoon,
     );
   } catch (e) {
     console.error("Weekly Gen failed", e);

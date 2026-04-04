@@ -1,8 +1,4 @@
-// GENERATED_BY_AI: 2026-03-11 Antigravity
 // app/components/ReceiptScanner.tsx
-// Receipt upload & scan component.
-// Supports camera capture (mobile) and file upload.
-
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
@@ -155,8 +151,8 @@ export default function ReceiptScanner({
         editedName: item.normalizedName ?? item.productName ?? "読み取り不明",
         editedQuantity: item.quantityValue ?? 1,
         editedUnit: item.quantityUnit ?? "個",
-        editedCategory: item.processedCategory && ["冷蔵", "冷凍", "野菜", "調味料", "加工食品", "その他"].includes(item.processedCategory) 
-          ? item.processedCategory 
+        editedCategory: item.processedCategory && ["冷蔵", "冷凍", "野菜", "調味料", "加工食品", "その他"].includes(item.processedCategory)
+          ? item.processedCategory
           : "その他",
         estimatedExpirationDays: item.estimatedExpirationDays ?? null,
       }));
@@ -280,12 +276,12 @@ export default function ReceiptScanner({
       >
         <div className="flex items-center gap-2 font-bold text-lg">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="2" width="16" height="20" rx="2" fill="var(--accent)" fillOpacity="0.15" stroke="var(--accent)" strokeWidth="2"/>
-            <line x1="8" y1="6" x2="16" y2="6" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="8" y1="10" x2="14" y2="10" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="8" y1="14" x2="16" y2="14" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round"/>
-            <circle cx="12" cy="18" r="3" fill="var(--accent)" fillOpacity="0.3" stroke="var(--accent)" strokeWidth="2"/>
-            <rect x="11" y="17" width="2" height="2" rx="0.5" fill="var(--accent)"/>
+            <rect x="4" y="2" width="16" height="20" rx="2" fill="var(--accent)" fillOpacity="0.15" stroke="var(--accent)" strokeWidth="2" />
+            <line x1="8" y1="6" x2="16" y2="6" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
+            <line x1="8" y1="10" x2="14" y2="10" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
+            <line x1="8" y1="14" x2="16" y2="14" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="12" cy="18" r="3" fill="var(--accent)" fillOpacity="0.3" stroke="var(--accent)" strokeWidth="2" />
+            <rect x="11" y="17" width="2" height="2" rx="0.5" fill="var(--accent)" />
           </svg>
           <span>レシート読み取り</span>
         </div>

@@ -8,7 +8,7 @@ import securityPlugin from "eslint-plugin-security";
 
 export default [
   {
-    ignores: ["**/dist/**", "**/.next/**", "**/node_modules/**", "**/.git/**", "**/public/sw.js", "**/app/sw-push.js"],
+    ignores: ["**/dist/**", "**/.next/**", "**/node_modules/**", "**/.git/**", "**/public/sw.js", "**/app/sw-push.js", "**/public/polling-worker.js"],
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
