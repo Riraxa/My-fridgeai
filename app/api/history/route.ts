@@ -18,7 +18,6 @@ export async function GET() {
           select: {
             mainMenu: true,
             alternativeA: true,
-            alternativeB: true,
             selectedMenu: true,
           },
         },

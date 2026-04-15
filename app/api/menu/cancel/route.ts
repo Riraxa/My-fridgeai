@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { increaseAmountLevel, normalizeAmount } from "@/lib/inventory";
+import { normalizeAmount } from "@/lib/inventory";
 import { normalizeIngredientKey } from "@/lib/taste/normalizeIngredientKey";
 import { isTasteLearningEnabled } from "@/lib/featureFlags";
 
@@ -98,13 +98,6 @@ export async function POST(req: Request) {
               where: { id: stock.id },
               data: { amount: newAmount },
             });
-          } else if (stock.amountLevel) {
-            // Increase level
-            const newLevel = increaseAmountLevel(stock.amountLevel);
-            await tx.ingredient.update({
-              where: { id: stock.id },
-              data: { amountLevel: newLevel },
-            });
           }
         } else {
           // Ingredient was deleted (consumed entirely) - restore it only if it existed originally
@@ -130,7 +123,7 @@ export async function POST(req: Request) {
       // TasteEvent記録（キャンセルした食材を"removed"イベントとして記録）
       if (isTasteLearningEnabled()) {
         for (const used of usedIngredients) {
-          if (!used || !used.name) continue;
+          if (!used?.name) continue;
           
           const key = normalizeIngredientKey(used.name);
           const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);

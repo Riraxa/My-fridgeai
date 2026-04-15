@@ -14,22 +14,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { normalizeIngredientKey } from "@/lib/taste/normalizeIngredientKey";
+import { buildAndSaveTasteProfile } from "@/lib/taste/buildTasteProfile";
 import { z } from "zod";
+import { after } from "next/server";
 
 // ============================================================================
 // バリデーションスキーマ
 // ============================================================================
 
 const TasteEventType = z.enum([
-  "used",        // 料理で使用（ポジティブ）
-  "skipped",     // スキップ（ネガティブ）
-  "liked",       // 明示的な好評価
-  "disliked",    // 明示的な悪評価
-  "repeated",    // 再選択（強いポジティブ）
-  "removed",     // 献立削除（強いネガティブ）
+  "want_again",  // また作りたい（ポジティブ）
+  "okay",        // まあまあ（ニュートラル）
+  "never_again", // もう作らない（ネガティブ）
+  // 旧タイプ（後方互換）
+  "used",
+  "skipped",
+  "liked",
+  "disliked",
+  "repeated",
+  "removed",
 ]);
 
 const TasteEventSource = z.enum([
+  "revisit",     // アプリ再訪時
+  "swipe",       // スワイプUI
   "cook",        // /api/menu/cook 実行時
   "manual",      // 手動入力
   "feedback",    // フィードバックUI
@@ -37,11 +45,15 @@ const TasteEventSource = z.enum([
 ]);
 
 const CreateTasteEventSchema = z.object({
-  mealPlanResultId: z.string().optional(),  // MenuGeneration.id
-  ingredientKey: z.string(),               // 正規化済み食材キー
+  mealPlanResultId: z.string().optional(),
+  // 3軸データ（少なくとも1つ必須）
+  ingredientKey: z.string().optional(),
+  dishName: z.string().optional(),
+  cookingMethod: z.string().optional(),
   eventType: TasteEventType,
   weight: z.number().min(0.1).max(10).default(1.0),
   source: TasteEventSource,
+  decayFactor: z.number().min(0).max(1).default(1.0).optional(),
 });
 
 const BatchCreateSchema = z.object({
@@ -55,8 +67,11 @@ const BatchCreateSchema = z.object({
 // 集約ウィンドウ: 30分以内の同一イベントはweight加算
 const AGGREGATION_WINDOW_MINUTES = 30;
 
-// 集約対象となるイベントタイプ
+// 集約対象となるイベントタイプ（3段階評価 + 旧タイプ）
 const AGGREGATABLE_TYPES = new Set([
+  "want_again",
+  "okay", 
+  "never_again",
   "used",
   "skipped",
   "liked",
@@ -104,7 +119,7 @@ export async function POST(req: NextRequest) {
     // 結果追跡
     const results: Array<{
       eventId: string;
-      ingredientKey: string;
+      ingredientKey: string | null;
       eventType: string;
       aggregated: boolean;
       previousWeight?: number;
@@ -113,9 +128,16 @@ export async function POST(req: NextRequest) {
 
     // トランザクションで全イベント処理
     await prisma.$transaction(async (tx) => {
-      for (const event of events) {
-        // 食材キーを正規化
-        const normalizedKey = normalizeIngredientKey(event.ingredientKey);
+        for (const event of events) {
+        // 少なくとも1つの3軸データが必要
+        if (!event.ingredientKey && !event.dishName && !event.cookingMethod) {
+          throw new Error("ingredientKey, dishName, cookingMethodのいずれかが必要です");
+        }
+        
+        // 食材キーを正規化（存在する場合）
+        const normalizedKey = event.ingredientKey 
+          ? normalizeIngredientKey(event.ingredientKey)
+          : null;
 
         // householdId取得（存在する場合）
         let householdId: string | null = null;
@@ -139,7 +161,9 @@ export async function POST(req: NextRequest) {
           const existingEvent = await tx.tasteEvent.findFirst({
             where: {
               userId,
-              ingredientKey: normalizedKey,
+              ...(normalizedKey && { ingredientKey: normalizedKey }),
+              ...(event.dishName && { dishName: event.dishName }),
+              ...(event.cookingMethod && { cookingMethod: event.cookingMethod }),
               eventType: event.eventType,
               source: event.source,
               mealPlanResultId: event.mealPlanResultId ?? null,
@@ -164,6 +188,7 @@ export async function POST(req: NextRequest) {
               where: { id: existingEvent.id },
               data: {
                 weight: newWeight,
+                decayFactor: event.decayFactor ?? 1.0,
               },
             });
 
@@ -187,8 +212,11 @@ export async function POST(req: NextRequest) {
             householdId,
             mealPlanResultId: event.mealPlanResultId ?? null,
             ingredientKey: normalizedKey,
+            dishName: event.dishName ?? null,
+            cookingMethod: event.cookingMethod ?? null,
             eventType: event.eventType,
             weight: event.weight,
+            decayFactor: event.decayFactor ?? 1.0,
             source: event.source,
           },
         });
@@ -201,6 +229,13 @@ export async function POST(req: NextRequest) {
           newWeight: event.weight,
         });
       }
+    });
+
+    // 背景でプロファイルを再構築（非ブロッキング）
+    after(() => {
+      buildAndSaveTasteProfile(userId).catch(e => {
+        console.error("[TasteProfile] Background rebuild failed:", e);
+      });
     });
 
     return NextResponse.json({
@@ -218,7 +253,7 @@ export async function POST(req: NextRequest) {
 }
 
 // ============================================================================
-// GET /api/taste/event - イベント取得（デバッグ/管理用）
+// GET /api/taste/event - ユーザーの味イベント履歴を取得
 // ============================================================================
 
 export async function GET(req: NextRequest) {
@@ -251,6 +286,20 @@ export async function GET(req: NextRequest) {
         createdAt: "desc",
       },
       take: limit,
+      select: {
+        id: true,
+        userId: true,
+        householdId: true,
+        mealPlanResultId: true,
+        ingredientKey: true,
+        dishName: true,
+        cookingMethod: true,
+        eventType: true,
+        weight: true,
+        decayFactor: true,
+        source: true,
+        createdAt: true,
+      },
     });
 
     return NextResponse.json({
@@ -294,7 +343,7 @@ export async function DELETE(req: NextRequest) {
       select: { userId: true },
     });
 
-    if (!event || event.userId !== userId) {
+    if (event?.userId !== userId) {
       return NextResponse.json(
         { error: "イベントが見つかりません" },
         { status: 404 }

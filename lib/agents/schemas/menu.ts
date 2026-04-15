@@ -10,22 +10,6 @@ export const IngredientSchema = z.object({
   unit: z.string(),
 });
 
-// 料理情報（軽量版 - steps/tipsなし、献立生成時に使用）
-export const LightDishSchema = z.object({
-  type: z.enum(['主菜', '副菜', '汁物']),
-  name: z.string(),
-  description: z.string().describe('料理の簡単な説明'),
-  cookingTime: z.number().min(1).max(120),
-  difficulty: z.number().min(1).max(5),
-  ingredients: z.array(IngredientSchema),
-  nutrition: z.object({
-    calories: z.number(),
-    protein: z.number(),
-    fat: z.number(),
-    carbs: z.number(),
-  }).describe('1人前あたりの栄養情報'),
-  // stepsとtipsは含まない - 選択後に別途取得
-});
 
 // スコア情報（0-100）- 先に定義
 export const PlanScoresSchema = z.object({
@@ -91,24 +75,16 @@ export const LightMenuGenerationResultSchema = z.object({
   comparison: PlanComparisonSchema.describe('2案の比較情報'),
 });
 
-// 献立（単体）
-export const MenuSchema = z.object({
+const WeeklyDayPlanSchema = z.object({
   title: z.string(),
   reason: z.string(),
   tags: z.array(z.string()),
   dishes: z.array(DishSchema).length(3, '主菜・副菜・汁物の3品必須'),
 });
 
-// 3パターンの献立
-export const MenuGenerationResultSchema = z.object({
-  main: MenuSchema.describe('メイン提案：最も栄養バランスが良く期限間近食材を最優先で消化'),
-  alternativeA: MenuSchema.describe('代替案A：mainとは異なるジャンル・味付け'),
-  alternativeB: MenuSchema.describe('代替案B：調理時間15分以内の時短献立'),
-});
-
 // 週間献立
 export const WeeklyMenuSchema = z.object({
-  week: z.array(MenuSchema).length(7, '7日分必須'),
+  week: z.array(WeeklyDayPlanSchema).length(7, '7日分必須'),
 });
 
 // 食材情報（入力用）
@@ -157,6 +133,18 @@ export const UserContextSchema = z.object({
     equipment: z.array(z.string()).optional(),
     preferredMethods: z.array(z.string()).optional(),
     recentGenrePenalty: z.record(z.string(), z.number()).optional(),
+    // 3軸嗜好データ
+    profile: z.object({
+      favoriteIngredients: z.array(z.string()).optional(),
+      dislikedIngredients: z.array(z.string()).optional(),
+      ingredientScores: z.record(z.string(), z.number()).optional(),
+      favoriteDishes: z.array(z.string()).optional(),
+      dislikedDishes: z.array(z.string()).optional(),
+      dishScores: z.record(z.string(), z.number()).optional(),
+      favoriteMethods: z.array(z.string()).optional(),
+      dislikedMethods: z.array(z.string()).optional(),
+      methodScores: z.record(z.string(), z.number()).optional(),
+    }).optional(),
   }).default({}),
   preferences: z.object({
     kitchenEquipment: z.array(z.string()).optional(),
@@ -167,52 +155,18 @@ export const UserContextSchema = z.object({
   implicitIngredients: z.array(z.string()).default([]),
 });
 
-// 2案献立生成用スキーマ
-
-// 拡張献立（スコアと役割付き）
-export const MenuPlanWithScoresSchema = z.object({
-  title: z.string(),
-  reason: z.string(),
-  tags: z.array(z.string()),
-  dishes: z.array(DishSchema).length(3, '主菜・副菜・汁物の3品必須'),
-  role: z.enum(['balanced', 'timeOptimized', 'costOptimized', 'healthOptimized', 'creative']).describe('この案の役割'),
-  scores: PlanScoresSchema.describe('この案の推定スコア'),
-});
-
-// バランス最適案
-export const MainPlanSchema = MenuPlanWithScoresSchema.extend({
-  role: z.literal('balanced').describe('バランス最適案：栄養バランス重視、期限間近食材を優先的に使用'),
-});
-
-// 特化案
-export const AlternativePlanSchema = MenuPlanWithScoresSchema.extend({
-  role: z.enum(['timeOptimized', 'costOptimized', 'healthOptimized', 'creative']).describe('特化方向'),
-  specializationReason: z.string().describe('特化方向の説明（例: "調理時間15分以内で時短"）'),
-});
-
-// 2案献立生成結果スキーマ
-export const TwoPlanGenerationResultSchema = z.object({
-  mainPlan: MainPlanSchema.describe('バランス最適案：栄養バランス重視、期限間近食材を最優先で消化'),
-  alternativePlan: AlternativePlanSchema.describe('特化案：時短・節約・健康・創作のいずれかに特化'),
-  lightSuggestion: LightSuggestionSchema.describe('軽量サジェスト：第3の提案方向性'),
-  comparison: PlanComparisonSchema.describe('2案の比較情報'),
-});
 
 // 型定義（2案用）
 export type PlanScores = z.infer<typeof PlanScoresSchema>;
 export type LightSuggestion = z.infer<typeof LightSuggestionSchema>;
 export type PlanComparison = z.infer<typeof PlanComparisonSchema>;
-export type MenuPlanWithScores = z.infer<typeof MenuPlanWithScoresSchema>;
-export type TwoPlanGenerationResult = z.infer<typeof TwoPlanGenerationResultSchema>;
 
 // 型定義（後方互換性用）
 export type IngredientInput = z.infer<typeof InputIngredientSchema>;
 export type UserContext = z.infer<typeof UserContextSchema>;
-export type MenuGenerationResult = z.infer<typeof MenuGenerationResultSchema>;
-export type GeneratedMenu = z.infer<typeof MenuSchema>;
 export type GeneratedDish = z.infer<typeof DishSchema>;
 
 // 軽量版型定義（コスト削減用）
-export type LightDish = z.infer<typeof LightDishSchema>;
 export type LightMenu = z.infer<typeof LightMenuSchema>;
 export type LightMenuGenerationResult = z.infer<typeof LightMenuGenerationResultSchema>;
+export type WeeklyDayPlanEntry = z.infer<typeof WeeklyDayPlanSchema>;

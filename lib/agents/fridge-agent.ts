@@ -8,26 +8,21 @@ import { IMPLICIT_INGREDIENTS_FOR_PROMPT } from '@/lib/constants/implicit-ingred
 import { NutritionCalculator } from '@/lib/nutrition/calculator';
 import type { IngredientWithAmount } from '@/lib/nutrition/index';
 import {
-  MenuGenerationResultSchema,
   LightMenuGenerationResultSchema,
   WeeklyMenuSchema,
   UserContextSchema,
   type IngredientInput,
   type UserContext,
-  type MenuGenerationResult,
   type LightMenuGenerationResult,
 } from './schemas/menu';
 
-export {
-  MenuGenerationResultSchema,
-  LightMenuGenerationResultSchema,
-  WeeklyMenuSchema,
-  UserContextSchema,
-  type IngredientInput,
-  type UserContext,
-  type MenuGenerationResult,
-  type LightMenuGenerationResult,
+// Legacy type for internal processing
+type MenuGenerationResult = {
+  main: any;
+  alternativeA: any;
 };
+
+
 
 // デフォルトの期限閾値
 const DEFAULT_CRITICAL_DAYS = 2;
@@ -37,42 +32,6 @@ const nutritionCalculator = new NutritionCalculator();
 
 // --- Agents ---
 
-/**
- * 献立生成Agent (標準版)
- */
-export async function generateMenusAgent(
-  ingredients: IngredientInput[],
-  userContext: UserContext,
-): Promise<MenuGenerationResult> {
-  const startTime = Date.now();
-  const validatedContext = UserContextSchema.parse(userContext);
-  const { critical, warning, normal } = categorizeIngredientsByExpiration(ingredients);
-
-  const systemPrompt = buildSystemPrompt(validatedContext, critical, warning, normal);
-  const userPrompt = buildUserPrompt(ingredients, validatedContext);
-
-  // タイムアウト設定 (45秒)
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-  try {
-    const { object } = await generateObject({
-      model: openai('gpt-4o-mini'),
-      schema: MenuGenerationResultSchema,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0.7,
-      maxOutputTokens: 2500,
-      abortSignal: controller.signal,
-    });
-
-    const processedResult = await processMenuNutrition(object);
-    logAgentExecution('generateMenusAgent', startTime, critical, extractIngredientNames(object.main).length);
-    return processedResult;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
 
 /**
  * 軽量献立生成Agent (ストリーミング対応)
@@ -197,7 +156,6 @@ export async function generateWeeklyPlanAgent(
         const tempResult: MenuGenerationResult = {
           main: menu,
           alternativeA: menu, // Dummy for nutrition processing
-          alternativeB: menu,
         };
         const processed = await processMenuNutrition(tempResult);
         return processed.main;
@@ -210,8 +168,6 @@ export async function generateWeeklyPlanAgent(
   }
 }
 
-// 別名定義
-export const generateLightMenusAgentStream = generateLightMenusAgent;
 
 // --- Shared Prompt Builders ---
 
@@ -230,11 +186,6 @@ function buildBaseSystemPrompt(context: UserContext, critical: IngredientInput[]
 期限間近（☆優先）: ${formatIngredientList(warning)}`;
 }
 
-function buildSystemPrompt(context: UserContext, critical: IngredientInput[], warning: IngredientInput[], normal: IngredientInput[]): string {
-  return `${buildBaseSystemPrompt(context, critical, warning)}
-# 手持ち食材リスト
-${formatIngredientList(normal)}`;
-}
 
 function buildLightSystemPrompt(context: UserContext, critical: IngredientInput[], warning: IngredientInput[], normal: IngredientInput[]): string {
   return `${buildBaseSystemPrompt(context, critical, warning)}
@@ -258,12 +209,9 @@ AIが客観的に算出してください: inventoryUsage(在庫消費率), cost
 3. thoughtsProcessを各案の最初に出力。`;
 }
 
-function buildUserPrompt(ingredients: IngredientInput[], context: UserContext): string {
-  return `手持ち食材: ${ingredients.map((i) => i.name).join(', ')}`;
-}
 
 function buildLightUserPrompt(ingredients: IngredientInput[], context: UserContext): string {
-  return `${buildUserPrompt(ingredients, context)}
+  return `手持ち食材: ${ingredients.map((i) => i.name).join(', ')}
 各案の狙いや工夫点を「thoughtProcess」に箇条書きで含めてください。
 **時短特化案（timeOptimized）については、合計20分以内で終わる極めて現実的な工程を提案してください。**
 通常案の調理時間との間に15分以上の明確な差をつけてください。 (例: 通常45分 / 時短20分)`;
@@ -299,11 +247,6 @@ function formatIngredientLine(i: IngredientInput): string {
   return `- ${i.name}${i.amount ? ` (${i.amount}${i.unit || ''})` : ''}${i.expirationDate ? ` [期限:${differenceInDays(i.expirationDate, new Date())}日]` : ''}`;
 }
 
-function extractIngredientNames(menu: any): string[] {
-  const names: string[] = [];
-  menu.dishes?.forEach((d: any) => d.ingredients?.forEach((ing: any) => { if (!names.includes(ing.name)) names.push(ing.name); }));
-  return names;
-}
 
 async function processMenuNutrition(result: MenuGenerationResult): Promise<MenuGenerationResult> {
   const process = async (menu: any) => {
@@ -320,7 +263,6 @@ async function processMenuNutrition(result: MenuGenerationResult): Promise<MenuG
   return {
     main: await process(result.main),
     alternativeA: await process(result.alternativeA),
-    alternativeB: await process(result.alternativeB),
   };
 }
 

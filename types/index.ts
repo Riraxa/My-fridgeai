@@ -96,7 +96,6 @@ export interface MenuGeneration {
   userId: string;
   mainMenu: GeneratedMenu;
   alternativeA: GeneratedMenu | null;
-  alternativeB: GeneratedMenu | null;
   status: string;
   generatedAt: string | Date;
   selectedMenu?: string;

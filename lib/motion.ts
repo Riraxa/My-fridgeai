@@ -20,15 +20,6 @@ export const fadeInUp: Variants = {
   },
 };
 
-// ✅ 酔いにくいタブ切り替え（微スライドのみ）
-export const tabSwitch: Variants = {
-  hidden: { opacity: 0, x: 3 },
-  show: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.12, ease: "easeOut" },
-  },
-};
 
 // ✅ 控えめなボタンアニメーション
 export const buttonTap = {

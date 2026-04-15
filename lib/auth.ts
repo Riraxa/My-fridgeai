@@ -5,33 +5,11 @@ import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
+import { authConfig } from "./auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      authorization: {
-        params: {
-          access_type: "online",
-          response_type: "code",
-          // hd: process.env.ALLOWED_DOMAIN, // temporarily disabled for testing
-        },
-      },
-      allowDangerousEmailAccountLinking: false,
-      profile(profile) {
-        return {
-          id: profile.sub,
-          email: profile.email?.toLowerCase()?.trim(),
-          name: profile.name,
-          image: null,
-          emailVerified: profile.email_verified ? new Date() : null,
-          isPro: false,
-        };
-      },
-    }),
-  ],
+  ...authConfig,
 
   session: {
     strategy: "jwt",

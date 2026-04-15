@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     description: "My-fridgeaiは冷蔵庫の食材を管理し、AIが献立を自動生成するスマート食材管理アプリです。",
   },
   alternates: {
-    canonical: "https://my-fridgeai.com",
+    canonical: "https://www.my-fridgeai.com",
   },
 };
 
@@ -132,7 +132,7 @@ export default function Page() {
                   冷蔵庫の食材からAIが献立を作るアプリ
                 </h2>
                 <p className="text-lg md:text-xl text-[var(--color-text-secondary)] max-w-lg mx-auto md:mx-0 leading-relaxed">
-                  賞味期限が近い食材を優先して、今日作れる献立を3案提示。
+                  賞味期限が近い食材を優先して、今日作れる献立を2案＋サジェストで提示。
                   食材ロスを最小限にし、毎日の家事をスマートに。
                 </p>
               </div>

@@ -1,40 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { resend, EMAIL_FROM } from "@/lib/mail/resend";
+import { rateLimit } from "@/lib/rateLimiter";
+import { validateAndNormalizeIP } from "@/lib/security";
 
 export const runtime = "nodejs";
-
-// Simple in-memory rate limit: per user/IP, list of timestamps
-const rateLimitMap = new Map<string, number[]>();
 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
 
     // Identifier for rate limiting: userId or IP
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    const ip = validateAndNormalizeIP(req.headers.get("x-forwarded-for"));
     const identifier = session?.user?.id ? `user:${session.user.id}` : `ip:${ip}`;
-
-    // Rate Limit Check (5 requests per hour for logged-in, 3 for anonymous)
-    const now = Date.now();
-    const windowMs = 60 * 60 * 1000;
-    const timestamps = rateLimitMap.get(identifier) || [];
-    const recent = timestamps.filter((t) => now - t < windowMs);
     const maxRequests = session?.user?.id ? 5 : 3;
 
-    if (recent.length >= maxRequests) {
+    // 1. Rate Limit Check (per hour)
+    const limiter = await rateLimit(identifier, "CONTACT_FORM", maxRequests, 3600);
+    if (!limiter.ok) {
       return NextResponse.json(
         {
-          error:
-            "送信回数の上限を超えました。しばらく待ってから再試行してください。",
+          error: "送信回数の上限を超えました。しばらく待ってから再試行してください。",
         },
-        { status: 429 },
+        { 
+          status: 429,
+          headers: { "X-RateLimit-Reset": limiter.resetTime.toString() }
+        }
       );
     }
-
-    // Update rate limit
-    recent.push(now);
-    rateLimitMap.set(identifier, recent);
 
     const body = await req.json();
     const { type, subject, description, userId, userName, userEmail } = body;

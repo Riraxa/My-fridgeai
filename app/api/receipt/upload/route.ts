@@ -7,6 +7,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractTextFromImageWithFallback, filterReceiptLines } from "@/lib/receipt/ocr-tesseract";
 import { parseReceiptLines } from "@/lib/receipt/parser";
+import { rateLimit } from "@/lib/rateLimiter";
+import { validateAndNormalizeIP } from "@/lib/security";
 
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -19,6 +21,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
     }
     const userId = session.user.id;
+    const ip = validateAndNormalizeIP(req.headers.get("x-forwarded-for"));
+    const identifier = `${userId}:${ip}`;
+
+    // 1.5. Rate Limiting (10 per hour)
+    const limiter = await rateLimit(identifier, "RECEIPT_UPLOAD", 10, 3600);
+    if (!limiter.ok) {
+      return NextResponse.json(
+        { error: "1時間あたりのレシートアップロード回数上限に達しました。" },
+        { 
+          status: 429,
+          headers: { "X-RateLimit-Reset": limiter.resetTime.toString() }
+        }
+      );
+    }
 
     // 2. Parse multipart form data
     const formData = await req.formData();

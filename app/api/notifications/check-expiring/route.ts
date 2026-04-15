@@ -100,7 +100,6 @@ export async function POST() {
         },
         update: {
           lastAlertedAt: new Date(),
-          isActive: true,
         },
       });
 

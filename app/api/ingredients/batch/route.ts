@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString, escapeHtml } from "@/lib/security";
 import { addApiSecurityHeaders } from "@/lib/securityHeaders";
 import { checkUserLimit } from "@/lib/aiLimit";
+import { IngredientBatchSchema } from "@/lib/validations/api-schemas";
 
 type BatchItem = {
   name: string;
@@ -26,14 +27,18 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
 
     const body = await req.json().catch(() => null);
-    const items = (body?.items ?? []) as BatchItem[];
-    const idempotencyKey = (body?.idempotencyKey ?? null) as string | null;
+    const validation = IngredientBatchSchema.safeParse(body);
 
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!validation.success) {
       return addApiSecurityHeaders(
-        NextResponse.json({ error: "items が必要です" }, { status: 400 }),
+        NextResponse.json({ 
+          error: "Invalid request data", 
+          details: validation.error.format() 
+        }, { status: 400 }),
       );
     }
+
+    const { items, idempotencyKey } = validation.data;
     if (items.length > 50) {
       return addApiSecurityHeaders(
         NextResponse.json(
@@ -45,15 +50,8 @@ export async function POST(req: NextRequest) {
 
     // Idempotency: same user + key within a day returns ok
     if (idempotencyKey) {
-      const existing = await prisma.usageHistory.findFirst({
-        where: {
-          userId,
-          action: "INGREDIENT_BATCH_ADD",
-          meta: { path: ["idempotencyKey"], equals: idempotencyKey } as any,
-          date: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-        },
-        select: { id: true },
-      });
+      const { checkIdempotency } = await import("@/lib/idempotency");
+      const existing = await checkIdempotency("INGREDIENT_BATCH_ADD", idempotencyKey, userId);
       if (existing) {
         return addApiSecurityHeaders(
           NextResponse.json({ ok: true, savedCount: 0, idempotent: true }),
@@ -83,16 +81,12 @@ export async function POST(req: NextRequest) {
 
         const unit = sanitizeString(it.unit ?? "個", 20) ?? "個";
         const category = sanitizeString(it.category ?? "その他", 50) ?? "その他";
-        const amount =
-          it.amount === null || it.amount === undefined
-            ? null
-            : Math.max(0, Math.min(999999, Number(it.amount) || 0));
+        const amount = it.amount ?? null;
 
-        const rawDate = it.expirationDate ?? it.expiry;
         let expirationDate: Date | null = null;
-        if (rawDate) {
-          const parsed = new Date(rawDate);
-          if (!isNaN(parsed.getTime()) && parsed > new Date("2000-01-01")) {
+        if (it.expirationDate) {
+          const parsed = new Date(it.expirationDate);
+          if (!isNaN(parsed.getTime())) {
             expirationDate = parsed;
           }
         }
@@ -132,7 +126,7 @@ export async function POST(req: NextRequest) {
 
       const sliced = toCreate.slice(0, allowedN);
 
-      const rows = [];
+      const rows: Awaited<ReturnType<typeof tx.ingredient.create>>[] = [];
       for (const it of sliced) {
         const inferred = inferIngredientType(it.name);
         const row = await tx.ingredient.create({
@@ -144,18 +138,19 @@ export async function POST(req: NextRequest) {
         rows.push(row);
       }
 
-      if (idempotencyKey) {
-        await tx.usageHistory.create({
-          data: {
-            userId,
-            action: "INGREDIENT_BATCH_ADD",
-            meta: { idempotencyKey, requested: items.length, saved: rows.length },
-          },
-        });
-      }
-
       return rows;
     });
+
+    if (idempotencyKey) {
+      const { recordIdempotency } = await import("@/lib/idempotency");
+      await recordIdempotency("INGREDIENT_BATCH_ADD", idempotencyKey, userId, { 
+        requested: items.length, 
+        saved: created.length 
+      });
+    }
+
+    const { recordServerEvent } = await import("@/lib/telemetry-server");
+    await recordServerEvent(userId, "API", "ingredient_batch_add", { count: created.length });
 
     const sanitized = created.map((item) => ({
       ...item,

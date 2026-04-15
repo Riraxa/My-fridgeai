@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { rateLimit } from "@/lib/rateLimiter";
+import { validateAndNormalizeIP } from "@/lib/security";
 
 // --- API Config ---
 const YAHOO_APP_ID = process.env.YAHOO_APP_ID;
@@ -17,6 +19,22 @@ export async function GET(req: Request) {
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // 1. Rate Limiting (20 times per minute per user)
+  const userId = session.user?.id || "anonymous";
+  const ip = validateAndNormalizeIP(req.headers.get("x-forwarded-for"));
+  const identifier = `${userId}:${ip}`;
+  
+  const limiter = await rateLimit(identifier, "BARCODE_LOOKUP", 20, 60);
+  if (!limiter.ok) {
+    return NextResponse.json(
+      { error: "リクエスト回数が多すぎます。しばらく待ってから再試行してください。" },
+      { 
+        status: 429,
+        headers: { "X-RateLimit-Reset": limiter.resetTime.toString() }
+      }
+    );
   }
 
   const { searchParams } = new URL(req.url);

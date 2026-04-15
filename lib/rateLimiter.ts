@@ -2,6 +2,7 @@
 // 改善されたレートリミッター（メモリベース、セキュリティ強化）
 
 import { generateRateLimitKey } from "@/lib/security";
+import { redis, isRedisEnabled } from "@/lib/redis";
 
 interface RateLimitEntry {
   count: number;
@@ -17,12 +18,7 @@ const VIOLATION_THRESHOLD = 5; // 違反回数のしきい値
 const VIOLATION_RESET_TIME = 24 * 60 * 60 * 1000; // 24時間
 
 /**
- * 改善されたレートリミット関数
- * @param identifier 識別子（IPアドレス、ユーザーIDなど）
- * @param action アクション種別
- * @param limit 制限回数
- * @param windowSeconds 窓口秒数
- * @returns { ok: boolean, remaining: number, resetTime: number }
+ * 改善されたレートリミット関数（Redis対応）
  */
 export async function rateLimit(
   identifier: string,
@@ -30,71 +26,85 @@ export async function rateLimit(
   limit: number,
   windowSeconds: number,
 ): Promise<{ ok: boolean; remaining: number; resetTime: number }> {
-  // メモリリーク防止
+  const now = Date.now();
+  const key = generateRateLimitKey(identifier, action);
+
+  // --- Redis 利用可能な場合 ---
+  if (isRedisEnabled() && redis) {
+    try {
+      const redisKey = `ratelimit:${key}`;
+      const entry = await redis.get<RateLimitEntry>(redisKey);
+      const windowStart = now - windowSeconds * 1000;
+
+      if (!entry || entry.timestamp < windowStart) {
+        // 新しいウィンドウ
+        const newEntry: RateLimitEntry = {
+          count: 1,
+          timestamp: now,
+          violations: entry?.violations && entry.lastViolation && (now - entry.lastViolation < VIOLATION_RESET_TIME) ? entry.violations : 0,
+        };
+        await redis.set(redisKey, newEntry, { px: windowSeconds * 1000 });
+        return { ok: true, remaining: limit - 1, resetTime: now + windowSeconds * 1000 };
+      }
+
+      // 違反ペナルティ
+      let adjustedLimit = limit;
+      if (entry.violations >= VIOLATION_THRESHOLD) {
+        adjustedLimit = Math.max(1, Math.floor(limit / VIOLATION_PENALTY_MULTIPLIER));
+      }
+
+      if (entry.count >= adjustedLimit) {
+        entry.violations++;
+        entry.lastViolation = now;
+        await redis.set(redisKey, entry, { px: windowSeconds * 1000 });
+        return { ok: false, remaining: 0, resetTime: entry.timestamp + windowSeconds * 1000 };
+      }
+
+      entry.count++;
+      await redis.set(redisKey, entry, { px: windowSeconds * 1000 });
+      return { ok: true, remaining: adjustedLimit - entry.count, resetTime: entry.timestamp + windowSeconds * 1000 };
+    } catch (e) {
+      console.error("[RATE_LIMIT] Redis error, falling back to memory:", e);
+    }
+  }
+
+  // --- メモリフォールバック ---
   if (requests.size > MAX_ENTRIES) {
-    console.log(`[RATE_LIMIT] Cleaning up ${requests.size} entries`);
     cleanupRateLimit();
   }
 
-  const now = Date.now();
   const windowStart = now - windowSeconds * 1000;
-
-  // 安全なキー生成
-  const key = generateRateLimitKey(identifier, action);
-
   const entry = requests.get(key);
 
   if (!entry || entry.timestamp < windowStart) {
-    // 新しいウィンドウまたは期限切れ
     const newEntry: RateLimitEntry = {
       count: 1,
       timestamp: now,
-      violations:
-        entry?.violations &&
-          entry.lastViolation &&
-          now - entry.lastViolation < VIOLATION_RESET_TIME
-          ? entry.violations
-          : 0,
+      violations: entry?.violations && entry.lastViolation && (now - entry.lastViolation < VIOLATION_RESET_TIME) ? entry.violations : 0,
     };
-
     requests.set(key, newEntry);
-    return {
-      ok: true,
-      remaining: limit - 1,
-      resetTime: now + windowSeconds * 1000,
-    };
+    return { ok: true, remaining: limit - 1, resetTime: now + windowSeconds * 1000 };
   }
 
-  // 違反履歴に基づく制限強化
   let adjustedLimit = limit;
   if (entry.violations >= VIOLATION_THRESHOLD) {
-    adjustedLimit = Math.max(
-      1,
-      Math.floor(limit / VIOLATION_PENALTY_MULTIPLIER),
-    );
+    adjustedLimit = Math.max(1, Math.floor(limit / VIOLATION_PENALTY_MULTIPLIER));
   }
 
   if (entry.count >= adjustedLimit) {
-    // 違反を記録
     entry.violations++;
     entry.lastViolation = now;
     requests.set(key, entry);
-
-    return {
-      ok: false,
-      remaining: 0,
-      resetTime: entry.timestamp + windowSeconds * 1000,
-    };
+    return { ok: false, remaining: 0, resetTime: entry.timestamp + windowSeconds * 1000 };
   }
 
   entry.count++;
-  entry.timestamp = now;
   requests.set(key, entry);
 
   return {
     ok: true,
     remaining: adjustedLimit - entry.count,
-    resetTime: now + windowSeconds * 1000,
+    resetTime: entry.timestamp + windowSeconds * 1000,
   };
 }
 

@@ -561,23 +561,9 @@ export function normalizeIngredientKeys(rawNames: string[]): string[] {
 }
 
 /**
- * 正規化キーが同一食材かどうか判定（デバッグ用）
- */
-export function areSameIngredient(name1: string, name2: string): boolean {
-  return normalizeIngredientKey(name1) === normalizeIngredientKey(name2);
-}
-
-/**
  * 別名テーブルに新しいエイリアスを追加（ランタイム拡張用）
  */
 export function addIngredientAlias(alias: string, canonical: string): void {
   const normalizedAlias = normalizeIngredientKey(alias);
   INGREDIENT_ALIASES[normalizedAlias] = canonical;
-}
-
-/**
- * 現在の別名テーブルを取得（テスト・デバッグ用）
- */
-export function getIngredientAliases(): Record<string, string> {
-  return { ...INGREDIENT_ALIASES };
 }

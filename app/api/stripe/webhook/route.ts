@@ -58,14 +58,6 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // 課金イベントを記録
-          await tx.billingEvent.create({
-            data: {
-              userId: String(userId),
-              eventType: "SUBSCRIPTION_CREATED",
-              payload: session as any,
-            },
-          });
         });
         break;
       }
@@ -90,15 +82,6 @@ export async function POST(req: NextRequest) {
                 stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
                 cancelAtPeriodEnd: subscription.cancel_at_period_end,
                 billingStatus: subscription.status,
-              },
-            });
-
-            // 課金イベントを記録
-            await tx.billingEvent.create({
-              data: {
-                userId: user.id,
-                eventType: isDeleted ? "SUBSCRIPTION_DELETED" : "SUBSCRIPTION_UPDATED",
-                payload: subscription as any,
               },
             });
           }

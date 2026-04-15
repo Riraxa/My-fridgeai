@@ -36,7 +36,6 @@ export async function GET(
         generatedAt: true,
         mainMenu: true,
         alternativeA: true,
-        alternativeB: true,
         nutritionInfo: true,
         usedIngredients: true,
         shoppingList: true,
@@ -88,7 +87,6 @@ export async function GET(
         menus: {
           main: generation.mainMenu,
           alternativeA: generation.alternativeA,
-          alternativeB: generation.alternativeB,
         },
         availability: {
           main: reconstructAvailability(
@@ -98,10 +96,6 @@ export async function GET(
           altA: reconstructAvailability(
             (generation.usedIngredients as any)?.altA,
             (generation.shoppingList as any)?.altA,
-          ),
-          altB: reconstructAvailability(
-            (generation.usedIngredients as any)?.altB,
-            (generation.shoppingList as any)?.altB,
           ),
         },
         usedIngredients: generation.usedIngredients,

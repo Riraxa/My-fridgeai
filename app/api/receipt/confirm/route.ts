@@ -100,7 +100,6 @@ export async function POST(req: NextRequest) {
             name,
             amount: item.finalQuantityValue ?? 1,
             unit: item.finalQuantityUnit ?? "個",
-            amountLevel: item.finalInferredLevel ?? "normal",
             category: item.finalCategory ?? "その他",
             expirationDate,
             expirationEstimated: expirationDate !== null,
@@ -108,14 +107,6 @@ export async function POST(req: NextRequest) {
           },
         });
         addedCount++;
-
-        // Mark receipt item as user-modified if applicable
-        if (item.receiptItemId) {
-          await tx.receiptItem.update({
-            where: { id: item.receiptItemId },
-            data: { userModified: true },
-          }).catch(() => {/* ignore if not found */});
-        }
       }
 
       // Mark receipt as confirmed

@@ -29,7 +29,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/ingredients-recipes`,
+      url: `${baseUrl}/features/ingredients-recipes`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.9,
@@ -98,18 +98,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/tokusho`,
       lastModified: new Date(),
       changeFrequency: 'yearly',
-      priority: 0.3,
-    },
-    {
-      url: `${baseUrl}/manifest.json`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.3,
-    },
-    {
-      url: `${baseUrl}/favicon.ico`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
       priority: 0.3,
     },
   ]

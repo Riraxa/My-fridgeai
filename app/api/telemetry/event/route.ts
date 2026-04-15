@@ -22,13 +22,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "action が不正です" }, { status: 400 });
     }
 
-    await prisma.usageHistory.create({
-      data: {
-        userId: session.user.id,
-        action,
-        meta: meta as any,
-      },
-    });
+    const { recordServerEvent } = await import("@/lib/telemetry-server");
+    await recordServerEvent(session.user.id, "UI", action, meta);
 
     return NextResponse.json({ ok: true });
   } catch (e) {

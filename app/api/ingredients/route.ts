@@ -73,9 +73,6 @@ export async function POST(req: NextRequest) {
     const name = sanitizeString(body.name, 100);
     const unit = sanitizeString(body.unit, 20);
     const category = sanitizeString(body.category, 50);
-    const amountLevel = body.amountLevel
-      ? sanitizeString(body.amountLevel, 20)
-      : null;
 
     // amount/quantity validation
     let amountValue = body.amount !== undefined ? body.amount : body.quantity;
@@ -109,7 +106,6 @@ export async function POST(req: NextRequest) {
         userId,
         name,
         amount,
-        amountLevel,
         unit: unit ?? "個",
         expirationDate,
         category: category ?? "その他",

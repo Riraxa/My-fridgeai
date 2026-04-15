@@ -105,43 +105,6 @@ export function sanitizePromptInput(input: string): string {
   return sanitized.slice(0, 2000);
 }
 
-/**
- * JWTトークンの追加検証
- */
-export function validateJWTToken(token: unknown): {
-  valid: boolean;
-  userId?: string;
-  error?: string;
-} {
-  if (!token) {
-    return { valid: false, error: "Token is missing" };
-  }
-
-  // 必須フィールドのチェック
-  const userId = (token as { sub?: string; userId?: string }).sub ?? (token as { userId?: string }).userId;
-  if (!userId || typeof userId !== "string") {
-    return { valid: false, error: "Invalid user ID in token" };
-  }
-
-  // トークン有効期限のチェック
-  const exp = (token as { exp?: number }).exp;
-  if (exp && typeof exp === "number") {
-    const now = Math.floor(Date.now() / 1000);
-    if (exp < now) {
-      return { valid: false, error: "Token has expired" };
-    }
-  }
-
-  // ユーザーIDの形式検証（cuid/uuid/etc）
-  if (!/^[a-zA-Z0-9_\-]{20,128}$/.test(userId)) {
-    console.error(
-      `[JWT Validation Error] Invalid format for userId: ${userId}`,
-    );
-    return { valid: false, error: "Invalid user ID format" };
-  }
-
-  return { valid: true, userId };
-}
 
 /**
  * 安全なランダム文字列生成
@@ -228,14 +191,8 @@ export function generateRateLimitKey(
   identifier: string,
   action: string,
 ): string {
-  const timestamp = Math.floor(Date.now() / (60 * 1000)); // 1分単位
-  const data = `${identifier}:${action}:${timestamp}`;
+  const data = `${identifier}:${action}`;
   const crypto = require("crypto");
   return crypto.createHash("sha256").update(data).digest("hex");
 }
 
-// 統一認証エラーメッセージ（ユーザー列挙対策）
-export const AUTH_ERROR_MESSAGES = {
-  INVALID_CREDENTIALS:
-    "認証情報が正しくありません。Googleアカウントでのログインをお試しください。",
-} as const;

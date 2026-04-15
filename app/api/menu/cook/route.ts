@@ -5,6 +5,9 @@ import { calculateInventoryUpdates } from "@/lib/inventory";
 import { addHours } from "date-fns";
 import { normalizeIngredientKey } from "@/lib/taste/normalizeIngredientKey";
 import { isTasteLearningEnabled } from "@/lib/featureFlags";
+import { checkIdempotency, recordIdempotency } from "@/lib/idempotency";
+import { parseMenuData } from "@/lib/prisma-safe";
+import { MenuCookSchema } from "@/lib/validations/api-schemas";
 
 export async function POST(req: Request) {
   try {
@@ -13,9 +16,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
     const userId = session.user.id;
-    const body = await req.json();
-    const { menuGenerationId, selectedMenu, cookedDishes, usedIngredients } =
-      body;
+    const body = await req.json().catch(() => ({}));
+    const validation = MenuCookSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json({ 
+        error: "Invalid request data", 
+        details: validation.error.format() 
+      }, { status: 400 });
+    }
+
+    const { menuGenerationId, selectedMenu, cookedDishes, usedIngredients, idempotencyKey } = validation.data;
+
+    // 0. Idempotency check
+    if (idempotencyKey) {
+      const cached = await checkIdempotency("MENU_COOK", idempotencyKey, userId);
+      if (cached) {
+        return NextResponse.json({
+          success: true,
+          message: "Cooking recorded and inventory updated (idempotent)",
+          idempotent: true,
+        });
+      }
+    }
     // cookedDishes: e.g., ["主菜", "副菜"] (names or types)
     // usedIngredients: optional, provided if menuGenerationId is missing
 
@@ -33,15 +56,16 @@ export async function POST(req: Request) {
       }
 
       // 2. Identify Selected Menu and Ingredients
-      let menuData: any;
       if (!generation) {
         return NextResponse.json({ error: "Menu not found" }, { status: 404 });
       }
 
-      if (selectedMenu === "main") menuData = generation.mainMenu;
-      else if (selectedMenu === "altA") menuData = generation.alternativeA;
-      else if (selectedMenu === "altB") menuData = generation.alternativeB;
-      else menuData = generation.mainMenu; // Default
+      let rawMenuData: any;
+      if (selectedMenu === "main") rawMenuData = generation.mainMenu;
+      else if (selectedMenu === "altA") rawMenuData = generation.alternativeA;
+      else rawMenuData = generation.mainMenu; // Default
+
+      const menuData = parseMenuData(rawMenuData);
 
       // Extract ingredients from cooked dishes
       if (Array.isArray(menuData.dishes)) {
@@ -49,7 +73,7 @@ export async function POST(req: Request) {
           // If cookedDishes is provided, filter. Else assume all cooked.
           if (
             !cookedDishes ||
-            cookedDishes.includes(dish.type) ||
+            cookedDishes.includes(dish.type ?? "") ||
             cookedDishes.includes(dish.name)
           ) {
             if (!_cookedDishesList.includes(dish.name)) {
@@ -67,7 +91,7 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
-      usedIngredientsList = usedIngredients;
+      usedIngredientsList = usedIngredients || [];
     }
 
     // 3. Calculate Inventory Updates
@@ -128,27 +152,13 @@ export async function POST(req: Request) {
         });
       }
 
-      // 利用履歴を記録
-      await tx.usageHistory.create({
-        data: {
-          userId,
-          action: "COMPLETE_COOKING",
-          meta: {
-            menuGenerationId,
-            selectedMenu,
-            cookedDishes: _cookedDishesList,
-            completedAt: new Date().toISOString(),
-          } as any,
-        },
-      });
-
       // TasteEvent記録（利用した食材を"used"イベントとして記録）
       if (isTasteLearningEnabled()) {
         const uniqueIngredients = new Map<string, { name: string; amount: number }>();
         
         // 重複を排除して集計
         for (const ing of usedIngredientsList) {
-          if (!ing || !ing.name) continue;
+          if (!ing?.name) continue;
           const key = normalizeIngredientKey(ing.name);
           const existing = uniqueIngredients.get(key);
           if (existing) {
@@ -200,6 +210,18 @@ export async function POST(req: Request) {
         }
       }
     });
+
+    // 4. 利用履歴を記録 (Telemetry)
+    const { recordServerEvent } = await import("@/lib/telemetry-server");
+    await recordServerEvent(userId, "API", "COMPLETE_COOKING", {
+      menuGenerationId,
+      selectedMenu,
+      cookedDishes: _cookedDishesList,
+    });
+
+    if (idempotencyKey) {
+      await recordIdempotency("MENU_COOK", idempotencyKey, userId, { menuGenerationId });
+    }
 
     return NextResponse.json({
       success: true,

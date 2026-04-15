@@ -3,7 +3,8 @@
 
 "use client";
 
-import { Clock, BarChart2, Lightbulb, ShoppingCart, Sparkles, Zap, PiggyBank, Heart, Palette } from "lucide-react";
+import { useState } from "react";
+import { Clock, BarChart2, Lightbulb, ShoppingCart, Sparkles, Zap, PiggyBank, Heart, Palette, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 
 interface IngredientStatus {
   name: string;
@@ -48,11 +49,12 @@ interface MenuResultCardProps {
   menu: MenuPattern;
   scores: PlanScores;
   availability: AvailabilityData;
+  generationId?: string;
   nutrition?: any;
   onSelect: () => void;
   isBest?: boolean;
   isPro?: boolean;
-  onAddToShoppingList?: (ingredients: string[]) => void;
+  onAddToShoppingList?: (items: { name: string; quantity?: string | number; unit?: string }[]) => void;
 }
 
 const roleConfig = {
@@ -103,7 +105,10 @@ export default function MenuResultCard({
   isBest,
   isPro,
   onAddToShoppingList,
+  generationId,
 }: MenuResultCardProps) {
+  const [feedbackState, setFeedbackState] = useState<string | null>(null);
+
   const missingCount = availability.missing.length + availability.insufficient.length;
   const totalCount = availability.available.length + missingCount;
   const role = menu.role || "balanced";
@@ -141,10 +146,38 @@ export default function MenuResultCard({
     }
   };
 
-  const getMissingIngredients = () => {
-    return [...availability.missing, ...availability.insufficient].map((i) => i.name);
+  const getMissingItems = () => {
+    return [...availability.missing, ...availability.insufficient].map((i) => ({
+      name: i.name,
+      quantity: i.shortage?.amount || i.required.amount,
+      unit: i.shortage?.unit || i.required.unit,
+    }));
   };
 
+  const handleFeedback = async (
+    e: React.MouseEvent,
+    eventType: "want_again" | "okay" | "never_again"
+  ) => {
+    e.stopPropagation();
+    if (feedbackState) return;
+    setFeedbackState(eventType);
+
+    try {
+      await fetch("/api/taste/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mealPlanResultId: generationId,
+          dishName: menu.name,
+          eventType,
+          weight: eventType === "want_again" ? 1.0 : eventType === "never_again" ? 2.0 : 0.5,
+          source: "feedback",
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to send feedback:", error);
+    }
+  };
 
   return (
     <div
@@ -234,25 +267,29 @@ export default function MenuResultCard({
 
         {/* 不足食材を買い物リストに追加 */}
         {missingCount > 0 && onAddToShoppingList && (
-          <div className="mt-3 pt-3 border-t border-[var(--surface-border)]">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-[var(--color-text-secondary)]">
-                不足分を買い物リストに追加
+          <div className="mt-4 pt-4 border-t border-[var(--surface-border)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+                買い物リスト
               </span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAddToShoppingList(getMissingIngredients());
+                  onAddToShoppingList(getMissingItems());
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[var(--accent)] text-white rounded-lg hover:brightness-110 transition-all duration-200 active:scale-95 shadow-sm"
               >
                 <ShoppingCart size={12} />
-                一括追加
+                不足分を一括追加
               </button>
             </div>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">
-              {getMissingIngredients().join(", ")}
-            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {getMissingItems().map((item, idx) => (
+                <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--color-text-primary)] border border-[color-mix(in_srgb,var(--accent)_20%,transparent)]">
+                  {item.name} ({item.quantity}{item.unit})
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -316,6 +353,51 @@ export default function MenuResultCard({
           )}
         </div>
       )}
+
+      {/* 生成直後の1タップ評価 UI */}
+      <div className="mb-4 flex flex-col items-center gap-2 pt-3 border-t border-[var(--surface-border)]">
+        <span className="text-xs text-[var(--color-text-secondary)]">
+          この提案はどうでしたか？ AIに学習させましょう
+        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={(e) => handleFeedback(e, "want_again")}
+            disabled={feedbackState !== null}
+            className={`p-2 rounded-full transition-colors ${
+              feedbackState === "want_again"
+                ? "bg-emerald-100 text-emerald-600 ring-2 ring-emerald-500"
+                : "bg-[var(--surface-lighter)] text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+            }`}
+            title="好き（次も提案してほしい）"
+          >
+            <ThumbsUp size={18} />
+          </button>
+          <button
+            onClick={(e) => handleFeedback(e, "okay")}
+            disabled={feedbackState !== null}
+            className={`p-2 rounded-full transition-colors ${
+              feedbackState === "okay"
+                ? "bg-slate-200 text-slate-700 ring-2 ring-slate-400"
+                : "bg-[var(--surface-lighter)] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+            }`}
+            title="普通"
+          >
+            <Minus size={18} />
+          </button>
+          <button
+            onClick={(e) => handleFeedback(e, "never_again")}
+            disabled={feedbackState !== null}
+            className={`p-2 rounded-full transition-colors ${
+              feedbackState === "never_again"
+                ? "bg-rose-100 text-rose-600 ring-2 ring-rose-500"
+                : "bg-[var(--surface-lighter)] text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+            }`}
+            title="嫌い（今後は提案しない）"
+          >
+            <ThumbsDown size={18} />
+          </button>
+        </div>
+      </div>
 
       {/* アクションボタン */}
       <button

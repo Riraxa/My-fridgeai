@@ -4,22 +4,14 @@ import { generateWeeklyPlanAI } from "./ai/menu-generator";
 import { checkIngredientAvailability } from "./inventory";
 import { Ingredient, UserPreferences } from "@prisma/client";
 
-export interface GeneratedMenu {
-  title: string;
-  dishes: Array<{
-    name: string;
-    ingredients?: Array<{ name: string; amount: number; unit: string }>;
-  }>;
-  [key: string]: unknown;
-}
+import { WeeklyDayPlanEntry, GeneratedDish } from "./agents/schemas/menu";
 
 export interface DailyMenuPlan {
   date: Date;
   dayOfWeek: string;
   menu: {
-    main: GeneratedMenu;
-    alternativeA?: GeneratedMenu;
-    alternativeB?: GeneratedMenu;
+    main: WeeklyDayPlanEntry;
+    alternativeA?: WeeklyDayPlanEntry;
   };
   expiringItems: string[];
 }
@@ -54,8 +46,8 @@ export async function generateWeeklyMenus(
   }
 
   // 3. Map to Weekly Structure
-  const weeklyMenus: DailyMenuPlan[] = (aiResults as GeneratedMenu[]).map(
-    (dayPlan: GeneratedMenu, index: number) => {
+  const weeklyMenus: DailyMenuPlan[] = (aiResults as WeeklyDayPlanEntry[]).map(
+    (dayPlan: WeeklyDayPlanEntry, index: number) => {
       const date = addDays(startDate, index);
 
       // Find expiring items relevant to this day (simple heuristic)
@@ -74,8 +66,7 @@ export async function generateWeeklyMenus(
         dayOfWeek: format(date, "EEEE", { locale: ja }),
         menu: {
           main: dayPlan, // The AI result is the "Main" menu
-          alternativeA: { title: "提案なし", reason: "", dishes: [] },
-          alternativeB: { title: "提案なし", reason: "", dishes: [] },
+          alternativeA: { title: "提案なし", reason: "", tags: [], dishes: [] },
         },
         expiringItems: relevantExpiring,
       };
@@ -86,7 +77,7 @@ export async function generateWeeklyMenus(
   // We assume the AI tried to use inventory.
   // We verify what is actually missing based on the plan.
   const allDishes = weeklyMenus.flatMap((d) => d.menu.main.dishes);
-  const allRequired = allDishes.flatMap((d: { name: string; ingredients?: Array<{ name: string; amount: number; unit: string }> }) => d.ingredients ?? []);
+  const allRequired = allDishes.flatMap((d: GeneratedDish) => d.ingredients ?? []);
 
   const { missing, insufficient } = checkIngredientAvailability(
     allRequired,

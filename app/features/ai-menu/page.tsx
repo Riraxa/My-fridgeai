@@ -129,8 +129,8 @@ export default function AIMenuFeaturePage() {
               {
                 id: "02",
                 tag: "自由な選択",
-                title: "気分や時間に合わせた3案提示",
-                desc: "通常案・時短案・代替案のように複数パターンを提案。時間がない日も、しっかり作りたい日も、AIが寄り添います。",
+                title: "気分や時間に合わせた2案＋サジェスト提示",
+                desc: "バランス最適案・特化案（時短/節約/健康/創作）＋第3の方向性を提案。時間がない日も、しっかり作りたい日も、AIが寄り添います。",
                 icon: "💡",
                 side: "right"
               },
@@ -178,7 +178,7 @@ export default function AIMenuFeaturePage() {
               {[
                 { step: 1, title: "食材を登録", desc: "レシートやスキャンで、冷蔵庫の今を登録。" },
                 { step: 2, title: "条件を設定", desc: "「時短で」「薄味で」など今日の希望をセット。" },
-                { step: 3, title: "AIが生成", desc: "数秒でAIがあなた専用の3案を作成します。" },
+                { step: 3, title: "AIが生成", desc: "数秒でAIがあなた専用の2案＋サジェストを作成します。" },
                 { step: 4, title: "調理・完食", desc: "一番食べたい案を選んで調理をスタート。" },
               ].map((item) => (
                 <div key={item.step} className="relative p-10 bg-[var(--background)] border border-[var(--surface-border)] rounded-[2.5rem] group hover:shadow-xl transition-all">

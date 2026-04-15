@@ -35,30 +35,32 @@ export async function POST(req: Request) {
       });
     }
 
-    // 1.5. Check Global Cache
-    try {
-      const cached = await prisma.estimatedIngredientCache.findUnique({
-        where: { name: name.trim() }
-      });
-      
-      if (cached) {
-        const aiDate = new Date(purchaseDate);
-        aiDate.setDate(aiDate.getDate() + cached.days);
+    // 1.5. Check Global Cache (Redis)
+    const { redis, isRedisEnabled } = await import("@/lib/redis");
+    if (isRedisEnabled()) {
+      try {
+        const cacheKey = `est:exp:${name.trim()}`;
+        const cached = await redis?.get<any>(cacheKey);
         
-        console.log(`[Estimation Cache] HIT for ${name}`);
-        return NextResponse.json({
-          success: true,
-          estimatedExpiration: aiDate,
-          estimatedCategory: cached.category,
-          estimatedAmount: cached.amount,
-          estimatedUnit: cached.unit,
-          confidence: "high", // 過去のAI結果なので信頼度を上げる
-          reasoning: "過去のAI推論結果（キャッシュ）から特定しました。",
-          source: "ai_cache",
-        });
+        if (cached) {
+          const aiDate = new Date(purchaseDate);
+          aiDate.setDate(aiDate.getDate() + (cached.days || 7));
+          
+          console.log(`[Estimation Cache] Redis HIT for ${name}`);
+          return NextResponse.json({
+            success: true,
+            estimatedExpiration: aiDate,
+            estimatedCategory: cached.category,
+            estimatedAmount: cached.amount,
+            estimatedUnit: cached.unit,
+            confidence: "high",
+            reasoning: "過去のAI推論結果（キャッシュ）から特定しました。",
+            source: "ai_cache",
+          });
+        }
+      } catch (cacheError) {
+        console.error("Redis Cache lookup failed:", cacheError);
       }
-    } catch (cacheError) {
-      console.error("Cache lookup failed:", cacheError);
     }
 
     // 2. AI Estimation (Fallback: データベースにない場合のみ実行)
@@ -118,22 +120,15 @@ export async function POST(req: Request) {
         const aiDate = new Date(purchaseDate);
         aiDate.setDate(aiDate.getDate() + days);
 
-        // Save to cache asynchronously (fire-and-forget) to not block response
-        try {
-          prisma.estimatedIngredientCache.upsert({
-            where: { name: name.trim() },
-            update: {}, // Already cached
-            create: {
-              name: name.trim(),
-              category: result.category || "冷蔵",
-              amount: result.amount || null,
-              unit: result.unit || null,
-              days: days,
-              confidence: "ai_cache"
-            }
-          }).catch((e: unknown) => console.error("Failed to save to estimation cache:", e));
-        } catch (e: unknown) {
-          // ignore sync errors
+        // Save to Redis cache (fire-and-forget)
+        if (isRedisEnabled()) {
+          const cacheKey = `est:exp:${name.trim()}`;
+          redis?.set(cacheKey, {
+            category: result.category || "冷蔵",
+            amount: result.amount || null,
+            unit: result.unit || null,
+            days: days,
+          }, { ex: 30 * 24 * 3600 }).catch((e: any) => console.error("Redis Cache set failed:", e));
         }
 
         return NextResponse.json({

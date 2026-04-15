@@ -1,9 +1,6 @@
 /**
  * 機能: UserTasteProfile API エンドポイント
  * 目的: ユーザーの好みプロファイルを取得・更新
- * 非目的: プロファイルの自動生成（バッチ処理で別途実行）
- * 変更方針: 破壊的変更禁止
- * セキュリティ: 認証必須 / ユーザー分離
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,20 +10,21 @@ import { buildAndSaveTasteProfile } from "@/lib/taste/buildTasteProfile";
 import { z } from "zod";
 
 // ============================================================================
-// バリデーションスキーマ
+// バリデーションスキーマ（スキーマ列名に合わせて整合）
 // ============================================================================
 
 const UpdateProfileSchema = z.object({
   favoriteIngredients: z.array(z.string()).max(50).optional(),
   dislikedIngredients: z.array(z.string()).max(50).optional(),
-  favoriteCookingStyles: z.array(z.string()).max(20).optional(),
-  dislikedCookingStyles: z.array(z.string()).max(20).optional(),
-  favoriteProcessedProducts: z.array(z.string()).max(20).optional(),
-  manualOverride: z.boolean().optional(), // 手動編集フラグ
+  favoriteMethods:     z.array(z.string()).max(20).optional(),
+  dislikedMethods:     z.array(z.string()).max(20).optional(),
+  favoriteDishes:      z.array(z.string()).max(20).optional(),
+  dislikedDishes:      z.array(z.string()).max(20).optional(),
+  manualOverride: z.boolean().optional(),
 });
 
 // ============================================================================
-// GET /api/taste/profile - プロファイル取得
+// GET /api/taste/profile
 // ============================================================================
 
 export async function GET(req: NextRequest) {
@@ -40,12 +38,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const forceRebuild = searchParams.get("rebuild") === "true";
 
-    // プロファイル取得
     let profile = await prisma.userTasteProfile.findUnique({
       where: { userId },
     });
 
-    // プロファイルがない、または強制再構築が要求された場合
     if (!profile || forceRebuild) {
       try {
         const rebuilt = await buildAndSaveTasteProfile(userId);
@@ -58,14 +54,14 @@ export async function GET(req: NextRequest) {
       } catch (rebuildError) {
         console.error("[TasteProfile] Rebuild failed:", rebuildError);
         if (!profile) {
-          // 初回作成失敗時は空のプロファイルを返す
           return NextResponse.json({
             profile: {
               favoriteIngredients: [],
               dislikedIngredients: [],
-              favoriteCookingStyles: [],
-              dislikedCookingStyles: [],
-              favoriteProcessedProducts: [],
+              favoriteMethods: [],
+              dislikedMethods: [],
+              favoriteDishes: [],
+              dislikedDishes: [],
             },
             source: "default",
             version: 0,
@@ -75,18 +71,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 既存プロファイルを返す
     return NextResponse.json({
       profile: {
-        favoriteIngredients: profile.favoriteIngredients,
-        dislikedIngredients: profile.dislikedIngredients,
-        favoriteCookingStyles: profile.favoriteCookingStyles,
-        dislikedCookingStyles: profile.dislikedCookingStyles,
-        favoriteProcessedProducts: profile.favoriteProcessedProducts,
+        favoriteIngredients: profile!.favoriteIngredients,
+        dislikedIngredients: profile!.dislikedIngredients,
+        favoriteMethods:     profile!.favoriteMethods,
+        dislikedMethods:     profile!.dislikedMethods,
+        favoriteDishes:      profile!.favoriteDishes,
+        dislikedDishes:      profile!.dislikedDishes,
       },
       source: "stored",
-      version: profile.version,
-      updatedAt: profile.updatedAt.toISOString(),
+      version: profile!.version,
+      updatedAt: profile!.updatedAt.toISOString(),
     });
   } catch (error) {
     console.error("[TasteProfile] GET Error:", error);
@@ -98,7 +94,7 @@ export async function GET(req: NextRequest) {
 }
 
 // ============================================================================
-// PUT /api/taste/profile - プロファイル更新（手動編集）
+// PUT /api/taste/profile
 // ============================================================================
 
 export async function PUT(req: NextRequest) {
@@ -121,31 +117,19 @@ export async function PUT(req: NextRequest) {
 
     const data = parsed.data;
 
-    // 既存プロファイル取得または作成
-    const existing = await prisma.userTasteProfile.findUnique({
-      where: { userId },
-    });
+    const existing = await prisma.userTasteProfile.findUnique({ where: { userId } });
 
     let profile;
     if (existing) {
       profile = await prisma.userTasteProfile.update({
         where: { userId },
         data: {
-          ...(data.favoriteIngredients !== undefined && {
-            favoriteIngredients: data.favoriteIngredients,
-          }),
-          ...(data.dislikedIngredients !== undefined && {
-            dislikedIngredients: data.dislikedIngredients,
-          }),
-          ...(data.favoriteCookingStyles !== undefined && {
-            favoriteCookingStyles: data.favoriteCookingStyles,
-          }),
-          ...(data.dislikedCookingStyles !== undefined && {
-            dislikedCookingStyles: data.dislikedCookingStyles,
-          }),
-          ...(data.favoriteProcessedProducts !== undefined && {
-            favoriteProcessedProducts: data.favoriteProcessedProducts,
-          }),
+          ...(data.favoriteIngredients !== undefined && { favoriteIngredients: data.favoriteIngredients }),
+          ...(data.dislikedIngredients !== undefined && { dislikedIngredients: data.dislikedIngredients }),
+          ...(data.favoriteMethods     !== undefined && { favoriteMethods:     data.favoriteMethods }),
+          ...(data.dislikedMethods     !== undefined && { dislikedMethods:     data.dislikedMethods }),
+          ...(data.favoriteDishes      !== undefined && { favoriteDishes:      data.favoriteDishes }),
+          ...(data.dislikedDishes      !== undefined && { dislikedDishes:      data.dislikedDishes }),
           version: { increment: 1 },
         },
       });
@@ -155,9 +139,10 @@ export async function PUT(req: NextRequest) {
           userId,
           favoriteIngredients: data.favoriteIngredients ?? [],
           dislikedIngredients: data.dislikedIngredients ?? [],
-          favoriteCookingStyles: data.favoriteCookingStyles ?? [],
-          dislikedCookingStyles: data.dislikedCookingStyles ?? [],
-          favoriteProcessedProducts: data.favoriteProcessedProducts ?? [],
+          favoriteMethods:     data.favoriteMethods     ?? [],
+          dislikedMethods:     data.dislikedMethods     ?? [],
+          favoriteDishes:      data.favoriteDishes      ?? [],
+          dislikedDishes:      data.dislikedDishes      ?? [],
         },
       });
     }
@@ -167,9 +152,10 @@ export async function PUT(req: NextRequest) {
       profile: {
         favoriteIngredients: profile.favoriteIngredients,
         dislikedIngredients: profile.dislikedIngredients,
-        favoriteCookingStyles: profile.favoriteCookingStyles,
-        dislikedCookingStyles: profile.dislikedCookingStyles,
-        favoriteProcessedProducts: profile.favoriteProcessedProducts,
+        favoriteMethods:     profile.favoriteMethods,
+        dislikedMethods:     profile.dislikedMethods,
+        favoriteDishes:      profile.favoriteDishes,
+        dislikedDishes:      profile.dislikedDishes,
       },
       version: profile.version,
       updatedAt: profile.updatedAt.toISOString(),
@@ -184,7 +170,7 @@ export async function PUT(req: NextRequest) {
 }
 
 // ============================================================================
-// POST /api/taste/profile/rebuild - プロファイル再構築
+// POST /api/taste/profile - 再構築
 // ============================================================================
 
 export async function POST(req: NextRequest) {
@@ -197,14 +183,12 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
     const body = await req.json().catch(() => ({}));
 
-    // オプション取得
     const options = {
       daysBack: body.daysBack ?? 90,
-      topN: body.topN ?? 20,
-      bottomN: body.bottomN ?? 10,
+      topN:     body.topN    ?? 20,
+      bottomN:  body.bottomN ?? 10,
     };
 
-    // 再構築実行
     const profile = await buildAndSaveTasteProfile(userId, options);
 
     return NextResponse.json({

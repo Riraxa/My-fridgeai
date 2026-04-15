@@ -40,7 +40,7 @@ const features = [
     iconBg: "bg-[var(--semantic-indigo-bg)] text-[var(--semantic-indigo)]",
     details: [
       "冷蔵庫の食材を自動認識",
-      "献立を3案提案",
+      "複数案を提案（バランス案＋特化案）",
       "栄養バランスを考慮",
       "好みの味付けに対応"
     ],

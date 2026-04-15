@@ -98,7 +98,6 @@ export async function GET(req: Request) {
                         },
                         update: {
                             lastAlertedAt: new Date(),
-                            isActive: true,
                         },
                     });
                 }

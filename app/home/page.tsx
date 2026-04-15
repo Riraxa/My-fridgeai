@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import NotificationModal from "@/app/components/NotificationModal";
-import { Plus, Search, Bell } from "lucide-react";
+import { Plus, Search, Bell, ChefHat, Leaf, Zap } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useFridge } from "@/app/components/FridgeProvider";
@@ -20,8 +20,10 @@ import PageTransition, {
 import { AnimatePresence } from "framer-motion";
 import { Ingredient } from "@/types";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
-import { Scan, Menu } from "lucide-react";
+
 import AddActionMenu from "@/app/components/AddActionMenu";
+import TodayRecommendation from "./components/TodayRecommendation";
+import FloatingAssistant from "@/app/components/FloatingAssistant";
 
 export default function HomePage() {
   const router = useRouter();
@@ -293,6 +295,9 @@ export default function HomePage() {
       </HeaderTransition>
 
       <ContentTransition className="p-4 space-y-6">
+        {/* Today's Recommendation */}
+        <TodayRecommendation />
+
         {/* Action Buttons and Summary */}
         <section className="flex justify-between items-start gap-4">
           {/* Summary Cards */}
@@ -363,6 +368,41 @@ export default function HomePage() {
                   }}
                 />
               )}
+            </button>
+          </div>
+        </section>
+
+        {/* --- Quick Actions --- */}
+        <section>
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              onClick={() => router.push("/menu/generate")}
+              className="flex flex-col items-center justify-center p-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] hover:bg-[var(--surface-lighter)] transition-colors gap-2 shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                <ChefHat size={20} />
+              </div>
+              <span className="text-xs font-bold text-[var(--color-text-primary)]">じっくり献立</span>
+            </button>
+
+            <button
+              onClick={() => router.push("/mode/use-up")}
+              className="flex flex-col items-center justify-center p-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] hover:bg-[var(--surface-lighter)] transition-colors gap-2 shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                <Leaf size={20} />
+              </div>
+              <span className="text-xs font-bold text-[var(--color-text-primary)]">使い切り優先</span>
+            </button>
+
+            <button
+              onClick={() => router.push("/mode/quick")}
+              className="flex flex-col items-center justify-center p-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] hover:bg-[var(--surface-lighter)] transition-colors gap-2 shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                <Zap size={20} />
+              </div>
+              <span className="text-xs font-bold text-[var(--color-text-primary)]">すぐ作る</span>
             </button>
           </div>
         </section>
@@ -512,6 +552,8 @@ export default function HomePage() {
         onReceiptScan={() => setReceiptScanOpen(true)}
         hidden={isAddOpen || receiptScanOpen}
       />
+
+      <FloatingAssistant />
 
       <Toast msg={toast} onClose={() => setToast(null)} />
     </PageTransition>

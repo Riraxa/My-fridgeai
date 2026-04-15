@@ -5,7 +5,7 @@
 // Strict モードでは、生成された献立が在庫 + 暗黙食材のみで構成されていることを検証する。
 
 import { isImplicitIngredient } from "@/lib/constants/implicit-ingredients";
-import type { GeneratedMenu } from "@/lib/agents/schemas/menu";
+import type { GeneratedMenu } from "@/types";
 import type { Ingredient } from "@prisma/client";
 
 export interface ConstraintViolation {
@@ -88,7 +88,7 @@ export function validateStrictConstraints(
  * @param customImplicitIngredients - カスタム暗黙食材（オプション）
  */
 export function validateAllMenusStrict(
-  menus: { main: GeneratedMenu; alternativeA: GeneratedMenu; alternativeB: GeneratedMenu },
+  menus: { main: GeneratedMenu; alternativeA: GeneratedMenu },
   userInventory: Ingredient[],
   customImplicitIngredients?: string[],
 ): {
@@ -96,19 +96,16 @@ export function validateAllMenusStrict(
   results: {
     main: ConstraintValidationResult;
     alternativeA: ConstraintValidationResult;
-    alternativeB: ConstraintValidationResult;
   };
 } {
   const mainResult = validateStrictConstraints(menus.main, userInventory, customImplicitIngredients);
   const altAResult = validateStrictConstraints(menus.alternativeA, userInventory, customImplicitIngredients);
-  const altBResult = validateStrictConstraints(menus.alternativeB, userInventory, customImplicitIngredients);
 
   return {
-    allValid: mainResult.isValid && altAResult.isValid && altBResult.isValid,
+    allValid: mainResult.isValid && altAResult.isValid,
     results: {
       main: mainResult,
       alternativeA: altAResult,
-      alternativeB: altBResult,
     },
   };
 }

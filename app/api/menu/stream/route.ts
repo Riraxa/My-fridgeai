@@ -11,6 +11,9 @@ import { sendPushToMultiple } from "@/lib/push";
 import { validateAllMenusStrict } from "@/lib/ai/constraint-validator";
 import { DEFAULT_IMPLICIT_INGREDIENTS } from "@/lib/constants/implicit-ingredients";
 import { Ingredient } from "@prisma/client";
+import { checkIdempotency, recordIdempotency } from "@/lib/idempotency";
+import { redis, isRedisEnabled } from "@/lib/redis";
+import { MenuStreamSchema } from "@/lib/validations/api-schemas";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -27,7 +30,44 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    let { servings, budget, mode } = body;
+    const validation = MenuStreamSchema.safeParse(body);
+    
+    if (!validation.success) {
+      return NextResponse.json({ 
+        error: "Invalid request data", 
+        details: validation.error.format() 
+      }, { status: 400 });
+    }
+
+    let { servings, budget, mode, idempotencyKey } = validation.data;
+
+    // 0.5 Redis Distributed Generation Lock
+    if (isRedisEnabled()) {
+      const lockKey = `menu_gen_lock:${userId}`;
+      const locked = await redis!.set(lockKey, "locked", {
+        ex: 180, // 3 minutes timeout
+        nx: true,
+      });
+      if (!locked) {
+        return NextResponse.json(
+          { error: "別の献立生成が進行中です。しばらくお待ちください。" },
+          { status: 429 }
+        );
+      }
+    }
+
+    // 0. Idempotency Check
+    if (idempotencyKey) {
+      const cached = await checkIdempotency("MENU_STREAM", idempotencyKey, userId);
+      if (cached && (cached.meta as any)?.generationId) {
+        return NextResponse.json({
+          success: true,
+          generationId: (cached.meta as any).generationId,
+          status: "processing",
+          idempotent: true
+        });
+      }
+    }
 
     // 1. 回数制限チェック (Readonly)
     const limitCheck = await checkUserLimit(userId, "AI_MENU", { readonly: true });
@@ -51,10 +91,8 @@ export async function POST(req: Request) {
 
     const isPro = user?.plan === "PRO";
 
-    // 3. オプションのバリデーション
-    servings = servings || 1;
-    budget = isPro ? (budget ?? null) : null;
-    const constraintMode: ConstraintMode = mode ?? "flexible";
+    // 3. オプションのバリデーション (Zod で実施済みのため基本不要だが念のため)
+    const constraintMode: ConstraintMode = mode;
     
     // 3.8. 既存の生成リクエストがあればキャンセル（多重実行防止・ゴースト対策）
     try {
@@ -80,7 +118,6 @@ export async function POST(req: Request) {
         progressStep: "preparing",
         mainMenu: {} as any,
         alternativeA: {} as any,
-        alternativeB: {} as any,
         nutritionInfo: {} as any,
         usedIngredients: {} as any,
         shoppingList: {} as any,
@@ -93,16 +130,28 @@ export async function POST(req: Request) {
 
     // 5. バックグラウンドでAI生成を実行（タブを閉じても継続）
     after(async () => {
-      await processMenuGeneration(
-        generation.id,
-        userId,
-        dbIngredients,
-        { servings, budget, mode: constraintMode },
-        "streaming",
-        isPro,
-        preferences
-      );
+      try {
+        await processMenuGeneration(
+          generation.id,
+          userId,
+          dbIngredients,
+          { servings, budget: budget ?? null, mode: constraintMode },
+          "streaming",
+          isPro,
+          preferences
+        );
+      } finally {
+        // Release Redis lock in both success and failure cases
+        if (isRedisEnabled()) {
+          await redis!.del(`menu_gen_lock:${userId}`);
+        }
+      }
     });
+
+    // 5.5 Record Idempotency
+    if (idempotencyKey) {
+      await recordIdempotency("MENU_STREAM", idempotencyKey, userId, { generationId: generation.id });
+    }
 
     // 6. 即座にgenerationIdを返却
     return NextResponse.json({
@@ -183,7 +232,6 @@ async function processMenuGeneration(
       const validationInput = {
         main: menus.mainPlan as any,
         alternativeA: menus.alternativePlan as any,
-        alternativeB: menus.alternativePlan as any,
       };
       
       const constraintResult = validateAllMenusStrict(validationInput, ingredients as any, allImplicit);
@@ -226,7 +274,6 @@ async function processMenuGeneration(
     let nutritionInfo: any = {
       main: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
       altA: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
-      altB: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
     };
 
     if (isPro) {
@@ -235,7 +282,6 @@ async function processMenuGeneration(
         nutritionInfo = {
           main: evaluateNutrition((menus.mainPlan.dishes || []) as any),
           altA: evaluateNutrition((menus.alternativePlan?.dishes || []) as any),
-          altB: evaluateNutrition((menus.alternativePlan?.dishes || []) as any),
         };
       } catch (e) {
         console.warn("[MenuStream] Nutrition evaluation failed:", e);
@@ -251,7 +297,6 @@ async function processMenuGeneration(
         progressStep: "completed",
         mainMenu: menus.mainPlan as any,
         alternativeA: menus.alternativePlan as any,
-        alternativeB: menus.alternativePlan as any, 
         nutritionInfo: {
           ...nutritionInfo,
           summary: menus.comparison?.summary
@@ -259,12 +304,10 @@ async function processMenuGeneration(
         usedIngredients: {
           main: mainDetails,
           altA: altADetails,
-          altB: altADetails,
         } as any,
         shoppingList: {
           main: mainDetails.missing.concat(mainDetails.insufficient),
           altA: altADetails.missing.concat(altADetails.insufficient),
-          altB: altADetails.missing.concat(altADetails.insufficient),
         } as any,
         generatedAt: new Date(),
       },
@@ -294,8 +337,32 @@ async function processMenuGeneration(
 
     console.log(`<<<< [MenuStream] ALL COMPLETED in ${Date.now() - startTime}ms`);
 
+    // 8. 観測：メトリクスを記録 (Telemetry)
+    const { recordServerEvent } = await import("@/lib/telemetry-server");
+    await recordServerEvent(userId, "SYSTEM", "AI_MENU_METRICS", {
+      generationId,
+      latency_ms: Date.now() - startTime,
+      ingredients_count: dbIngredients.length,
+      servings: options.servings,
+      budget: options.budget,
+      mode: options.mode,
+      status: "completed",
+    });
+
   } catch (error: any) {
     console.error(`!!!! [MenuStream] FATAL ERROR:`, error);
+    
+    // エラーメトリクスの記録
+    try {
+      const { recordServerEvent } = await import("@/lib/telemetry-server");
+      await recordServerEvent(userId, "SYSTEM", "AI_MENU_METRICS", {
+        generationId,
+        latency_ms: Date.now() - startTime,
+        status: "failed",
+        error: error.message,
+      });
+    } catch (metricErr) {}
+
     try {
       await prisma.menuGeneration.update({
         where: { id: generationId },
