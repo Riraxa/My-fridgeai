@@ -189,17 +189,17 @@ function MenuGeneratePage() {
                 <MenuResultCard
                   type="main"
                   menu={{
-                    name: generated.menus.main?.title ?? "献立",
-                    description: generated.menus.main?.reason ?? "",
-                    cookingTime: calculateCookingTime(generated.menus.main?.dishes ?? []),
-                    difficulty: calculateDifficulty(generated.menus.main?.dishes ?? []),
-                    dishes: generated.menus.main?.dishes ?? [],
-                    role: generated.menus.main?.role ?? "balanced",
+                    name: generated.menus?.main?.title ?? "献立",
+                    description: generated.menus?.main?.reason ?? "",
+                    cookingTime: calculateCookingTime(generated.menus?.main?.dishes ?? []),
+                    difficulty: calculateDifficulty(generated.menus?.main?.dishes ?? []),
+                    dishes: generated.menus?.main?.dishes ?? [],
+                    role: generated.menus?.main?.role ?? "balanced",
                   }}
                   scores={generated.nutrition?.scores?.main || {}}
                   availability={generated.usedIngredients?.main}
                   generationId={generated.id}
-                  onSelect={() => handleSelectMenu("main", generated.menus.main)}
+                  onSelect={() => handleSelectMenu("main", generated.menus?.main)}
                   isBest={true}
                   isPro={isPro === true}
                   onAddToShoppingList={(items) => handleAddToShoppingList(items, setShopping)}
@@ -207,17 +207,17 @@ function MenuGeneratePage() {
                 <MenuResultCard
                   type="alternative"
                   menu={{
-                    name: generated.menus.alternativeA?.title ?? "代替案",
-                    description: generated.menus.alternativeA?.reason ?? "",
-                    cookingTime: calculateCookingTime(generated.menus.alternativeA?.dishes ?? []),
-                    difficulty: calculateDifficulty(generated.menus.alternativeA?.dishes ?? []),
-                    dishes: generated.menus.alternativeA?.dishes ?? [],
-                    role: generated.menus.alternativeA?.role ?? "timeOptimized",
+                    name: generated.menus?.alternativeA?.title ?? "代替案",
+                    description: generated.menus?.alternativeA?.reason ?? "",
+                    cookingTime: calculateCookingTime(generated.menus?.alternativeA?.dishes ?? []),
+                    difficulty: calculateDifficulty(generated.menus?.alternativeA?.dishes ?? []),
+                    dishes: generated.menus?.alternativeA?.dishes ?? [],
+                    role: generated.menus?.alternativeA?.role ?? "timeOptimized",
                   }}
                   scores={generated.nutrition?.scores?.altA || {}}
                   availability={generated.usedIngredients?.altA}
                   generationId={generated.id}
-                  onSelect={() => handleSelectMenu("altA", generated.menus.alternativeA)}
+                  onSelect={() => handleSelectMenu("altA", generated.menus?.alternativeA)}
                   isPro={isPro === true}
                   onAddToShoppingList={(items) => handleAddToShoppingList(items, setShopping)}
                 />
@@ -225,8 +225,8 @@ function MenuGeneratePage() {
 
               <MenuComparisonBar
                 comparison={generated.nutrition?.comparison}
-                mainRole={generated.menus.main?.role}
-                alternativeRole={generated.menus.alternativeA?.role}
+                mainRole={generated.menus?.main?.role}
+                alternativeRole={generated.menus?.alternativeA?.role}
                 isPro={isPro === true}
               />
 
