@@ -299,7 +299,15 @@ async function processMenuGeneration(
         alternativeA: menus.alternativePlan as any,
         nutritionInfo: {
           ...nutritionInfo,
-          summary: menus.comparison?.summary
+          scores: {
+            main: menus.mainPlan?.scores,
+            altA: menus.alternativePlan?.scores,
+          },
+          summary: menus.comparison?.summary,
+          comparison: menus.comparison ? {
+            mainPlan: menus.comparison.mainPlan,
+            alternativePlan: menus.comparison.alternativePlan,
+          } : undefined,
         } as any,
         usedIngredients: {
           main: mainDetails,

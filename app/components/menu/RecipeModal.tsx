@@ -13,7 +13,7 @@ interface RecipeDetail {
   description?: string;
   ingredients: Array<{
     name: string;
-    total_quantity: string;
+    amount: number;
     unit: string;
     optional?: boolean;
   }>;
@@ -216,13 +216,14 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                               {ing.name}{ing.optional && <span className="text-xs text-[var(--color-text-muted)] ml-1">(お好みで)</span>}
                             </span>
                             <span className="text-[var(--color-text-secondary)]">
-                              {ing.total_quantity}{ing.unit}
+                              {ing.amount}{ing.unit}
                             </span>
                           </li>
                         ))}
                       </ul>
                     </div>
 
+                    {Array.isArray(currentRecipe.steps) && currentRecipe.steps.length > 0 && (
                     <div>
                       <h4 className="font-bold text-[var(--color-text-primary)] mb-3">作り方</h4>
                       <ol className="space-y-4">
@@ -236,8 +237,9 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                         ))}
                       </ol>
                     </div>
+                    )}
 
-                    {currentRecipe.tips && currentRecipe.tips.length > 0 && (
+                    {Array.isArray(currentRecipe.tips) && currentRecipe.tips.length > 0 && (
                       <div className="bg-[color-mix(in_srgb,#f59e0b_10%,transparent)] border border-[color-mix(in_srgb,#f59e0b_20%,transparent)] rounded-xl p-4">
                         <h4 className="font-bold text-amber-700 dark:text-amber-300 mb-2 flex items-center gap-1">
                           <Lightbulb size={16} />コツ・ポイント

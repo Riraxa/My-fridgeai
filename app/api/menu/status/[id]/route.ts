@@ -78,8 +78,21 @@ export async function GET(
 
       // Mask costEfficiency for non-Pro users
       if (nutritionData?.scores && !isPro) {
-        nutritionData.scores.main.costEfficiency = undefined;
-        nutritionData.scores.altA.costEfficiency = undefined;
+        if (nutritionData.scores.main) {
+          nutritionData.scores.main.costEfficiency = undefined;
+        }
+        if (nutritionData.scores.altA) {
+          nutritionData.scores.altA.costEfficiency = undefined;
+        }
+      }
+      // Also mask costEfficiency in comparison data for non-Pro users
+      if (nutritionData?.comparison && !isPro) {
+        if (nutritionData.comparison.mainPlan) {
+          nutritionData.comparison.mainPlan.costEfficiency = undefined;
+        }
+        if (nutritionData.comparison.alternativePlan) {
+          nutritionData.comparison.alternativePlan.costEfficiency = undefined;
+        }
       }
 
       responseData = {
@@ -120,7 +133,19 @@ export async function GET(
 }
 
 // Helper to reconstruct availability object
-function reconstructAvailability(used: any[], shopping: any[]) {
+function reconstructAvailability(used: any, shopping: any[]) {
+  // データが既に { available, insufficient, missing } 構造の場合はそのまま返す
+  if (used && typeof used === "object" && !Array.isArray(used)) {
+    if (used.available !== undefined || used.insufficient !== undefined || used.missing !== undefined) {
+      return {
+        available: Array.isArray(used.available) ? used.available : [],
+        insufficient: Array.isArray(used.insufficient) ? used.insufficient : [],
+        missing: Array.isArray(used.missing) ? used.missing : [],
+      };
+    }
+  }
+
+  // 後方互換性: 古い配列形式の場合
   const available = Array.isArray(used) ? used : [];
   const shoppingList = Array.isArray(shopping) ? shopping : [];
 

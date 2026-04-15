@@ -3,7 +3,7 @@
   "version": "0.9.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbo",
+    "dev": "next dev --webpack",
     "prebuild": "node -e \"const fs=require('fs'); fs.copyFileSync('app/sw-push.js', 'public/sw.js'); console.log('✅ Service Worker copied');\"",
     "build": "npm run prebuild && next build",
     "start": "next start",
@@ -72,6 +72,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@types/aria-query": "^5.0.4",
     "@types/babel__core": "^7.20.5",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.19.15",
@@ -109,7 +110,7 @@
     "@chevrotain/cst-dts-gen": "^11.1.1",
     "@chevrotain/gast": "^11.1.1",
     "@mrleebo/prisma-ast": "^0.13.1",
-    "@hono/node-server": "^1.14.1",
+    "@hono/node-server": "^1.19.13",
     "nodemailer": "^8.0.4",
     "effect": "^3.20.0"
   }

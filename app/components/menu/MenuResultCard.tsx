@@ -31,7 +31,7 @@ interface MenuDish {
   name: string;
   type: string;
   description: string;
-  ingredients: { name: string; amount: string }[];
+  ingredients: { name: string; amount: number; unit: string }[];
 }
 
 interface MenuPattern {
@@ -109,8 +109,8 @@ export default function MenuResultCard({
 }: MenuResultCardProps) {
   const [feedbackState, setFeedbackState] = useState<string | null>(null);
 
-  const missingCount = availability.missing.length + availability.insufficient.length;
-  const totalCount = availability.available.length + missingCount;
+  const missingCount = (availability?.missing?.length || 0) + (availability?.insufficient?.length || 0);
+  const totalCount = (availability?.available?.length || 0) + missingCount;
   const role = menu.role || "balanced";
   const config = roleConfig[role];
   const RoleIcon = config.icon;
@@ -147,7 +147,7 @@ export default function MenuResultCard({
   };
 
   const getMissingItems = () => {
-    return [...availability.missing, ...availability.insufficient].map((i) => ({
+    return [...(availability?.missing || []), ...(availability?.insufficient || [])].map((i) => ({
       name: i.name,
       quantity: i.shortage?.amount || i.required.amount,
       unit: i.shortage?.unit || i.required.unit,
@@ -239,26 +239,26 @@ export default function MenuResultCard({
           <span className={`text-xs font-medium ${missingCount === 0 ? "text-emerald-600" : "text-amber-600"}`}>
             {missingCount === 0
               ? `✅ ${totalCount}品揃っています`
-              : `⚠️ ${availability.available.length}/${totalCount}品揃っています`}
+              : `⚠️ ${availability?.available?.length || 0}/${totalCount}品揃っています`}
           </span>
         </div>
 
         {/* 全食材リスト */}
         <div className="space-y-1 max-h-48 overflow-y-auto">
           {/* 利用可能な食材 */}
-          {availability.available.map((item, idx) => (
+          {availability?.available?.map((item, idx) => (
             <p key={`avail-${idx}`} className="text-xs text-emerald-600">
               {formatIngredientDetail(item)}
             </p>
           ))}
           {/* 不足している食材 */}
-          {availability.insufficient.map((item, idx) => (
+          {availability?.insufficient?.map((item, idx) => (
             <p key={`ins-${idx}`} className="text-xs text-amber-600">
               {formatIngredientDetail(item)}
             </p>
           ))}
           {/* 欠品している食材 */}
-          {availability.missing.map((item, idx) => (
+          {availability?.missing?.map((item, idx) => (
             <p key={`miss-${idx}`} className="text-xs text-rose-600">
               {formatIngredientDetail(item)}
             </p>
@@ -294,17 +294,30 @@ export default function MenuResultCard({
         )}
       </div>
 
-      {/* 料理一覧 */}
-      <div className="space-y-2 mb-4">
+      {/* 料理一覧と材料 */}
+      <div className="space-y-4 mb-4">
         {menu.dishes.map((dish, idx) => (
           <div
             key={idx}
-            className="flex items-center justify-between py-2 border-b border-[var(--surface-border)] last:border-0"
+            className="border-b border-[var(--surface-border)] last:border-0 pb-3 last:pb-0"
           >
-            <div>
+            <div className="mb-2">
               <span className="text-xs text-[var(--color-text-secondary)]">{dish.type}</span>
               <p className="text-sm font-medium text-[var(--color-text-primary)]">{dish.name}</p>
             </div>
+            {/* 料理ごとの材料リスト */}
+            {dish.ingredients && dish.ingredients.length > 0 && (
+              <div className="pl-2 space-y-1">
+                {dish.ingredients.map((ing, ingIdx) => (
+                  <div key={ingIdx} className="flex justify-between text-xs">
+                    <span className="text-[var(--color-text-secondary)]">{ing.name}</span>
+                    <span className="text-[var(--color-text-secondary)]">
+                      {ing.amount}{ing.unit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

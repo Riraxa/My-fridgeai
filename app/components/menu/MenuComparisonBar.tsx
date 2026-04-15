@@ -48,7 +48,9 @@ export default function MenuComparisonBar({
   alternativeRole,
   isPro,
 }: MenuComparisonBarProps) {
-  const { mainPlan, alternativePlan, summary } = comparison;
+  const mainPlan = comparison?.mainPlan || { inventoryUsage: 0, costEfficiency: 0, healthScore: 0, timeEfficiency: 0 };
+  const alternativePlan = comparison?.alternativePlan || { inventoryUsage: 0, costEfficiency: 0, healthScore: 0, timeEfficiency: 0 };
+  const summary = comparison?.summary;
 
   // どちらが優れているかを判定
   const getWinner = (main: number, alt: number): "main" | "alternative" | "tie" => {

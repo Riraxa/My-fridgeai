@@ -169,7 +169,8 @@ export const useMenuGeneration = () => {
         if (type === "status") {
           setIsStreaming(data.status === "processing");
           if (data.status === "completed") {
-            setGenerated(data);
+            // APIレスポンスの data フィールドに実際の献立データが入っている
+            setGenerated(data.data || data);
             setLoading(false);
             setIsStreaming(false);
             setCurrentGenerationId(null);
