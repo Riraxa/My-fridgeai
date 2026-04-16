@@ -1022,7 +1022,7 @@ export default function EnhancedPreferencesPage() {
               >
                 {!isPro && (
                   <div className="absolute inset-0 bg-[var(--background)]/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-8 text-center">
-                    <div className="bg-amber-500 text-white p-4 rounded-3xl mb-4 shadow-xl shadow-amber-100">
+                    <div className="bg-[var(--semantic-green)] text-white p-4 rounded-3xl mb-4 shadow-xl shadow-green-100">
                       <Utensils size={32} />
                     </div>
                     <h3
@@ -1036,7 +1036,7 @@ export default function EnhancedPreferencesPage() {
                     </p>
                     <button
                       onClick={() => router.push("/settings/account")}
-                      className="bg-amber-500 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-amber-100 hover:scale-105 active:scale-95 transition"
+                      className="bg-[var(--semantic-green)] text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-green-100 hover:scale-105 active:scale-95 transition"
                     >
                       Proにアップグレード
                     </button>

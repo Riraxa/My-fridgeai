@@ -116,14 +116,20 @@ function MenuGeneratePage() {
             <div className="text-center mb-8 p-6 bg-[var(--surface-bg)] rounded-2xl border border-[var(--surface-border)]">
                <ChefHat size={48} className="mx-auto mb-3 text-[var(--accent)]" />
                <h2 className="text-xl font-bold text-[var(--color-text-primary)]">冷蔵庫の食材から献立を考えます</h2>
-               <div className="text-sm text-[var(--color-text-secondary)] mt-2 flex justify-center items-center gap-1 min-h-[1.25rem]">
+               <div className="text-sm text-[var(--color-text-secondary)] mt-2 flex flex-wrap justify-center items-baseline gap-x-1 min-h-[1.25rem]">
                  {ingredientsLoading ? (
                    <Skeleton className="h-4 w-64" />
                  ) : (
                    <>
-                     現在、在庫が <span className="font-bold text-[var(--color-text-primary)]">{inventoryCount ?? "-"}</span> 品あります。
+                     <span>現在、在庫が</span>
+                     <span className="font-bold text-[var(--color-text-primary)] whitespace-nowrap">{inventoryCount ?? "-"} 品</span>
+                     <span>あります。</span>
                      {expiringCount ? (
-                       <> そのうち <span className="font-bold text-amber-500">{expiringCount}</span> 品の賞味期限が迫っています。</>
+                       <>
+                         <span>そのうち</span>
+                         <span className="font-bold text-amber-500 whitespace-nowrap">{expiringCount} 品</span>
+                         <span>の賞味期限が迫っています。</span>
+                       </>
                      ) : null}
                    </>
                  )}

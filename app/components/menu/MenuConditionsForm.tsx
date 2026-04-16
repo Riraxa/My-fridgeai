@@ -1,9 +1,10 @@
 // app/components/menu/MenuConditionsForm.tsx
 "use client";
 
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
-  Users, Zap, Brain, HelpCircle
+  Users, Zap, Brain, HelpCircle, CircleDollarSign, Settings
 } from "lucide-react";
 import { Toggle } from "@/app/components/ui/toggle";
 
@@ -74,62 +75,13 @@ export const MenuConditionsForm: React.FC<MenuConditionsFormProps> = ({
         </div>
 
         {/* 予算設定 - Pro機能 */}
-        <div className={`rounded-lg p-3 ${isPro ? 'bg-[var(--surface-bg)]' : 'bg-[var(--surface-bg)] opacity-60'} border border-[var(--surface-border)]`}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center">
-                <span className="text-orange-600 text-xs font-bold">¥</span>
-              </div>
-              <span className="text-sm font-medium text-[var(--color-text-primary)]">
-                1食あたりの予算
-              </span>
-              {isPro && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500 text-white font-medium">
-                  Pro
-                </span>
-              )}
-            </div>
-            {/* トグルスイッチ */}
-            <Toggle
-              checked={enableBudget}
-              onChange={() => {
-                if (!isPro) return;
-                const newValue = !enableBudget;
-                setEnableBudget(newValue);
-                if (newValue) setBudget("500");
-                else setBudget("");
-              }}
-              disabled={!isPro}
-            />
-          </div>
-          
-          {enableBudget && isPro && (
-            <div className="flex items-center gap-2 mt-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))}
-                placeholder="500"
-                className="flex-1 px-3 py-2 bg-[var(--background)] border border-[var(--surface-border)] rounded-md outline-none focus:border-orange-500 text-[var(--color-text-primary)] text-base"
-              />
-              <span className="text-sm text-[var(--color-text-secondary)]">円/人</span>
-            </div>
-          )}
-          
-          {enableBudget && isPro && (
-            <p className="text-xs text-[var(--color-text-muted)] mt-2">
-              ※あくまで目安として考慮されます
-            </p>
-          )}
-          
-          {!isPro && enableBudget && (
-            <p className="text-xs text-[var(--color-text-muted)] mt-2">
-              ※Proプランで詳細な予算設定が可能です
-            </p>
-          )}
-        </div>
+        <BudgetSection
+          isPro={isPro}
+          budget={budget}
+          setBudget={setBudget}
+          enableBudget={enableBudget}
+          setEnableBudget={setEnableBudget}
+        />
 
         {/* 生成ロジック */}
         <div className="flex items-center justify-between py-3 border-b border-[var(--surface-border)]">
@@ -137,12 +89,7 @@ export const MenuConditionsForm: React.FC<MenuConditionsFormProps> = ({
             <Brain size={16} />
             生成ロジック
           </div>
-          <div className="group relative">
-            <HelpCircle size={14} className="text-[var(--color-text-muted)] cursor-help" />
-            <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-gray-800 text-white text-[10px] rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition duration-200 z-50">
-              「冷蔵庫の食材のみ」は手持ちだけで完結させる厳しい制約です。「一部許可」は足りない食材をAIが2〜3品補って提案します。
-            </div>
-          </div>
+          <HelpTooltip />
         </div>
         
         <div className="flex gap-2 pl-6">
@@ -181,6 +128,177 @@ export const MenuConditionsForm: React.FC<MenuConditionsFormProps> = ({
         )}
         <span>{loading ? "AI思考中..." : "献立を提案してもらう"}</span>
       </button>
+    </div>
+  );
+};
+
+// BudgetSection: 予算設定コンポーネント（Pro機能）
+interface BudgetSectionProps {
+  isPro?: boolean;
+  budget: string;
+  setBudget: (val: string) => void;
+  enableBudget: boolean;
+  setEnableBudget: (val: boolean) => void;
+}
+
+const BudgetSection: React.FC<BudgetSectionProps> = ({
+  isPro = false,
+  budget,
+  setBudget,
+  enableBudget,
+  setEnableBudget,
+}) => {
+  const router = useRouter();
+
+  return (
+    <div className={`rounded-lg p-3 bg-[var(--surface-bg)] border border-[var(--surface-border)] relative overflow-hidden ${!isPro ? 'min-h-[200px]' : ''}`}>
+      {/* フリープラン向け：ぼかしオーバーレイ */}
+      {!isPro && (
+        <div className="absolute inset-0 bg-[var(--background)]/70 backdrop-blur-[3px] z-10 flex flex-col items-center justify-center p-4 text-center">
+          <div className="bg-[var(--semantic-blue)] text-white p-2.5 rounded-2xl mb-2 shadow-lg">
+            <CircleDollarSign size={24} />
+          </div>
+          <h3 className="text-sm font-bold mb-1 text-[var(--color-text-primary)]">
+            1食あたりの予算設定
+          </h3>
+          <p className="text-xs text-[var(--color-text-muted)] mb-3 px-2">
+            予算を設定すると、AIがコストを考慮した献立を提案します。
+          </p>
+          <div className="flex flex-col w-full px-2">
+            <button
+              onClick={() => router.push("/settings/account")}
+              className="bg-[var(--semantic-blue)] text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-blue-100 hover:scale-105 active:scale-95 transition"
+            >
+              Proにアップグレード
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div inert={!isPro || undefined} className={!isPro ? "pointer-events-none" : ""}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center">
+              <span className="text-orange-600 text-xs font-bold">¥</span>
+            </div>
+            <span className="text-sm font-medium text-[var(--color-text-primary)]">
+              1食あたりの予算
+            </span>
+            {isPro && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500 text-white font-medium">
+                Pro
+              </span>
+            )}
+          </div>
+          {/* トグルスイッチ */}
+          <Toggle
+            checked={enableBudget}
+            onChange={() => {
+              const newValue = !enableBudget;
+              setEnableBudget(newValue);
+              if (newValue) setBudget("500");
+              else setBudget("");
+            }}
+          />
+        </div>
+
+        {enableBudget && (
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="500"
+              className="flex-1 px-3 py-2 bg-[var(--background)] border border-[var(--surface-border)] rounded-md outline-none focus:border-orange-500 text-[var(--color-text-primary)] text-base"
+            />
+            <span className="text-sm text-[var(--color-text-secondary)]">円/人</span>
+          </div>
+        )}
+
+        {enableBudget && (
+          <p className="text-xs text-[var(--color-text-muted)] mt-2">
+            ※あくまで目安として考慮されます
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// HelpTooltip: タッチデバイス対応のヘルプコンポーネント
+const HelpTooltip: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 外側クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // トグル開閉
+  const handleToggle = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    setIsOpen((prev) => !prev);
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={handleToggle}
+        onTouchEnd={(e) => {
+          e.preventDefault();
+          handleToggle(e);
+        }}
+        className="flex items-center justify-center p-1 rounded-full hover:bg-[var(--surface-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] transition"
+        aria-label="生成ロジックの説明"
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+      >
+        <HelpCircle size={16} className="text-[var(--color-text-muted)]" />
+      </button>
+
+      {/* Popover: モバイル対応の位置・サイズ調整 */}
+      {isOpen && (
+        <div
+          role="dialog"
+          aria-label="生成ロジックの説明"
+          className="absolute bottom-full right-0 mb-2 w-72 sm:w-64 p-4 bg-gray-800 text-white text-xs rounded-xl shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
+          style={{ maxWidth: "calc(100vw - 2rem)" }}
+        >
+          <div className="flex justify-between items-start gap-2">
+            <p className="leading-relaxed">
+              「冷蔵庫の食材のみ」は手持ちだけで完結させる厳しい制約です。「一部許可」は足りない食材をAIが2〜3品補って提案します。
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="flex-shrink-0 text-gray-400 hover:text-white text-lg leading-none"
+              aria-label="閉じる"
+            >
+              ×
+            </button>
+          </div>
+          {/* 吹き出しの矢印 */}
+          <div className="absolute bottom-[-6px] right-3 w-3 h-3 bg-gray-800 rotate-45" />
+        </div>
+      )}
     </div>
   );
 };

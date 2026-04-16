@@ -26,24 +26,24 @@ export function RevisitFeedbackModal() {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl"
+          className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* ヘッダー */}
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-800">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
                 {currentMenu.daysAgo === 1 ? "昨日" : `${currentMenu.daysAgo}日前`}のごはん
               </h3>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 「{currentMenu.dishName}」どうでしたか？
               </p>
             </div>
             <button
               onClick={dismissFeedback}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
             >
-              <X size={20} className="text-slate-400" />
+              <X size={20} className="text-slate-400 dark:text-slate-500" />
             </button>
           </div>
 
@@ -59,10 +59,10 @@ export function RevisitFeedbackModal() {
 
             <button
               onClick={() => submitFeedback(currentMenu.menuGenerationId, "okay")}
-              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 active:scale-95 transition-all"
+              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all"
             >
-              <Minus size={24} className="text-slate-500" />
-              <span className="text-sm font-medium text-slate-600">まあまあ</span>
+              <Minus size={24} className="text-slate-500 dark:text-slate-400" />
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-300">まあまあ</span>
             </button>
 
             <button
@@ -76,7 +76,7 @@ export function RevisitFeedbackModal() {
 
           {/* 残り件数表示 */}
           {pendingMenus.length > 1 && (
-            <p className="text-xs text-center text-slate-400 mt-4">
+            <p className="text-xs text-center text-slate-400 dark:text-slate-500 mt-4">
               他に {pendingMenus.length - 1} 件の評価が待っています
             </p>
           )}
