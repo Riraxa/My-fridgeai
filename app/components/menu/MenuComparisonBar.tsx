@@ -59,14 +59,16 @@ export default function MenuComparisonBar({
     return "tie";
   };
 
-  // 総合スコアを計算
-  const getTotalScore = (scores: PlanScores): number => {
-    const values = [scores.inventoryUsage, scores.costEfficiency, scores.healthScore, scores.timeEfficiency || 0];
+  // 総合スコアを計算（FREEプランでは節約度を除外）
+  const getTotalScore = (scores: PlanScores, isProPlan: boolean): number => {
+    const values = isProPlan
+      ? [scores.inventoryUsage, scores.costEfficiency, scores.healthScore, scores.timeEfficiency || 0]
+      : [scores.inventoryUsage, scores.healthScore, scores.timeEfficiency || 0];
     return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
   };
 
-  const mainTotal = getTotalScore(mainPlan);
-  const altTotal = getTotalScore(alternativePlan);
+  const mainTotal = getTotalScore(mainPlan, isPro);
+  const altTotal = getTotalScore(alternativePlan, isPro);
   const overallWinner = getWinner(mainTotal, altTotal);
 
   return (

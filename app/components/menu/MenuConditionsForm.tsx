@@ -39,6 +39,35 @@ export const MenuConditionsForm: React.FC<MenuConditionsFormProps> = ({
 }) => {
   if (generated) return null;
 
+  // 生成中はコンパクトなサマリーを表示
+  if (loading) {
+    return (
+      <div className="card rounded-2xl p-4 shadow-sm border border-[var(--surface-border)] mb-6 bg-[var(--surface-bg)]/50">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-[var(--accent)]" />
+            <span className="text-[var(--color-text-secondary)]">人数：</span>
+            <span className="font-medium text-[var(--color-text-primary)]">{servings}人前</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Brain size={16} className="text-[var(--accent)]" />
+            <span className="text-[var(--color-text-secondary)]">モード：</span>
+            <span className="font-medium text-[var(--color-text-primary)]">
+              {strictMode ? "冷蔵庫内のみ" : "買い足し一部許可"}
+            </span>
+          </div>
+          {isPro && enableBudget && (
+            <div className="flex items-center gap-2">
+              <span className="text-orange-500 text-xs font-bold">¥</span>
+              <span className="text-[var(--color-text-secondary)]">予算：</span>
+              <span className="font-medium text-[var(--color-text-primary)]">{budget}円/人</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card rounded-2xl p-6 shadow-sm border border-[var(--surface-border)] mb-8">
       <div className="flex items-center gap-2 mb-6">

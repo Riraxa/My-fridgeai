@@ -39,6 +39,7 @@ export async function GET(
         nutritionInfo: true,
         usedIngredients: true,
         shoppingList: true,
+        thoughts: true,
       },
     });
 
@@ -121,6 +122,7 @@ export async function GET(
       success: true,
       status: generation.status,
       progressStep: generation.progressStep,
+      thoughts: generation.thoughts,
       data: responseData,
     });
   } catch (error: any) {

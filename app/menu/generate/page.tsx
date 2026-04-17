@@ -90,13 +90,15 @@ function MenuGeneratePage() {
             <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
               AI献立提案
             </h1>
-            <button
-              onClick={() => router.push("/history")}
-              className="text-xs flex items-center gap-1 bg-[var(--surface-bg)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--color-text-secondary)] px-3 py-1.5 rounded-full transition"
-            >
-              <History size={14} />
-              履歴
-            </button>
+            {!loading && (
+              <button
+                onClick={() => router.push("/history")}
+                className="text-xs flex items-center gap-1 bg-[var(--surface-bg)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--color-text-secondary)] px-3 py-1.5 rounded-full transition"
+              >
+                <History size={14} />
+                履歴
+              </button>
+            )}
           </div>
           <div className="flex items-center" style={{ minHeight: "36px", minWidth: "120px", justifyContent: "flex-end" }}>
             {isPro === true && (

@@ -132,12 +132,9 @@ export default function LoginClient() {
                 border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)",
               }}
             >
-              My-fridgeaiでは、最高水準のセキュリティと利便性を追求するため、
-              <strong className="text-primary">Google・Appleアカウント</strong>
-              による認証に一本化いたしました。
+              <strong className="text-primary">Googleアカウント</strong>でのみログインできます。
               <br className="hidden sm:block" />
-              メールアドレス・パスワード、パスキーによるログインはご利用いただけません。
-              何卒ご了承ください。
+              メール・パスワード、パスキーは廃止いたしました。ご了承ください。
             </div>
 
             <motion.button
