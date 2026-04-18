@@ -310,7 +310,7 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
       { facingMode: "environment" },
       {
         fps: 15,
-        qrbox: { width: 250, height: 150 },
+        qrbox: undefined, // 白い枠を非表示、カスタムUIのみ使用
       },
       handleScanSuccess,
       (errorMessage) => {
