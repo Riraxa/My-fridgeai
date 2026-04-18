@@ -43,9 +43,9 @@ export default function ShoppingListPage() {
       setShopping((prev) => {
         const next = [...(prev || [])];
         const idx = next.findIndex((item) => item.id === id);
-        if (idx === -1) return prev;
+        if (idx === -1 || !next[idx]) return prev;
 
-        next[idx] = { ...next[idx], done: !next[idx].done };
+        next[idx] = { ...next[idx], done: !next[idx].done } as ShoppingItem;
 
         const nowDone = !!next[idx].done;
         if (nowDone) {

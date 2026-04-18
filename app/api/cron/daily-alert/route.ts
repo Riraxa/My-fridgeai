@@ -28,7 +28,7 @@ export async function GET(req: Request) {
             },
         });
 
-        const updates: any[] = [];
+        const updates: Array<{ userId: string; ingredientId?: string; newAmount?: number; count?: number }> = [];
         const emailsSent: string[] = [];
         const pushSent: string[] = [];
         const pushFailed: string[] = [];
@@ -170,11 +170,12 @@ export async function GET(req: Request) {
                                         pushPayload
                                     );
                                     pushSent.push(sub.endpoint.slice(-20));
-                                } catch (pushErr: any) {
-                                    console.error(`Push failed for ${userId}:`, pushErr.message);
+                                } catch (pushErr: unknown) {
+                                    const msg = pushErr instanceof Error ? pushErr.message : String(pushErr);
+                                    console.error(`Push failed for ${userId}:`, msg);
                                     pushFailed.push(sub.endpoint.slice(-20));
                                     // 無効な購読を無効化
-                                    if (pushErr.message?.includes('Subscription expired') || pushErr.message?.includes('invalid')) {
+                                    if (msg?.includes('Subscription expired') || msg?.includes('invalid')) {
                                         await prisma.pushSubscription.update({
                                             where: { id: sub.id },
                                             data: { isActive: false },

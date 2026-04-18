@@ -9,6 +9,21 @@ import UploadView from "./receipt/UploadView";
 import ScanningView from "./receipt/ScanningView";
 import ResultsView from "./receipt/ResultsView";
 
+interface ReceiptItem {
+  confidenceScore: number;
+  normalizedName?: string | null;
+  productName?: string | null;
+  quantityValue?: number | null;
+  quantityUnit?: string | null;
+  processedCategory?: string;
+  estimatedExpirationDays?: number | null;
+  id: string;
+  lineText: string;
+  mappedIngredientId: string | null;
+  mappedIngredientName: string | null;
+  inferredLevel: string | null;
+}
+
 export default function ReceiptScanner({
   visible,
   onClose,
@@ -145,7 +160,7 @@ export default function ReceiptScanner({
         return;
       }
 
-      const editableItems: ParsedItem[] = data.items.map((item: any) => ({
+      const editableItems: ParsedItem[] = data.items.map((item: ReceiptItem) => ({
         ...item,
         action: item.confidenceScore < 0.6 ? ("skip" as const) : ("add" as const),
         editedName: item.normalizedName ?? item.productName ?? "読み取り不明",
@@ -159,9 +174,10 @@ export default function ReceiptScanner({
 
       setItems(editableItems);
       setTimeout(() => setStep("results"), 800);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Receipt upload error:", e);
-      setError(e?.message ?? "レシートの処理中にエラーが発生しました");
+      const errorMessage = e instanceof Error ? e.message : "レシートの処理中にエラーが発生しました";
+      setError(errorMessage);
       setStep("error");
     }
   }, []);
@@ -253,9 +269,10 @@ export default function ReceiptScanner({
 
       await fetchIngredients();
       setToast(`レシートから${data.applied ?? 0}件の食材を登録しました`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Receipt confirm error:", e);
-      setError(e?.message ?? "登録中にエラーが発生しました");
+      const errorMessage = e instanceof Error ? e.message : "登録中にエラーが発生しました";
+      setError(errorMessage);
       setStep("error");
     }
   };

@@ -13,7 +13,7 @@ export async function checkIdempotency(action: string, idempotencyKey: string | 
   // 1. Try Redis
   if (isRedisEnabled()) {
     try {
-      const cached = await redis?.get<any>(redisKey);
+      const cached = await redis?.get<Record<string, unknown>>(redisKey);
       if (cached) {
         console.log(`[Idempotency] Redis Hit: ${redisKey}`);
         // Wrap in the same structure expected by callers
@@ -30,7 +30,7 @@ export async function checkIdempotency(action: string, idempotencyKey: string | 
     where: {
       userId,
       action,
-      meta: { path: ["idempotencyKey"], equals: idempotencyKey } as any,
+      meta: { path: ["idempotencyKey"], equals: idempotencyKey },
       date: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Look back 24 hours max
     },
     select: { meta: true },
@@ -42,7 +42,7 @@ export async function checkIdempotency(action: string, idempotencyKey: string | 
 /**
  * Records an idempotent action so it can be cached for future duplicated requests.
  */
-export async function recordIdempotency(action: string, idempotencyKey: string | null, userId: string, resultData: any = {}) {
+export async function recordIdempotency(action: string, idempotencyKey: string | null, userId: string, resultData: Record<string, unknown> = {}) {
   if (!idempotencyKey) return;
   
   const redisKey = `idemp:${action}:${userId}:${idempotencyKey}`;
@@ -64,7 +64,7 @@ export async function recordIdempotency(action: string, idempotencyKey: string |
     data: {
       userId,
       action,
-      meta: meta as any,
+      meta: meta,
     },
   });
 }

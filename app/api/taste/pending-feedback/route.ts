@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     until.setDate(until.getDate() - 1); // 昨日まで
 
     // 指定期間内のMenuGenerationを取得
-    const pendingMenus = await (prisma as any).menuGeneration.findMany({
+    const pendingMenus = await prisma.menuGeneration.findMany({
       where: {
         userId,
         generatedAt: {
@@ -51,14 +51,14 @@ export async function GET(req: NextRequest) {
     });
 
     // 未評価のものだけをフィルタ
-    const unevaluatedMenus = pendingMenus.filter((menu: any) => (menu.tasteEvents?.length ?? 0) === 0);
+    const unevaluatedMenus = pendingMenus.filter((menu: { tasteEvents?: unknown[] }) => (menu.tasteEvents?.length ?? 0) === 0);
 
     // 選択された献立情報を整形
-    const menus = unevaluatedMenus.map((menu: any) => {
+    const menus = unevaluatedMenus.map((menu: { id: string; selectedMenu?: string | null; mainMenu: unknown; alternativeA: unknown; generatedAt: Date; tasteEvents?: unknown[] }) => {
       const selected = menu.selectedMenu ?? "main";
-      const selectedData = selected === "main" 
-        ? (menu.mainMenu as any)
-        : (menu.alternativeA as any);
+      const selectedData = selected === "main"
+        ? (menu.mainMenu as Record<string, unknown>)
+        : (menu.alternativeA as Record<string, unknown>);
 
       return {
         menuGenerationId: menu.id,

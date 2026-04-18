@@ -72,7 +72,7 @@ export async function GET(
     const isPro = await isProUser(userId);
 
     // Prepare response data
-    let responseData: any = null;
+    let responseData: Record<string, unknown> | null = null;
     if (generation.status === "completed") {
       // Clone nutritionInfo to avoid mutating original
       const nutritionData = JSON.parse(JSON.stringify(generation.nutritionInfo));
@@ -104,12 +104,12 @@ export async function GET(
         },
         availability: {
           main: reconstructAvailability(
-            (generation.usedIngredients as any)?.main,
-            (generation.shoppingList as any)?.main,
+            (generation.usedIngredients as Record<string, { available?: unknown[]; insufficient?: unknown[]; missing?: unknown[] }> | null)?.main,
+            ((generation.shoppingList as Record<string, unknown[]> | null)?.main) ?? [],
           ),
           altA: reconstructAvailability(
-            (generation.usedIngredients as any)?.altA,
-            (generation.shoppingList as any)?.altA,
+            (generation.usedIngredients as Record<string, { available?: unknown[]; insufficient?: unknown[]; missing?: unknown[] }> | null)?.altA,
+            ((generation.shoppingList as Record<string, unknown[]> | null)?.altA) ?? [],
           ),
         },
         usedIngredients: generation.usedIngredients,
@@ -125,7 +125,7 @@ export async function GET(
       thoughts: generation.thoughts,
       data: responseData,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Status Check Error:", error);
     return NextResponse.json(
       { error: "ステータス確認に失敗しました" },
@@ -134,8 +134,12 @@ export async function GET(
   }
 }
 
+interface ShoppingItem {
+  status?: string;
+}
+
 // Helper to reconstruct availability object
-function reconstructAvailability(used: any, shopping: any[]) {
+function reconstructAvailability(used: { available?: unknown[]; insufficient?: unknown[]; missing?: unknown[] } | unknown[] | undefined, shopping: unknown[]) {
   // データが既に { available, insufficient, missing } 構造の場合はそのまま返す
   if (used && typeof used === "object" && !Array.isArray(used)) {
     if (used.available !== undefined || used.insufficient !== undefined || used.missing !== undefined) {
@@ -152,9 +156,9 @@ function reconstructAvailability(used: any, shopping: any[]) {
   const shoppingList = Array.isArray(shopping) ? shopping : [];
 
   const insufficient = shoppingList.filter(
-    (i: any) => i.status === "insufficient",
+    (i) => (i as ShoppingItem).status === "insufficient",
   );
-  const missing = shoppingList.filter((i: any) => i.status === "missing");
+  const missing = shoppingList.filter((i) => (i as ShoppingItem).status === "missing");
 
   return {
     available,

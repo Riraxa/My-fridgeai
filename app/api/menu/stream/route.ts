@@ -59,10 +59,11 @@ export async function POST(req: Request) {
     // 0. Idempotency Check
     if (idempotencyKey) {
       const cached = await checkIdempotency("MENU_STREAM", idempotencyKey, userId);
-      if (cached && (cached.meta as any)?.generationId) {
+      const meta = cached?.meta as Record<string, unknown> | undefined;
+      if (cached && meta?.generationId) {
         return NextResponse.json({
           success: true,
-          generationId: (cached.meta as any).generationId,
+          generationId: String(meta.generationId),
           status: "processing",
           idempotent: true
         });
@@ -116,11 +117,11 @@ export async function POST(req: Request) {
         userId,
         status: "processing",
         progressStep: "preparing",
-        mainMenu: {} as any,
-        alternativeA: {} as any,
-        nutritionInfo: {} as any,
-        usedIngredients: {} as any,
-        shoppingList: {} as any,
+        mainMenu: {},
+        alternativeA: {},
+        nutritionInfo: {},
+        usedIngredients: {},
+        shoppingList: {},
         servings,
         budget: budget ?? undefined,
         requestHash: "streaming-" + Date.now(), // 簡易ハッシュ
@@ -159,24 +160,41 @@ export async function POST(req: Request) {
       generationId: generation.id,
       status: "processing",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[MenuStream] POST Error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
 }
 
 // バックグラウンドで献立生成を処理
+interface ProcessPreferences {
+  customImplicitIngredients?: string[];
+  [key: string]: unknown;
+}
+
+interface DishIngredient {
+  name: string;
+  amount: number;
+  unit: string;
+}
+
+interface DishPlan {
+  name: string;
+  ingredients: DishIngredient[];
+}
+
 async function processMenuGeneration(
   generationId: string,
   userId: string,
-  dbIngredients: any[],
+  dbIngredients: Ingredient[],
   options: { servings: number; budget: number | null; mode: ConstraintMode },
   requestHash: string,
   isPro: boolean,
-  preferences: any
+  preferences: ProcessPreferences | null
 ) {
   const startTime = Date.now();
   console.log(`>>>> [MenuStream] START: ${generationId} (UserId: ${userId}, Mode: ${options.mode})`);
@@ -201,19 +219,19 @@ async function processMenuGeneration(
     try {
       console.log(`[MenuStream] Step 2: Calling AI Agent...`);
       menus = await generateLightMenusStream(
-        ingredients as any,
+        ingredients,
         userId,
         options,
         (thoughts) => {
           // 思考プロセスの更新（非同期・非ブロッキング）
           prisma.menuGeneration.update({
             where: { id: generationId },
-            data: { thoughts: thoughts as any } as any,
+            data: { thoughts: thoughts as string[] } as Record<string, unknown>,
           }).catch(() => {});
         }
       );
       console.log(`[MenuStream] Step 2: AI returned successfully in ${Date.now() - startTime}ms`);
-    } catch (aiError: any) {
+    } catch (aiError: unknown) {
       console.error(`[MenuStream] AI Generation FATAL Error:`, aiError);
       throw aiError;
     }
@@ -234,7 +252,7 @@ async function processMenuGeneration(
         alternativeA: menus.alternativePlan as any,
       };
       
-      const constraintResult = validateAllMenusStrict(validationInput, ingredients as any, allImplicit);
+      const constraintResult = validateAllMenusStrict(validationInput, ingredients, allImplicit);
       if (!constraintResult.allValid) {
         console.warn("[MenuStream] Strict validation FAILED:", JSON.stringify(constraintResult.results));
         await prisma.menuGeneration.update({
@@ -254,13 +272,13 @@ async function processMenuGeneration(
     });
     
     const mainDetails = checkIngredientAvailability(
-      (menus.mainPlan.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
+      (menus.mainPlan.dishes ?? []).flatMap((d: { ingredients?: DishIngredient[] }) => d.ingredients ?? []),
       ingredients
     );
 
     const altADetails = menus.alternativePlan?.dishes
       ? checkIngredientAvailability(
-          (menus.alternativePlan.dishes ?? []).flatMap((d: any) => d.ingredients ?? []),
+          (menus.alternativePlan.dishes ?? []).flatMap((d: { ingredients?: DishIngredient[] }) => d.ingredients ?? []),
           ingredients
         )
       : mainDetails;
@@ -271,7 +289,7 @@ async function processMenuGeneration(
       data: { progressStep: "validating" },
     });
 
-    let nutritionInfo: any = {
+    let nutritionInfo: Record<string, Record<string, { calories: number; protein: number; fat: number; carbs: number }>> = {
       main: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
       altA: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
     };
@@ -280,8 +298,8 @@ async function processMenuGeneration(
       try {
         const { evaluateNutrition } = await import("@/lib/nutrition");
         nutritionInfo = {
-          main: evaluateNutrition((menus.mainPlan.dishes || []) as any),
-          altA: evaluateNutrition((menus.alternativePlan?.dishes || []) as any),
+          main: evaluateNutrition(menus.mainPlan.dishes || []) as any,
+          altA: evaluateNutrition(menus.alternativePlan?.dishes || []) as any,
         };
       } catch (e) {
         console.warn("[MenuStream] Nutrition evaluation failed:", e);
@@ -295,28 +313,27 @@ async function processMenuGeneration(
       data: {
         status: "completed",
         progressStep: "completed",
-        mainMenu: menus.mainPlan as any,
-        alternativeA: menus.alternativePlan as any,
+        mainMenu: menus.mainPlan,
+        alternativeA: menus.alternativePlan,
         nutritionInfo: {
           ...nutritionInfo,
           scores: {
-            main: menus.mainPlan?.scores,
-            altA: menus.alternativePlan?.scores,
+            main: nutritionInfo.main?.scores,
+            altA: nutritionInfo.altA?.scores,
           },
-          summary: menus.comparison?.summary,
           comparison: menus.comparison ? {
             mainPlan: menus.comparison.mainPlan,
             alternativePlan: menus.comparison.alternativePlan,
           } : undefined,
-        } as any,
+        },
         usedIngredients: {
-          main: mainDetails,
-          altA: altADetails,
-        } as any,
+          main: mainDetails as any,
+          altA: altADetails as any,
+        },
         shoppingList: {
-          main: mainDetails.missing.concat(mainDetails.insufficient),
-          altA: altADetails.missing.concat(altADetails.insufficient),
-        } as any,
+          main: mainDetails.missing.concat(mainDetails.insufficient) as any,
+          altA: altADetails.missing.concat(altADetails.insufficient) as any,
+        },
         generatedAt: new Date(),
       },
     });
@@ -357,17 +374,18 @@ async function processMenuGeneration(
       status: "completed",
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`!!!! [MenuStream] FATAL ERROR:`, error);
     
     // エラーメトリクスの記録
     try {
       const { recordServerEvent } = await import("@/lib/telemetry-server");
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       await recordServerEvent(userId, "SYSTEM", "AI_MENU_METRICS", {
         generationId,
         latency_ms: Date.now() - startTime,
         status: "failed",
-        error: error.message,
+        error: errorMessage,
       });
     } catch (metricErr) {}
 

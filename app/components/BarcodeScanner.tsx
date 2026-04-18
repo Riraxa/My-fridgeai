@@ -6,14 +6,22 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Html5QrcodeScanner, Html5Qrcode } from "html5-qrcode";
 import { X, Check, Camera, List, RefreshCw, AlertCircle, SearchX } from "lucide-react";
 
+interface ScannedProduct {
+  name: string;
+  brand?: string;
+  category?: string;
+  barcode: string;
+  isNotFound?: boolean;
+}
+
 interface BarcodeScannerProps {
-  onResults: (items: any[]) => void;
+  onResults: (items: ScannedProduct[]) => void;
   onClose: () => void;
 }
 
 export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerProps) {
   const [isContinuous, setIsContinuous] = useState(false);
-  const [scannedItems, setScannedItems] = useState<any[]>([]);
+  const [scannedItems, setScannedItems] = useState<ScannedProduct[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastScanned, setLastScanned] = useState<string | null>(null);
@@ -45,14 +53,14 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
     };
   }, []);
 
-  const lookupBarcode = async (barcode: string) => {
+  const lookupBarcode = async (barcode: string): Promise<ScannedProduct> => {
     setLoading(true);
     try {
       const resp = await fetch(`/api/barcode/lookup?barcode=${barcode}`);
       const result = await resp.json();
 
       if (result.success) {
-        return result.data;
+        return result.data as ScannedProduct;
       } else {
         return { name: `不明な商品 (${barcode})`, isNotFound: true, barcode };
       }

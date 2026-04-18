@@ -155,10 +155,16 @@ export async function POST(req: Request) {
     }
 
     // UIMessage の format (parts等) を CoreMessage (文字列のみのcontent) に正規化する
-    const coreMessages = messages.map((m: any) => {
+    interface UIMessage {
+      role: string;
+      content?: string;
+      text?: string;
+      parts?: Array<{ type: string; text: string }>;
+    }
+    const coreMessages = messages.map((m: UIMessage) => {
       let content = m.content;
       if (!content && m.parts) {
-        content = m.parts.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n");
+        content = m.parts.filter((p) => p.type === "text").map((p) => p.text).join("\n");
       }
       if (!content && m.text) {
         content = m.text;
@@ -229,10 +235,10 @@ ${ingredientsList || "冷蔵庫に食材が登録されていません。"}
       statusText: response.statusText,
       headers,
     });
-  } catch (error) {
-    console.error("[ChatAPI] Error:", error);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "チャット処理に失敗しました";
     return NextResponse.json(
-      { error: "チャット生成に失敗しました" },
+      { error: msg },
       { status: 500 }
     );
   }

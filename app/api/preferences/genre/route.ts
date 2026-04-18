@@ -45,7 +45,7 @@ export async function PUT(req: Request) {
       where: { userId },
     });
 
-    const currentTaste = (currentPrefs?.tasteJson as any) ?? {};
+    const currentTaste = (((currentPrefs as any)?.genreJson as Record<string, unknown>) ?? {});
     const updatedTaste = {
       ...currentTaste,
       recentGenrePenalty,

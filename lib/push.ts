@@ -65,9 +65,10 @@ export async function sendPushNotification(
       pushSubscription,
       JSON.stringify(payload)
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     // 購読が無効な場合（410 Goneなど）
-    if (error.statusCode === 410 || error.statusCode === 404) {
+    const pushErr = error as { statusCode?: number };
+    if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
       throw new Error('Subscription expired or invalid');
     }
     throw error;
@@ -88,9 +89,9 @@ export async function sendPushToMultiple(
       try {
         await sendPushNotification(sub, payload);
         results.success++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.failed++;
-        results.errors.push(error.message);
+        results.errors.push(error instanceof Error ? error.message : String(error));
       }
     })
   );

@@ -35,7 +35,7 @@ export async function recordAiMetrics(
     promptTokens?: number;
     completionTokens?: number;
     latencyMs?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   }
 ) {
   return recordServerEvent(userId, "SYSTEM", "AI_METRICS", {

@@ -110,3 +110,10 @@ export interface ShoppingItem {
   note?: string;
 }
 
+export interface SavedMenu {
+  id: string;
+  title: string;
+  createdAt: string;
+  dishes?: Dish[];
+}
+

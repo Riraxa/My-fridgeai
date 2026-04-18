@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
     try {
       const session = await auth();
       if (session?.user?.id) userId = String(session.user.id);
-    } catch (e: any) {
-      console.error("[createCheckoutSession] auth error:", e.message);
+    } catch (e: unknown) {
+      console.error("[createCheckoutSession] auth error:", e instanceof Error ? e.message : e);
     }
 
     // デバッグ用のフォールバック（本番では基本的になし）
@@ -83,9 +83,10 @@ export async function POST(req: NextRequest) {
         metadata: { userId: user.id },
         client_reference_id: user.id,
       });
-    } catch (createErr: any) {
+    } catch (createErr: unknown) {
       // "No such customer" エラー (別の環境のIDがDBに残っている場合)
-      if (createErr.raw?.code === "resource_missing" && createErr.raw?.param === "customer") {
+      const stripeErr = createErr as { raw?: { code?: string; param?: string } };
+      if (stripeErr.raw?.code === "resource_missing" && stripeErr.raw?.param === "customer") {
         console.warn("[createCheckoutSession] Invalid customer detected. Resetting...");
 
         const newCustomer = await stripe.customers.create({
@@ -115,9 +116,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ url: session.url }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[createCheckoutSession] ERROR:", err);
-    const message = err?.raw?.message ?? err?.message ?? "予期せぬエラーが発生しました。";
+    const stripeErr = err as { raw?: { message?: string }; message?: string };
+    const message = stripeErr?.raw?.message ?? stripeErr?.message ?? "予期せぬエラーが発生しました。";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

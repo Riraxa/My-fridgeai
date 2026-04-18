@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     // cookedDishes: e.g., ["主菜", "副菜"] (names or types)
     // usedIngredients: optional, provided if menuGenerationId is missing
 
-    let usedIngredientsList: any[] = [];
+    let usedIngredientsList: Array<{ name: string; amount?: number; unit?: string }> = [];
     let _cookedDishesList: string[] = cookedDishes ?? [];
 
     // 1. Get Generation Record (if provided)
@@ -60,10 +60,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Menu not found" }, { status: 404 });
       }
 
-      let rawMenuData: any;
-      if (selectedMenu === "main") rawMenuData = generation.mainMenu;
-      else if (selectedMenu === "altA") rawMenuData = generation.alternativeA;
-      else rawMenuData = generation.mainMenu; // Default
+      let rawMenuData: Record<string, unknown>;
+      if (selectedMenu === "main") rawMenuData = generation.mainMenu as Record<string, unknown>;
+      else if (selectedMenu === "altA") rawMenuData = generation.alternativeA as Record<string, unknown>;
+      else rawMenuData = generation.mainMenu as Record<string, unknown>; // Default
 
       const menuData = parseMenuData(rawMenuData);
 
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
             if (!_cookedDishesList.includes(dish.name)) {
               _cookedDishesList.push(dish.name);
             }
-            usedIngredientsList.push(...dish.ingredients);
+            usedIngredientsList.push(...dish.ingredients.map(ing => ({ name: ing.name, amount: ing.amount ?? undefined, unit: ing.unit ?? undefined })));
           }
         }
       }
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
-      usedIngredientsList = usedIngredients || [];
+      usedIngredientsList = (usedIngredients || []).map(ing => ({ name: ing.name, amount: ing.amount ?? undefined, unit: ing.unit ?? undefined }));
     }
 
     // 3. Calculate Inventory Updates
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
     }));
 
     const { update, delete: del } = calculateInventoryUpdates(
-      usedIngredientsList,
+      usedIngredientsList as Array<{ name: string; amount: number; unit: string }>,
       inventory,
     );
 
@@ -123,9 +123,10 @@ export async function POST(req: Request) {
       for (const op of del) {
         try {
           await tx.ingredient.delete({ where: { id: op.id } });
-        } catch (e: any) {
+        } catch (e: unknown) {
           // 既に削除されている場合は無視（race condition対応）
-          if (e.code === 'P2025') {
+          const prismaErr = e as { code?: string };
+          if (prismaErr.code === 'P2025') {
             console.log(`[Cook] Ingredient ${op.id} already deleted, skipping`);
           } else {
             throw e;

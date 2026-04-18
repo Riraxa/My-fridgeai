@@ -64,7 +64,7 @@ export async function shouldUseTasteProfileForUser(userId: string): Promise<bool
 
   try {
     // 1. イベント数チェック
-    const eventCount = await (prisma as any).tasteEvent.count({
+    const eventCount = await prisma.tasteEvent.count({
       where: { userId },
     });
 
@@ -73,7 +73,7 @@ export async function shouldUseTasteProfileForUser(userId: string): Promise<bool
     }
 
     // 2. データの古さチェック（最古イベントがN日以上前か）
-    const oldestEvent = await (prisma as any).tasteEvent.findFirst({
+    const oldestEvent = await prisma.tasteEvent.findFirst({
       where: { userId },
       orderBy: { createdAt: "asc" },
       select: { createdAt: true },

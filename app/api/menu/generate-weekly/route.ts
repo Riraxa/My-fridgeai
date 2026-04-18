@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     const [ingredients, preferences] = await Promise.all([
       prisma.ingredient.findMany({ where: { userId } }),
       prisma.$queryRaw`SELECT * FROM "UserPreferences" WHERE "userId" = ${userId} LIMIT 1`.then(
-        (rows: any) => (rows && rows.length > 0 ? rows[0] : null),
+        (rows) => (Array.isArray(rows) && rows.length > 0 ? rows[0] : null),
       ),
     ]);
 
@@ -67,10 +67,11 @@ export async function POST(req: Request) {
     let result;
     try {
       result = await generateWeeklyMenus(ingredients, preferences, startDate);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Weekly Gen Error:", e);
+      const msg = e instanceof Error ? e.message : String(e);
       return NextResponse.json(
-        { error: "献立作成に失敗しました: " + e.message },
+        { error: "献立作成に失敗しました: " + msg },
         { status: 500 },
       );
     }
@@ -83,8 +84,8 @@ export async function POST(req: Request) {
         userId,
         startDate,
         endDate,
-        dailyMenus: result.weeklyMenus as any,
-        consolidatedShoppingList: result.shoppingList as any,
+        dailyMenus: result.weeklyMenus as unknown as any,
+        consolidatedShoppingList: result.shoppingList as unknown as any,
       },
     });
 

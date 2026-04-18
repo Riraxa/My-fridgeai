@@ -10,7 +10,7 @@ import React, {
   useState,
 } from "react";
 import { useSession } from "next-auth/react";
-import { Ingredient } from "@/types";
+import { Ingredient, SavedMenu, ShoppingItem } from "@/types";
 
 type Item = Ingredient & { id: string };
 
@@ -23,16 +23,16 @@ export type FridgeContextType = {
     it: Partial<Item> & { id?: string },
   ) => Promise<Item | null>;
   deleteItem: (id: string) => Promise<boolean>;
-  savedMenus: any[];
-  setSavedMenus: (s: any[]) => void;
+  savedMenus: SavedMenu[];
+  setSavedMenus: (s: SavedMenu[]) => void;
   favoriteTitles: string[];
   setFavoriteTitles: (s: string[]) => void;
   usage: Usage;
   setUsage: (u: Usage) => void;
   toast: string | null;
   setToast: (m: string | null) => void;
-  shopping: any[];
-  setShopping: React.Dispatch<React.SetStateAction<any[]>>;
+  shopping: ShoppingItem[];
+  setShopping: React.Dispatch<React.SetStateAction<ShoppingItem[]>>;
   receiptScanOpen: boolean;
   setReceiptScanOpen: (v: boolean) => void;
   deletingIds: Set<string>;
@@ -40,7 +40,7 @@ export type FridgeContextType = {
   recognizedLabels: string[];
   setRecognizedLabels: (v: string[]) => void;
   openReceiptScan: () => void;
-  openAddModal: (detail?: any) => void; // <-- detail optional
+  openAddModal: (detail?: unknown) => void; // <-- detail optional
   fetchIngredients: () => Promise<void>;
   isLoading: boolean;
   isNavBarVisible: boolean;
@@ -83,7 +83,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
 
   const initSavedMenus = useCallback(() => {
     if (!isClient()) return [];
-    return safeParse<any[]>(localStorage.getItem(LS.savedMenus), []);
+    return safeParse<SavedMenu[]>(localStorage.getItem(LS.savedMenus), []);
   }, []);
 
   const initFavorites = useCallback(() => {
@@ -102,7 +102,7 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
 
   const initShopping = useCallback(() => {
     if (!isClient()) return [];
-    return safeParse<any[]>(localStorage.getItem(LS.shopping), []);
+    return safeParse<ShoppingItem[]>(localStorage.getItem(LS.shopping), []);
   }, []);
 
   const initRecognized = useCallback(() => {
@@ -112,13 +112,13 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
 
   // states
   const [items, setItems] = useState<Item[]>(() => initItems());
-  const [savedMenus, setSavedMenus] = useState<any[]>(() => initSavedMenus());
+  const [savedMenus, setSavedMenus] = useState<SavedMenu[]>(() => initSavedMenus());
   const [favoriteTitles, setFavoriteTitles] = useState<string[]>(() =>
     initFavorites(),
   );
   const [usage, setUsage] = useState<Usage>(() => initUsage());
   const [toast, setToast] = useState<string | null>(null);
-  const [shopping, setShopping] = useState<any[]>(() => initShopping());
+  const [shopping, setShopping] = useState<ShoppingItem[]>(() => initShopping());
   const [recognizedLabels, setRecognizedLabels] = useState<string[]>(() =>
     initRecognized(),
   );
@@ -369,24 +369,26 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
   /* ---------- global helpers / events ---------- */
   useEffect(() => {
     const openReceiptScan = () => setReceiptScanOpen(true);
-    const openAddModalEvent = (detail?: any) =>
+    const openAddModalEvent = (detail?: unknown) =>
       window.dispatchEvent(new CustomEvent("fridge_open_add", { detail }));
-    (window as any).__fridge_open_receipt_scan = openReceiptScan;
-    (window as any).__fridge_open_add = openAddModalEvent;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as unknown as Record<string, unknown>).__fridge_open_receipt_scan = openReceiptScan;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as unknown as Record<string, unknown>).__fridge_open_add = openAddModalEvent;
     return () => {
-      delete (window as any).__fridge_open_receipt_scan;
-      delete (window as any).__fridge_open_add;
+      delete (window as unknown as Record<string, unknown>).__fridge_open_receipt_scan;
+      delete (window as unknown as Record<string, unknown>).__fridge_open_add;
     };
   }, []);
 
   const openReceiptScan = useCallback(() => setReceiptScanOpen(true), []);
   // openAddModal now accepts optional detail (for prefill)
-  const openAddModal = useCallback((detail?: any) => {
+  const openAddModal = useCallback((detail?: unknown) => {
     console.log("openAddModal が呼び出されました", detail);
     try {
       window.dispatchEvent(new CustomEvent("fridge_open_add", { detail }));
       // also set the compat function
-      (window as any).__fridge_open_add?.(detail);
+      (window as unknown as Record<string, (d: unknown) => void>).__fridge_open_add?.(detail);
     } catch (_e) {
       // fallback: dispatch simple event
       try {

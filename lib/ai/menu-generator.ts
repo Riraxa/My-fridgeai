@@ -39,10 +39,10 @@ async function getGenerationContext(
     prisma.$queryRaw<UserPreferences[]>`SELECT * FROM "UserPreferences" WHERE "userId" = ${userId} LIMIT 1`.then(rows => rows[0] || null),
     prisma.userAllergy.findMany({ where: { userId } }),
     prisma.userRestriction.findMany({ where: { userId } }),
-    (prisma as any).userTasteProfile.findUnique({ where: { userId } }),
+    prisma.userTasteProfile.findUnique({ where: { userId } }),
   ]);
 
-  const taste = (preferences?.tasteJson as any) ?? {};
+  const taste = (preferences?.tasteJson as Record<string, unknown>) ?? {};
 
   // 3軸嗜好データを整形
   const tasteContext = tasteProfile ? {
@@ -62,18 +62,18 @@ async function getGenerationContext(
     servings: options?.servings ?? 1,
     budget: options?.budget ?? null,
     mode: options?.mode ?? "flexible",
-    cookingSkill: (preferences?.cookingSkill ?? "intermediate") as any,
+    cookingSkill: (preferences?.cookingSkill === "expert" ? "advanced" : preferences?.cookingSkill ?? "intermediate") as "beginner" | "intermediate" | "advanced",
     allergies: allergies.map((a) => a.allergen),
     restrictions: restrictions.map((r) => ({ type: r.type, note: r.note ?? undefined })),
     taste: {
-      tasteScores: taste.tasteScores,
-      lifestyle: taste.lifestyle,
-      freeText: taste.freeText,
-      equipment: taste.equipment,
-      preferredMethods: taste.preferredMethods,
-      recentGenrePenalty: taste.recentGenrePenalty,
+      tasteScores: taste.tasteScores as Record<string, number> | undefined,
+      lifestyle: taste.lifestyle as any,
+      freeText: taste.freeText as string | undefined,
+      equipment: taste.equipment as string[] | undefined,
+      preferredMethods: taste.preferredMethods as string[] | undefined,
+      recentGenrePenalty: taste.recentGenrePenalty as Record<string, number> | undefined,
       // 新しい3軸嗜好データ
-      profile: tasteContext,
+      profile: tasteContext as any,
     },
     preferences: {
       kitchenEquipment: preferences?.kitchenEquipment as string[] | undefined,
@@ -98,7 +98,7 @@ function mapToAgentIngredients(ingredients: Ingredient[]): IngredientInput[] {
     amount: i.amount ?? undefined,
     unit: i.unit ?? undefined,
     expirationDate: i.expirationDate ?? undefined,
-    ingredientType: (i as any).ingredientType ?? "raw",
+    ingredientType: ((i as { ingredientType?: string }).ingredientType ?? "raw") as "raw" | "processed_base" | "instant_complete",
   }));
 }
 

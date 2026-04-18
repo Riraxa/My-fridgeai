@@ -63,14 +63,19 @@ export async function POST(req: NextRequest) {
             : "processed_base";
 
         // requiresAdditionalIngredients validation
-        let requiresAdditionalIngredients: any[] = [];
+        interface IngredientItem {
+            name: string;
+            amount?: number;
+            unit?: string;
+        }
+        let requiresAdditionalIngredients: IngredientItem[] = [];
         if (Array.isArray(body.requiresAdditionalIngredients)) {
             requiresAdditionalIngredients = body.requiresAdditionalIngredients
-                .filter((item: any) => item && typeof item.name === "string")
-                .map((item: any) => ({
-                    name: sanitizeString(item.name, 50),
-                    amount: Number(item.amount) || 1,
-                    unit: sanitizeString(item.unit || "個", 20),
+                .filter((item: unknown) => item && typeof (item as { name?: string }).name === "string")
+                .map((item: unknown) => ({
+                    name: sanitizeString((item as { name: string }).name, 50),
+                    amount: Number((item as { amount?: number }).amount) || 1,
+                    unit: sanitizeString((item as { unit?: string }).unit || "個", 20),
                 }));
         }
 
@@ -90,8 +95,8 @@ export async function POST(req: NextRequest) {
                 name,
                 brandName,
                 ingredientType,
-                requiresAdditionalIngredients,
-                instructionTemplate,
+                requiresAdditionalIngredients: requiresAdditionalIngredients as any,
+                instructionTemplate: instructionTemplate as any,
                 nutritionEstimate: body.nutritionEstimate || null,
                 category,
             },

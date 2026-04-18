@@ -63,26 +63,28 @@ export async function POST(_req: NextRequest) {
       return NextResponse.json({ status: "no_subscription" });
     }
 
-    const cancelAt = (subscription as any).cancel_at;
-    const currentPeriodEnd = new Date(((subscription as any).current_period_end ?? 0) * 1000);
+    const subWithCancel = subscription as Stripe.Subscription & { cancel_at?: number; current_period_end?: number };
+    const cancelAt = subWithCancel.cancel_at;
+    const currentPeriodEnd = new Date((subWithCancel.current_period_end ?? 0) * 1000);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
         plan: getPlanByStatus(subscription.status),
-        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end ?? !!cancelAt,
+        cancelAtPeriodEnd: (subscription as Stripe.Subscription & { cancel_at_period_end?: boolean }).cancel_at_period_end ?? !!cancelAt,
         stripeCurrentPeriodEnd: currentPeriodEnd,
         billingStatus: subscription.status,
         stripeSubscriptionId: subscription.id,
         stripeCustomerId: String(subscription.customer),
-        stripePriceId: (subscription as any)?.items?.data?.[0]?.price?.id ?? null,
+        stripePriceId: subscription.items?.data?.[0]?.price?.id ?? null,
       },
     });
 
     return NextResponse.json({ status: "ok" });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[billing-sync] ERROR:", err);
-    if (err.raw?.code === "resource_missing") {
+    const stripeErr = err as { raw?: { code?: string } };
+    if (stripeErr.raw?.code === "resource_missing") {
       return NextResponse.json({ error: "Stripe情報不整合" }, { status: 400 });
     }
     return NextResponse.json({ error: "同期失敗" }, { status: 500 });

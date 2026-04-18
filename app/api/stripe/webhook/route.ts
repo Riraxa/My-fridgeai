@@ -20,9 +20,10 @@ export async function POST(req: NextRequest) {
   try {
     if (!sig) throw new Error("Missing stripe-signature");
     event = stripe.webhooks.constructEvent(body, sig, STRIPE_WEBHOOK_SECRET);
-  } catch (err: any) {
-    console.error(`Webhook signature verification failed: ${err.message}`);
-    return NextResponse.json({ error: err.message }, { status: 400 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Webhook signature verification failed: ${msg}`);
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 
   try {
@@ -40,9 +41,10 @@ export async function POST(req: NextRequest) {
           break;
         }
 
-        const subscription = (await stripe.subscriptions.retrieve(String(subscriptionId))) as any;
+        const subscription = await stripe.subscriptions.retrieve(String(subscriptionId));
         const priceId = subscription.items.data[0]?.price.id;
-        const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+        const subWithPeriod = subscription as Stripe.Subscription & { current_period_end?: number };
+        const currentPeriodEnd = new Date((subWithPeriod.current_period_end ?? 0) * 1000);
 
         await prisma.$transaction(async (tx) => {
           await tx.user.update({
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
 
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as any;
+        const subscription = event.data.object as Stripe.Subscription;
         const isDeleted = event.type === "customer.subscription.deleted" || subscription.status === "canceled";
 
         await prisma.$transaction(async (tx) => {
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest) {
               data: {
                 plan: isDeleted ? "FREE" : "PRO",
                 stripeSubscriptionId: isDeleted ? null : subscription.id,
-                stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+                stripeCurrentPeriodEnd: new Date(((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end ?? 0) * 1000),
                 cancelAtPeriodEnd: subscription.cancel_at_period_end,
                 billingStatus: subscription.status,
               },
@@ -94,8 +96,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
-  } catch (err: any) {
-    console.error(`Webhook Error: ${err.message}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Webhook Error: ${msg}`);
     return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }

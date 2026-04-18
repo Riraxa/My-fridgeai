@@ -314,7 +314,7 @@ export default function AddEditModal({
 
             setIsSaving(true);
             try {
-              const payload: any = {
+              const payload = {
                 name: name.trim(),
                 category,
                 expirationDate: noExpiry
@@ -333,8 +333,8 @@ export default function AddEditModal({
                       ? 0
                       : (item?.quantity ?? 0), // Legacy: amountをコピーして後方互換性を維持
               };
-              if (item?.id) payload.id = item.id;
-              await onSave(payload);
+              if (item?.id) (payload as any).id = item.id;
+              await onSave(payload as any);
             } finally {
               setIsSaving(false);
             }

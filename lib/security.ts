@@ -1,5 +1,16 @@
 // lib/security.ts
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+let nodeCrypto: typeof import("crypto") | undefined;
+if (typeof window === "undefined" && typeof require !== "undefined") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    nodeCrypto = require("crypto");
+  } catch {
+    // フォールバック
+  }
+}
+
 // Edge Runtime対応のためのフォールバック
 const getRandomValues = (length: number) => {
   if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
@@ -7,13 +18,8 @@ const getRandomValues = (length: number) => {
   }
 
   // Node.js環境
-  if (typeof require !== "undefined") {
-    try {
-      const crypto = require("crypto");
-      return crypto.randomBytes(length);
-    } catch {
-      // フォールバック
-    }
+  if (nodeCrypto) {
+    return nodeCrypto.randomBytes(length);
   }
 
   // 最終フォールバック
@@ -176,8 +182,10 @@ export function validateAndNormalizeIP(ip: string | null): string {
   }
 
   // 不明な形式の場合はハッシュ化して保存
-  const crypto = require("crypto");
-  return crypto
+  if (!nodeCrypto) {
+    return "unknown";
+  }
+  return nodeCrypto
     .createHash("sha256")
     .update(clientIP)
     .digest("hex")
@@ -192,7 +200,16 @@ export function generateRateLimitKey(
   action: string,
 ): string {
   const data = `${identifier}:${action}`;
-  const crypto = require("crypto");
-  return crypto.createHash("sha256").update(data).digest("hex");
+  if (!nodeCrypto) {
+    // フォールバック: 単純なハッシュ
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+      const char = data.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16).padStart(16, "0");
+  }
+  return nodeCrypto.createHash("sha256").update(data).digest("hex");
 }
 
