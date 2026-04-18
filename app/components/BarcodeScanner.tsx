@@ -1,16 +1,38 @@
 // app/components/BarcodeScanner.tsx
-// GENERATED_BY_AI: 2026-03-24 Antigravity — 不明商品UX改善
+// GENERATED_BY_AI: 2026-04-18 — UX大幅進化版
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Html5QrcodeScanner, Html5Qrcode } from "html5-qrcode";
-import { X, Check, Camera, List, RefreshCw, AlertCircle, SearchX } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Html5Qrcode } from "html5-qrcode";
+import { 
+  X, 
+  Check, 
+  Camera, 
+  List, 
+  RefreshCw, 
+  AlertCircle, 
+  SearchX,
+  Plus,
+  Edit3,
+  Package,
+  Sparkles,
+  ScanLine
+} from "lucide-react";
 
+// 拡張された商品データ型
 interface ScannedProduct {
   name: string;
   brand?: string;
   category?: string;
+  categoryConfidence?: number;
   barcode: string;
+  image?: string;
+  quantity?: string;
+  amount?: number;
+  unit?: string;
+  recommendedExpiry?: string;
+  expirySource?: 'api' | 'inferred' | 'default';
   isNotFound?: boolean;
 }
 
@@ -19,6 +41,15 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
+// スキャン結果通知の型
+type ScanNotification = {
+  id: string;
+  type: 'success' | 'notfound' | 'error';
+  message: string;
+  product?: ScannedProduct;
+  barcode?: string;
+};
+
 export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerProps) {
   const [isContinuous, setIsContinuous] = useState(false);
   const [scannedItems, setScannedItems] = useState<ScannedProduct[]>([]);
@@ -26,29 +57,55 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
   const [error, setError] = useState<string | null>(null);
   const [lastScanned, setLastScanned] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [notFoundMessage, setNotFoundMessage] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<ScanNotification[]>([]);
+  const [showRipple, setShowRipple] = useState(false);
+  const [manualInputBarcode, setManualInputBarcode] = useState<string | null>(null);
+  
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const notFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notificationTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const SCAN_REGION_ID = "barcode-scanner-region";
 
-  // 不明商品通知を表示して3秒後に自動消去
-  const showNotFound = useCallback((barcode: string) => {
-    // 既存タイマーをクリア
-    if (notFoundTimerRef.current) {
-      clearTimeout(notFoundTimerRef.current);
-    }
-    setNotFoundMessage(`この商品はデータベースに登録されていません (${barcode})`);
-    notFoundTimerRef.current = setTimeout(() => {
-      setNotFoundMessage(null);
-      setLastScanned(null); // 同じバーコードの再スキャンを許可
+  // 通知を追加
+  const addNotification = useCallback((notification: Omit<ScanNotification, 'id'>) => {
+    const id = Math.random().toString(36).substring(7);
+    const newNotification = { ...notification, id };
+    
+    setNotifications(prev => [newNotification, ...prev].slice(0, 3)); // 最大3件表示
+    
+    // 3秒後に自動消去
+    const timer = setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
     }, 3000);
+    
+    notificationTimersRef.current.set(id, timer);
+    
+    return id;
+  }, []);
+
+  // 通知を削除
+  const removeNotification = useCallback((id: string) => {
+    const timer = notificationTimersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      notificationTimersRef.current.delete(id);
+    }
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  // リップルエフェクト表示
+  const triggerRipple = useCallback(() => {
+    setShowRipple(true);
+    setTimeout(() => setShowRipple(false), 600);
   }, []);
 
   // クリーンアップ
   useEffect(() => {
     return () => {
-      if (notFoundTimerRef.current) {
-        clearTimeout(notFoundTimerRef.current);
+      notificationTimersRef.current.forEach((timer: ReturnType<typeof setTimeout>) => clearTimeout(timer));
+      notificationTimersRef.current.clear();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
       }
     };
   }, []);
@@ -62,39 +119,102 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
       if (result.success) {
         return result.data as ScannedProduct;
       } else {
-        return { name: `不明な商品 (${barcode})`, isNotFound: true, barcode };
+        return { 
+          name: `不明な商品`, 
+          isNotFound: true, 
+          barcode,
+          category: 'その他',
+          categoryConfidence: 0,
+        };
       }
     } catch (err) {
       console.error("Lookup failed", err);
-      return { name: `エラー (${barcode})`, isNotFound: true, barcode };
+      return { 
+        name: `検索エラー`, 
+        isNotFound: true, 
+        barcode,
+        category: 'その他',
+        categoryConfidence: 0,
+      };
     } finally {
       setLoading(false);
     }
   };
 
   const handleScanSuccess = async (decodedText: string) => {
+    // デバウンス: 同じバーコードを連続読み取り防止
     if (decodedText === lastScanned) return;
+    
+    // 振動フィードバック（対応デバイス）
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+    
     setLastScanned(decodedText);
+    setLoading(true);
 
     const product = await lookupBarcode(decodedText);
+    setLoading(false);
 
     if (product.isNotFound) {
-      // 不明商品: 通知を表示してスキャン続行
-      showNotFound(decodedText);
-      // 単一モードでもスキャナーを停止しない（続行可能にする）
+      // 不明商品: オーバーレイ通知
+      addNotification({
+        type: 'notfound',
+        message: `「${decodedText.slice(-6)}」は見つかりませんでした`,
+        barcode: decodedText,
+      });
+      
+      // 手動入力オプションを表示
+      setManualInputBarcode(decodedText);
+      
+      // 2秒後に再スキャン許可
+      debounceTimerRef.current = setTimeout(() => {
+        setLastScanned(null);
+      }, 2000);
       return;
     }
 
     // 商品が見つかった場合
-    setNotFoundMessage(null); // 通知をクリア
+    triggerRipple();
+    addNotification({
+      type: 'success',
+      message: product.name,
+      product,
+    });
+
     if (!isContinuous) {
-      stopScanner();
-      onResults([product]);
+      // 単一モード: 少し遅延してから結果を返す（ユーザーが商品名を確認できるように）
+      debounceTimerRef.current = setTimeout(() => {
+        stopScanner();
+        onResults([product]);
+      }, 800);
     } else {
+      // 連続モード: スキャンを継続
       setScannedItems((prev) => [...prev, product]);
-      // Short delay before allowing same scan again
-      setTimeout(() => setLastScanned(null), 3000);
+      debounceTimerRef.current = setTimeout(() => {
+        setLastScanned(null);
+      }, 1500);
     }
+  };
+
+  // 手動入力ハンドラー
+  const handleManualInput = () => {
+    if (manualInputBarcode) {
+      stopScanner();
+      onResults([{
+        name: '',
+        barcode: manualInputBarcode,
+        isNotFound: true,
+        category: 'その他',
+        categoryConfidence: 0,
+      }]);
+    }
+  };
+
+  // 不明商品をスキップ
+  const skipNotFound = () => {
+    setManualInputBarcode(null);
+    setLastScanned(null);
   };
 
   const startScanner = async () => {
@@ -226,118 +346,306 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
     onResults(scannedItems);
   };
 
+  const handleRemoveItem = (index: number) => {
+    setScannedItems(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black text-white p-4">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-black text-white">
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold">バーコードスキャン</h2>
-        <button onClick={onClose} className="p-2 bg-[var(--background)]/10 rounded-full">
+      <div className="flex justify-between items-center px-4 py-3 bg-black/80 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-[var(--accent)]/20 rounded-lg">
+            <ScanLine size={20} className="text-[var(--accent)]" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold">バーコードスキャン</h2>
+            {isContinuous && scannedItems.length > 0 && (
+              <p className="text-xs text-white/60">{scannedItems.length}件 スキャン済み</p>
+            )}
+          </div>
+        </div>
+        <button 
+          onClick={onClose} 
+          className="p-2 hover:bg-white/10 rounded-full transition-colors"
+        >
           <X size={24} />
         </button>
       </div>
 
-      {/* 不明商品通知バー */}
-      {notFoundMessage && (
-        <div
-          className="mb-3 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium animate-notify-slide-down"
-          style={{
-            background: "linear-gradient(135deg, #f59e0b22, #f59e0b11)",
-            border: "1px solid #f59e0b44",
-            color: "#fbbf24",
-          }}
-        >
-          <SearchX size={20} className="flex-shrink-0" />
-          <span>{notFoundMessage}</span>
-        </div>
-      )}
-
       {/* Scanner Region */}
-      <div className="relative flex-1 bg-zinc-900 rounded-2xl overflow-hidden mb-6 flex items-center justify-center">
+      <div className="relative flex-1 overflow-hidden">
         <div id={SCAN_REGION_ID} className="w-full h-full" />
         
-        {/* スキャン準備中のアイコン表示 */}
-        {!isScanning && !loading && !error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400">
-            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-4">
-              {/* スキャナー本体 */}
-              <rect x="8" y="32" width="64" height="32" rx="4" fill="currentColor" fillOpacity="0.1" stroke="currentColor" strokeWidth="3"/>
-              {/* スキャンビーム */}
-              <rect x="16" y="16" width="48" height="8" rx="2" fill="currentColor" fillOpacity="0.6"/>
-              <rect x="16" y="72" width="48" height="8" rx="2" fill="currentColor" fillOpacity="0.3"/>
-              {/* バーコード */}
-              <rect x="24" y="40" width="4" height="16" fill="currentColor"/>
-              <rect x="32" y="40" width="6" height="16" fill="currentColor"/>
-              <rect x="42" y="40" width="4" height="16" fill="currentColor"/>
-              <rect x="48" y="40" width="2" height="16" fill="currentColor"/>
-              <rect x="52" y="40" width="4" height="16" fill="currentColor"/>
-              {/* 光線効果 */}
-              <line x1="40" y1="24" x2="40" y2="36" stroke="currentColor" strokeWidth="4" strokeLinecap="round" opacity="0.8"/>
-            </svg>
-            <p className="text-sm font-medium">バーコードをカメラに合わせてください</p>
+        {/* スキャンガイドオーバーレイ */}
+        {isScanning && !error && (
+          <div className="absolute inset-0 pointer-events-none">
+            {/* スキャンエリアフレーム */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-40">
+              {/* 四隅の角括弧 */}
+              <div className="absolute top-0 left-0 w-8 h-8 border-l-4 border-t-4 border-[var(--accent)] rounded-tl-lg" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-r-4 border-t-4 border-[var(--accent)] rounded-tr-lg" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-l-4 border-b-4 border-[var(--accent)] rounded-bl-lg" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-r-4 border-b-4 border-[var(--accent)] rounded-br-lg" />
+              
+              {/* レーザーラインアニメーション */}
+              <motion.div
+                className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent shadow-lg"
+                initial={{ top: "0%" }}
+                animate={{ top: ["0%", "100%", "0%"] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                style={{ boxShadow: '0 0 10px var(--accent), 0 0 20px var(--accent)' }}
+              />
+            </div>
+            
+            {/* ガイドテキスト */}
+            <div className="absolute bottom-32 left-0 right-0 text-center">
+              <p className="text-sm text-white/80 bg-black/40 inline-block px-4 py-2 rounded-full backdrop-blur-sm">
+                バーコードを枠内に合わせてください
+              </p>
+            </div>
           </div>
         )}
         
-        {loading && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <RefreshCw className="animate-spin text-white" size={32} />
+        {/* スキャン準備中 */}
+        {!isScanning && !loading && !error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="flex flex-col items-center"
+            >
+              <div className="w-20 h-20 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center mb-4">
+                <ScanLine size={40} className="text-[var(--accent)]" />
+              </div>
+              <p className="text-sm font-medium text-white/80">カメラを起動中...</p>
+            </motion.div>
           </div>
         )}
+        
+        {/* ローディング */}
+        {loading && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="w-16 h-16 rounded-full border-4 border-[var(--accent)] border-t-transparent"
+              style={{ animation: 'spin 1s linear infinite' }}
+            />
+          </div>
+        )}
+        
+        {/* エラー表示 */}
         {error && (
-          <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-4">
-            <AlertCircle className="text-red-500 mb-2" size={48} />
-            <p className="text-sm">{error}</p>
-            <button onClick={startScanner} className="mt-4 px-4 py-2 bg-[var(--background)] text-black rounded-lg font-bold">
-              再試行
+          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center p-6">
+            <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+              <AlertCircle className="text-red-500" size={32} />
+            </div>
+            <p className="text-sm text-white/80 mb-6">{error}</p>
+            <button 
+              onClick={startScanner} 
+              className="px-6 py-3 bg-[var(--accent)] text-white rounded-xl font-bold hover:opacity-90 transition"
+            >
+              カメラを再起動
             </button>
           </div>
         )}
+        
+        {/* リップルエフェクト */}
+        <AnimatePresence>
+          {showRipple && (
+            <motion.div
+              initial={{ scale: 0, opacity: 1 }}
+              animate={{ scale: 3, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-4 border-[var(--accent)] pointer-events-none"
+            />
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* 通知オーバーレイ */}
+      <div className="absolute top-20 left-4 right-4 flex flex-col gap-2 pointer-events-none">
+        <AnimatePresence>
+          {notifications.map((notification) => (
+            <motion.div
+              key={notification.id}
+              initial={{ y: -50, opacity: 0, scale: 0.9 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: -20, opacity: 0, scale: 0.9 }}
+              className={`pointer-events-auto rounded-xl px-4 py-3 shadow-lg backdrop-blur-sm ${
+                notification.type === 'success' 
+                  ? 'bg-green-500/90 text-white' 
+                  : notification.type === 'notfound'
+                  ? 'bg-amber-500/90 text-white'
+                  : 'bg-red-500/90 text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                {notification.type === 'success' ? (
+                  <Check size={20} className="flex-shrink-0" />
+                ) : notification.type === 'notfound' ? (
+                  <SearchX size={20} className="flex-shrink-0" />
+                ) : (
+                  <AlertCircle size={20} className="flex-shrink-0" />
+                )}
+                <span className="text-sm font-medium flex-1 truncate">
+                  {notification.message}
+                </span>
+                <button
+                  onClick={() => removeNotification(notification.id)}
+                  className="p-1 hover:bg-white/20 rounded-full transition"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              {notification.product && (
+                <div className="mt-2 pt-2 border-t border-white/20 flex items-center gap-2 text-xs">
+                  <Package size={12} />
+                  <span>{notification.product.category}</span>
+                  {notification.product.recommendedExpiry && (
+                    <>
+                      <span className="opacity-50">•</span>
+                      <span>賞味期限: {notification.product.recommendedExpiry}</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* 不明商品時の手動入力オプション */}
+      <AnimatePresence>
+        {manualInputBarcode && (
+          <motion.div
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            exit={{ y: 100 }}
+            className="absolute bottom-0 left-0 right-0 bg-zinc-900 border-t border-white/10 p-4"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <SearchX size={20} className="text-amber-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">この商品は登録されていません</p>
+                <p className="text-xs text-white/50">バーコード: {manualInputBarcode}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={skipNotFound}
+                className="flex-1 py-3 rounded-xl bg-white/5 text-white font-medium hover:bg-white/10 transition"
+              >
+                スキップ
+              </button>
+              <button
+                onClick={handleManualInput}
+                className="flex-1 py-3 rounded-xl bg-[var(--accent)] text-white font-bold hover:opacity-90 transition flex items-center justify-center gap-2"
+              >
+                <Edit3 size={16} />
+                手動入力
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Controls */}
-      <div className="space-y-4 pb-8">
-        <div className="flex gap-2 p-1 bg-[var(--background)]/10 rounded-xl">
-          <button
-            onClick={() => setIsContinuous(false)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg transition ${!isContinuous ? "bg-[var(--background)] text-black font-bold" : "text-white/60"
-              }`}
-          >
-            <Camera size={18} />
-            単一
-          </button>
-          <button
-            onClick={() => setIsContinuous(true)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg transition ${isContinuous ? "bg-[var(--background)] text-black font-bold" : "text-white/60"
-              }`}
-          >
-            <List size={18} />
-            連続
-          </button>
-        </div>
-
-        {isContinuous && (
-          <div className="flex flex-col items-center">
-            <div className="w-full mb-4 flex gap-2 overflow-x-auto no-scrollbar py-2">
-              {scannedItems.length === 0 ? (
-                <p className="text-zinc-500 text-sm text-center w-full py-4">スキャンの準備ができました</p>
-              ) : (
-                scannedItems.map((item, idx) => (
-                  <div key={idx} className="bg-[var(--background)]/10 border border-white/20 rounded-lg px-3 py-2 flex items-center gap-2 whitespace-nowrap">
-                    <Check className="text-green-500" size={14} />
-                    <span className="text-xs">{item.name}</span>
-                  </div>
-                ))
-              )}
-            </div>
+      {!manualInputBarcode && (
+        <div className="bg-black/80 backdrop-blur-sm p-4 space-y-3">
+          {/* モード切り替え */}
+          <div className="flex gap-2 p-1 bg-white/10 rounded-xl">
             <button
-              onClick={handleFinish}
-              disabled={scannedItems.length === 0}
-              className="w-full py-4 bg-[var(--accent)] text-white font-bold rounded-2xl shadow-xl disabled:opacity-50 disabled:grayscale transition"
+              onClick={() => setIsContinuous(false)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition ${
+                !isContinuous 
+                  ? "bg-white text-black" 
+                  : "text-white/60 hover:text-white"
+              }`}
             >
-              スキャンを終了して追加 ({scannedItems.length})
+              <Camera size={16} />
+              単一
+            </button>
+            <button
+              onClick={() => setIsContinuous(true)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition ${
+                isContinuous 
+                  ? "bg-white text-black" 
+                  : "text-white/60 hover:text-white"
+              }`}
+            >
+              <List size={16} />
+              連続
             </button>
           </div>
-        )}
-      </div>
+
+          {/* 連続モード時のリスト */}
+          <AnimatePresence>
+            {isContinuous && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="space-y-3"
+              >
+                {/* スキャン済みカウント */}
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-sm text-white/60">スキャン済み商品</span>
+                  <span className="text-sm font-bold bg-[var(--accent)]/20 text-[var(--accent)] px-2 py-0.5 rounded-full">
+                    {scannedItems.length}件
+                  </span>
+                </div>
+                
+                {/* 商品リスト */}
+                <div className="max-h-32 overflow-y-auto space-y-1.5 scrollbar-thin">
+                  {scannedItems.length === 0 ? (
+                    <p className="text-sm text-white/40 text-center py-4">
+                      商品をスキャンしてください
+                    </p>
+                  ) : (
+                    scannedItems.map((item, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                          <Check size={12} className="text-green-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.name}</p>
+                          <p className="text-xs text-white/50">{item.category}</p>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveItem(idx)}
+                          className="p-1.5 hover:bg-red-500/20 rounded-full transition group"
+                        >
+                          <X size={14} className="text-white/40 group-hover:text-red-400" />
+                        </button>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+                
+                {/* 完了ボタン */}
+                <button
+                  onClick={handleFinish}
+                  disabled={scannedItems.length === 0}
+                  className="w-full py-3.5 bg-[var(--accent)] text-white font-bold rounded-xl shadow-lg shadow-[var(--accent)]/20 disabled:opacity-40 disabled:shadow-none transition flex items-center justify-center gap-2"
+                >
+                  <Sparkles size={18} />
+                  まとめて追加 ({scannedItems.length}件)
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

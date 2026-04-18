@@ -60,6 +60,7 @@ export interface Ingredient {
   ingredientType?: IngredientType;
   productId?: string | null;
   product?: Product | null;
+  barcode?: string | null; // バーコード読み取り用
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }

@@ -202,12 +202,20 @@ export default function HomePage() {
       });
       const estimation = await resp.json();
 
+      // AI推論結果を優先使用、なければAPI推定結果をフォールバック
       const newItem: Partial<Ingredient> = {
         name: productData.name,
-        category: estimation.estimatedCategory || "冷蔵",
-        amount: estimation.estimatedAmount || 1,
-        unit: estimation.estimatedUnit || "個",
+        category: productData.category || estimation.estimatedCategory || "冷蔵",
+        amount: productData.amount || estimation.estimatedAmount || 1,
+        unit: productData.unit || estimation.estimatedUnit || "個",
       };
+
+      // AI推論の賞味期限を優先使用
+      if (productData.recommendedExpiry) {
+        newItem.expirationDate = new Date(productData.recommendedExpiry).toISOString();
+      } else if (estimation.estimatedExpiration) {
+        newItem.expirationDate = new Date(estimation.estimatedExpiration).toISOString();
+      }
 
       // If barcode lookup gave us a specific quantity, try to use it
       if (productData.quantity) {
@@ -217,10 +225,6 @@ export default function HomePage() {
           newItem.amount = parseFloat(qtyMatch[1]);
           newItem.unit = qtyMatch[2];
         }
-      }
-
-      if (estimation.estimatedExpiration) {
-        newItem.expirationDate = new Date(estimation.estimatedExpiration).toISOString();
       }
 
       setPrefilledItem(newItem as Ingredient);
@@ -241,16 +245,27 @@ export default function HomePage() {
 
   const handleBarcodeResults = (results: any[]) => {
     setIsBarcodeOpen(false);
-    // 不明商品（isNotFound）をフィルタリング — 防御的コーディング
-    const validResults = results.filter((r) => !r.isNotFound);
-    if (validResults.length === 0) return;
+    // 不明商品（isNotFound）も含めて処理（手動入力可能に）
+    if (results.length === 0) return;
 
-    const items = [...validResults];
+    const items = [...results];
     const first = items.shift();
     setPendingScannedItems(items);
 
     if (first) {
-      preparePrefilledItem(first);
+      // 不明商品の場合は空の名前で開く
+      if (first.isNotFound) {
+        setPrefilledItem({
+          name: first.name || "",
+          category: "冷蔵",
+          amount: 1,
+          unit: "個",
+          barcode: first.barcode,
+        } as Partial<Ingredient> as Ingredient);
+        setAddOpen(true);
+      } else {
+        preparePrefilledItem(first);
+      }
     }
   };
 
