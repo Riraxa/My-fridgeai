@@ -60,10 +60,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Resolve householdId
-    let resolvedHouseholdId = householdId;
+    // 3. Resolve householdId (nullable for FREE plan users)
+    let resolvedHouseholdId: string | null = householdId;
     if (!resolvedHouseholdId) {
-      // Find user's household
+      // Find user's household (Pro plan users with family sharing)
       const membership = await prisma.householdMember.findFirst({
         where: { userId },
         select: { householdId: true },
@@ -75,25 +75,20 @@ export async function POST(req: NextRequest) {
       resolvedHouseholdId = membership?.householdId ?? ownedHousehold?.id ?? null;
     }
 
-    if (!resolvedHouseholdId) {
-      return NextResponse.json(
-        { error: "Householdが見つかりません" },
-        { status: 400 },
-      );
-    }
-
-    // 4. Household authorization check
-    const isMember = await prisma.householdMember.findFirst({
-      where: { householdId: resolvedHouseholdId, userId },
-    });
-    const isOwner = await prisma.household.findFirst({
-      where: { id: resolvedHouseholdId, ownerId: userId },
-    });
-    if (!isMember && !isOwner) {
-      return NextResponse.json(
-        { error: "このHouseholdへのアクセス権がありません" },
-        { status: 403 },
-      );
+    // 4. Household authorization check (only if householdId is provided)
+    if (resolvedHouseholdId) {
+      const isMember = await prisma.householdMember.findFirst({
+        where: { householdId: resolvedHouseholdId, userId },
+      });
+      const isOwner = await prisma.household.findFirst({
+        where: { id: resolvedHouseholdId, ownerId: userId },
+      });
+      if (!isMember && !isOwner) {
+        return NextResponse.json(
+          { error: "このHouseholdへのアクセス権がありません" },
+          { status: 403 },
+        );
+      }
     }
 
     // 5. Idempotency check
@@ -119,7 +114,7 @@ export async function POST(req: NextRequest) {
     // 7. Create receipt record
     const receipt = await prisma.receipt.create({
       data: {
-        householdId: resolvedHouseholdId,
+        householdId: resolvedHouseholdId ?? undefined,
         uploadedBy: userId,
         status: "processing",
         idempotencyKey: idempotencyKey ?? undefined,
