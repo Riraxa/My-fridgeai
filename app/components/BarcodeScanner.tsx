@@ -51,7 +51,6 @@ type ScanNotification = {
 };
 
 export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerProps) {
-  const [isContinuous, setIsContinuous] = useState(false);
   const [scannedItems, setScannedItems] = useState<ScannedProduct[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +70,7 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
     const id = Math.random().toString(36).substring(7);
     const newNotification = { ...notification, id };
     
-    setNotifications(prev => [newNotification, ...prev].slice(0, 3)); // 最大3件表示
+    setNotifications(prev => [newNotification, ...prev].slice(0, 1)); // 読み取りやすさのため最大1件に制限
     
     // 3秒後に自動消去
     const timer = setTimeout(() => {
@@ -182,19 +181,11 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
       product,
     });
 
-    if (!isContinuous) {
-      // 単一モード: 少し遅延してから結果を返す（ユーザーが商品名を確認できるように）
-      debounceTimerRef.current = setTimeout(() => {
-        stopScanner();
-        onResults([product]);
-      }, 800);
-    } else {
-      // 連続モード: スキャンを継続
-      setScannedItems((prev) => [...prev, product]);
-      debounceTimerRef.current = setTimeout(() => {
-        setLastScanned(null);
-      }, 1500);
-    }
+    // 連続モードとしてスキャンを継続
+    setScannedItems((prev) => [...prev, product]);
+    debounceTimerRef.current = setTimeout(() => {
+      setLastScanned(null);
+    }, 1500);
   };
 
   // 手動入力ハンドラー
@@ -266,11 +257,6 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
             const barcodes = await barcodeDetector.detect(video);
             if (barcodes.length > 0) {
               await handleScanSuccess(barcodes[0].rawValue);
-              if (!isContinuous) {
-                active = false;
-                stream.getTracks().forEach(t => t.stop());
-                return;
-              }
             }
           } catch (e) {
             console.error("Detection error", e);
@@ -318,8 +304,8 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
     html5QrCode.start(
       { facingMode: "environment" },
       {
-        fps: 20, // 若干向上
-        qrbox: { width: 280, height: 200 }, // 枠を明示的に指定してスキャン範囲を最適化
+        fps: 20,
+        qrbox: { width: 256, height: 160 }, // UIのw-64 (256px), h-40 (160px) に合わせる
         aspectRatio: 1.6, // UIの枠に合わせる
       },
       handleScanSuccess,
@@ -362,6 +348,19 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black text-white">
+      {/* 
+        ライブラリ（html5-qrcode）が生成するデフォルトの白枠とシェーディングを非表示にする
+        自前のオレンジ枠（w-64 h-40）を使用するため
+      */}
+      <style jsx global>{`
+        #qr-shaded-region {
+          display: none !important;
+        }
+        #barcode-scanner-region video {
+          object-fit: cover !important;
+        }
+      `}</style>
+      
       {/* Header */}
       <div className="flex justify-between items-center px-4 py-3 bg-black/80 backdrop-blur-sm">
         <div className="flex items-center gap-2">
@@ -370,7 +369,7 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
           </div>
           <div>
             <h2 className="text-base font-bold">バーコードスキャン</h2>
-            {isContinuous && scannedItems.length > 0 && (
+            {scannedItems.length > 0 && (
               <p className="text-xs text-white/60">{scannedItems.length}件 スキャン済み</p>
             )}
           </div>
@@ -565,95 +564,49 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
       </AnimatePresence>
 
       {/* Controls */}
-      {!manualInputBarcode && (
+      {!manualInputBarcode && scannedItems.length > 0 && (
         <div className="bg-black/80 backdrop-blur-sm p-4 space-y-3">
-          {/* モード切り替え */}
-          <div className="flex gap-2 p-1 bg-white/10 rounded-xl">
-            <button
-              onClick={() => setIsContinuous(false)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition ${
-                !isContinuous 
-                  ? "bg-white text-black" 
-                  : "text-white/60 hover:text-white"
-              }`}
-            >
-              <Camera size={16} />
-              単一
-            </button>
-            <button
-              onClick={() => setIsContinuous(true)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition ${
-                isContinuous 
-                  ? "bg-white text-black" 
-                  : "text-white/60 hover:text-white"
-              }`}
-            >
-              <List size={16} />
-              連続
-            </button>
+          {/* 商品リスト */}
+          <div className="flex items-center justify-between px-1">
+            <span className="text-sm text-white/60">スキャン済み商品</span>
+            <span className="text-sm font-bold bg-[var(--accent)]/20 text-[var(--accent)] px-2 py-0.5 rounded-full">
+              {scannedItems.length}件
+            </span>
           </div>
-
-          {/* 連続モード時のリスト */}
-          <AnimatePresence>
-            {isContinuous && (
+          
+          <div className="max-h-32 overflow-y-auto space-y-1.5 scrollbar-thin">
+            {scannedItems.map((item, idx) => (
               <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="space-y-3"
+                key={idx}
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2"
               >
-                {/* スキャン済みカウント */}
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-sm text-white/60">スキャン済み商品</span>
-                  <span className="text-sm font-bold bg-[var(--accent)]/20 text-[var(--accent)] px-2 py-0.5 rounded-full">
-                    {scannedItems.length}件
-                  </span>
+                <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                  <Check size={12} className="text-green-500" />
                 </div>
-                
-                {/* 商品リスト */}
-                <div className="max-h-32 overflow-y-auto space-y-1.5 scrollbar-thin">
-                  {scannedItems.length === 0 ? (
-                    <p className="text-sm text-white/40 text-center py-4">
-                      商品をスキャンしてください
-                    </p>
-                  ) : (
-                    scannedItems.map((item, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ x: -20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2"
-                      >
-                        <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                          <Check size={12} className="text-green-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{item.name}</p>
-                          <p className="text-xs text-white/50">{item.category}</p>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveItem(idx)}
-                          className="p-1.5 hover:bg-red-500/20 rounded-full transition group"
-                        >
-                          <X size={14} className="text-white/40 group-hover:text-red-400" />
-                        </button>
-                      </motion.div>
-                    ))
-                  )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.name}</p>
+                  <p className="text-xs text-white/50">{item.category}</p>
                 </div>
-                
-                {/* 完了ボタン */}
                 <button
-                  onClick={handleFinish}
-                  disabled={scannedItems.length === 0}
-                  className="w-full py-3.5 bg-[var(--accent)] text-white font-bold rounded-xl shadow-lg shadow-[var(--accent)]/20 disabled:opacity-40 disabled:shadow-none transition flex items-center justify-center gap-2"
+                  onClick={() => handleRemoveItem(idx)}
+                  className="p-1.5 hover:bg-red-500/20 rounded-full transition group"
                 >
-                  <Sparkles size={18} />
-                  まとめて追加 ({scannedItems.length}件)
+                  <X size={14} className="text-white/40 group-hover:text-red-400" />
                 </button>
               </motion.div>
-            )}
-          </AnimatePresence>
+            ))}
+          </div>
+          
+          {/* 完了ボタン */}
+          <button
+            onClick={handleFinish}
+            className="w-full py-3.5 bg-[var(--accent)] text-white font-bold rounded-xl shadow-lg shadow-[var(--accent)]/20 transition flex items-center justify-center gap-2"
+          >
+            <Sparkles size={18} />
+            まとめて追加 ({scannedItems.length}件)
+          </button>
         </div>
       )}
     </div>
