@@ -156,14 +156,8 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
     setLoading(false);
 
     if (product.isNotFound) {
-      // 不明商品: オーバーレイ通知
-      addNotification({
-        type: 'notfound',
-        message: `「${decodedText.slice(-6)}」は見つかりませんでした`,
-        barcode: decodedText,
-      });
-      
-      // 手動入力オプションを表示
+      // 不明商品: 下部シートに集約するため、ここでの上部通知は行わない
+      // 代わりに手動入力オプションを表示
       setManualInputBarcode(decodedText);
       
       // 2秒後に再スキャン許可
@@ -295,7 +289,6 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
         Html5QrcodeSupportedFormats.UPC_A,
         Html5QrcodeSupportedFormats.UPC_E,
         Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.QR_CODE
       ],
     });
     // @ts-ignore
@@ -304,9 +297,9 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
     html5QrCode.start(
       { facingMode: "environment" },
       {
-        fps: 20,
-        qrbox: { width: 256, height: 160 }, // UIのw-64 (256px), h-40 (160px) に合わせる
-        aspectRatio: 1.6, // UIの枠に合わせる
+        fps: 25, // よりスムーズに
+        // qrbox を削除してカメラ全体を検索対象にする
+        // これにより端っこのバーコードも認識可能になる
       },
       handleScanSuccess,
       (errorMessage) => {
@@ -390,21 +383,27 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
         {isScanning && !error && (
           <div className="absolute inset-0 pointer-events-none">
             {/* スキャンエリアフレーム */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-40">
-              {/* 四隅の角括弧 */}
-              <div className="absolute top-0 left-0 w-8 h-8 border-l-4 border-t-4 border-[var(--accent)] rounded-tl-lg" />
-              <div className="absolute top-0 right-0 w-8 h-8 border-r-4 border-t-4 border-[var(--accent)] rounded-tr-lg" />
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-l-4 border-b-4 border-[var(--accent)] rounded-bl-lg" />
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-r-4 border-b-4 border-[var(--accent)] rounded-br-lg" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-44">
+              {/* 四隅の角括弧 - より洗練されたデザイン */}
+              <div className="absolute top-0 left-0 w-10 h-10 border-l-[5px] border-t-[5px] border-[var(--accent)] rounded-tl-2xl opacity-90" />
+              <div className="absolute top-0 right-0 w-10 h-10 border-r-[5px] border-t-[5px] border-[var(--accent)] rounded-tr-2xl opacity-90" />
+              <div className="absolute bottom-0 left-0 w-10 h-10 border-l-[5px] border-b-[5px] border-[var(--accent)] rounded-bl-2xl opacity-90" />
+              <div className="absolute bottom-0 right-0 w-10 h-10 border-r-[5px] border-b-[5px] border-[var(--accent)] rounded-br-2xl opacity-90" />
               
-              {/* レーザーラインアニメーション */}
+              {/* レーザーラインアニメーション - グロー効果とシャドウを強化 */}
               <motion.div
-                className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent shadow-lg"
-                initial={{ top: "0%" }}
-                animate={{ top: ["0%", "100%", "0%"] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                style={{ boxShadow: '0 0 10px var(--accent), 0 0 20px var(--accent)' }}
+                className="absolute left-1 right-1 h-[3px] bg-[var(--accent)] rounded-full z-10"
+                initial={{ top: "10%" }}
+                animate={{ top: ["10%", "90%", "10%"] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                style={{ 
+                  boxShadow: '0 0 15px 2px var(--accent), 0 0 30px 5px var(--accent)',
+                  background: 'linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%)'
+                }}
               />
+              
+              {/* スキャンエリア内側の薄い網掛け */}
+              <div className="absolute inset-4 border border-white/10 rounded-xl bg-white/[0.02] backdrop-blur-[1px]" />
             </div>
             
             {/* ガイドテキスト */}
