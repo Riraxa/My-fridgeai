@@ -1,9 +1,10 @@
 // app/api/chat/food/route.ts
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { streamText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -154,28 +155,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // UIMessage の format (parts等) を CoreMessage (文字列のみのcontent) に正規化する
-    interface UIMessage {
-      role: string;
-      content?: string;
-      text?: string;
-      parts?: Array<{ type: string; text: string }>;
-    }
-    const coreMessages = messages.map((m: UIMessage) => {
-      let content = m.content;
-      if (!content && m.parts) {
-        content = m.parts.filter((p) => p.type === "text").map((p) => p.text).join("\n");
-      }
-      if (!content && m.text) {
-        content = m.text;
-      }
-      // PIIフィルタ適用
-      content = filterPII(content || "");
-      return {
-        role: m.role,
-        content: content,
-      };
-    });
+    const coreMessages = messages
+      .filter((m: any) => m.role !== "tool" && !m.toolInvocations) // UI特有のツール実行中メッセージは弾く
+      .map((m: any) => {
+        let content = m.content || m.text || "";
+        if (!content && m.parts) {
+          content = m.parts.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n");
+        }
+        
+        // 最低限の形式に変換
+        return {
+          role: m.role === "user" ? "user" : m.role === "system" ? "system" : "assistant",
+          content: m.role === "user" ? filterPII(content) : content,
+        };
+      });
 
     const ingredients = await prisma.ingredient.findMany({
       where: { userId },
@@ -203,6 +196,7 @@ ${ingredientsList || "冷蔵庫に食材が登録されていません。"}
 - 長いリストや長文は避け、要点だけを伝えてください。
 - 食材の消費に関する質問には、在庫の中で期限が近いものを優先して推奨してください。
 - 料理・食材に関係ない質問にも丁寧にお答えください。ただし、違法行為や有害な内容についてはお答えできません。
+- あなたはユーザーの代わりにアプリを操作する能力（ツール）を持っています。ユーザーから「買い物リストに追加して」「冷蔵庫に追加して」「〇〇のページに移動して」などと頼まれた場合、対応するツールを積極的に呼び出して実行してください。
 
 【重要: 医療・健康に関する免責】
 - アレルギー、食事療法、健康診断に関する質問には必ず「これはAIのアドバイスです。実際の症状や食事制限については医師や栄養士に相談してください」と付記してください。
@@ -218,23 +212,148 @@ ${ingredientsList || "冷蔵庫に食材が登録されていません。"}
 
     const remainingQuota = DAILY_QUOTA - (quota.count + 1);
 
-    const stream = await streamText({
-      model: openai("gpt-4o-mini"),
-      system: systemPrompt,
-      messages: coreMessages,
+    // OpenAI SDKで直接ストリーミング呼び出し
+    const openaiStream = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...coreMessages.map((m: any) => ({
+          role: m.role as "user" | "assistant" | "system",
+          content: m.content
+        }))
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "addToShoppingList",
+            description: "ユーザーの指示に従って、買い物リストにアイテム（食材や日用品）を追加する。",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "追加するアイテムの名前。" },
+                quantity: { type: "number", description: "数量。不明な場合は省略。" },
+                unit: { type: "string", description: "単位（例: 個, パック, 本）。不明な場合は省略。" },
+                note: { type: "string", description: "アイテムに付与するメモや買い物の条件（例: 安ければ買う、200円以下なら）。ない場合は省略。" }
+              },
+              required: ["name"]
+            }
+          }
+        },
+        {
+          type: "function",
+          function: {
+            name: "addToFridge",
+            description: "購入した食材やアイテムを冷蔵庫の在庫として追加する。",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "アイテムの名前。" },
+                quantity: { type: "number", description: "数量（デフォルトは1）。" },
+                unit: { type: "string", description: "単位（例: 個, g, ml）。" },
+                category: { type: "string", enum: ["冷蔵", "冷凍", "野菜", "調味料", "加工食品", "その他"], description: "カテゴリ。不明なら「その他」。" }
+              },
+              required: ["name", "quantity", "unit"]
+            }
+          }
+        },
+        {
+          type: "function",
+          function: {
+            name: "navigatePage",
+            description: "ユーザーの目的に合わせて、アプリ内の適切なページに画面遷移させる。",
+            parameters: {
+              type: "object",
+              properties: {
+                path: { type: "string", enum: ["/home", "/shopping-list", "/menu/generate", "/mode/quick", "/mode/use-up", "/features/ai-menu", "/features/inventory"], description: "遷移先のパス。" },
+                reason: { type: "string", description: "遷移する理由。" }
+              },
+              required: ["path", "reason"]
+            }
+          }
+        }
+      ],
+      stream: true
+    });
+
+    // Vercel AI SDK useChat互換のストリームを作成
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          let accumulatedContent = "";
+          let toolCalls: any[] = [];
+          let chunkCount = 0;
+          
+          for await (const chunk of openaiStream) {
+            chunkCount++;
+            const delta = chunk.choices[0]?.delta;
+            
+            // テキストコンテンツ
+            if (delta?.content) {
+              accumulatedContent += delta.content;
+              const data = `0:${JSON.stringify(delta.content)}\n`;
+              controller.enqueue(encoder.encode(data));
+            }
+            
+            // ツール呼び出し収集
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const existing = toolCalls.find(t => t.index === tc.index);
+                if (existing) {
+                  if (tc.function?.name) existing.name = tc.function.name;
+                  if (tc.function?.arguments) existing.args += tc.function.arguments;
+                  if (tc.id) existing.id = tc.id;
+                } else {
+                  toolCalls.push({
+                    index: tc.index,
+                    id: tc.id || `call_${Date.now()}_${tc.index}`,
+                    name: tc.function?.name || "",
+                    args: tc.function?.arguments || ""
+                  });
+                }
+              }
+            }
+            
+            // 完了
+            if (chunk.choices[0]?.finish_reason) {
+              // ツール呼び出しがあれば送信
+              if (toolCalls.length > 0) {
+                for (const tc of toolCalls) {
+                  const toolCallData = {
+                    toolCallId: tc.id,
+                    toolName: tc.name,
+                    args: tc.args ? JSON.parse(tc.args) : {}
+                  };
+                  const data = `1:${JSON.stringify(toolCallData)}\n`;
+                  controller.enqueue(encoder.encode(data));
+                }
+              }
+              
+              // 完了マーカー
+              controller.enqueue(encoder.encode(`2:${JSON.stringify({ finishReason: chunk.choices[0].finish_reason })}\n`));
+              controller.close();
+              return;
+            }
+          }
+          
+          // ストリーム終了（finish_reasonが来なかった場合）
+          controller.enqueue(encoder.encode(`2:${JSON.stringify({ finishReason: "stop" })}\n`));
+          controller.close();
+        } catch (error) {
+          console.error("[Stream] Error:", error);
+          controller.error(error);
+        }
+      }
     });
 
     // レスポンスヘッダーにクォータ情報を含める
-    const response = stream.toUIMessageStreamResponse();
-    const headers = new Headers(response.headers);
+    const headers = new Headers();
+    headers.set("Content-Type", "text/plain; charset=utf-8");
     headers.set("X-Quota-Remaining", String(remainingQuota));
     headers.set("X-Quota-Limit", String(DAILY_QUOTA));
 
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
+    return new Response(stream, { headers });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "チャット処理に失敗しました";
     return NextResponse.json(

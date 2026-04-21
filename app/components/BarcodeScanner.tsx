@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { 
   X, 
   Check, 
@@ -259,13 +259,15 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
         container.appendChild(video);
       }
 
+      let active = true;
       const detectLoop = async () => {
-        if (!scannerRef.current && !video.paused) { // scannerRef.currentがnullの時をスキャン中とみなす（簡易実装）
+        if (active && !video.paused) {
           try {
             const barcodes = await barcodeDetector.detect(video);
             if (barcodes.length > 0) {
               await handleScanSuccess(barcodes[0].rawValue);
               if (!isContinuous) {
+                active = false;
                 stream.getTracks().forEach(t => t.stop());
                 return;
               }
@@ -281,6 +283,7 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
       // @ts-ignore
       scannerRef.current = { 
         stop: async () => { 
+          active = false;
           stream.getTracks().forEach(t => t.stop());
           video.pause();
           setIsScanning(false);
@@ -300,8 +303,14 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
     // 認識する形式を絞って精度と速度を向上させる設定をコンストラクタに渡す
     const html5QrCode = new Html5Qrcode(SCAN_REGION_ID, {
       verbose: false,
-      // @ts-ignore
-      formatsToSupport: [0, 1, 6, 7], // EAN_13, EAN_8, UPC_A, UPC_E
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ],
     });
     // @ts-ignore
     scannerRef.current = html5QrCode;
@@ -309,8 +318,9 @@ export default function BarcodeScanner({ onResults, onClose }: BarcodeScannerPro
     html5QrCode.start(
       { facingMode: "environment" },
       {
-        fps: 15,
-        qrbox: undefined, // 白い枠を非表示、カスタムUIのみ使用
+        fps: 20, // 若干向上
+        qrbox: { width: 280, height: 200 }, // 枠を明示的に指定してスキャン範囲を最適化
+        aspectRatio: 1.6, // UIの枠に合わせる
       },
       handleScanSuccess,
       (errorMessage) => {

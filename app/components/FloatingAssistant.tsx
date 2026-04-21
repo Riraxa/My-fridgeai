@@ -1,11 +1,11 @@
 // app/components/FloatingAssistant.tsx
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { MessageSquare, X, Send, Bot, ChefHat, AlertCircle } from "lucide-react";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { useFridge } from "@/app/components/FridgeProvider";
 
 interface QuotaInfo {
   count: number;
@@ -13,10 +13,28 @@ interface QuotaInfo {
   remaining: number;
 }
 
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
 export default function FloatingAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "welcome",
+      role: "assistant",
+      content: "こんにちは！何かお手伝いしましょうか？食材や献立について聞いてください 🍳",
+    },
+  ]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const router = useRouter();
+  const { setShopping, addOrUpdateItem, setToast } = useFridge();
 
   // クォータ取得
   useEffect(() => {
@@ -34,35 +52,167 @@ export default function FloatingAssistant() {
     fetchQuota();
   }, []);
 
-  const chatState = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat/food" }),
-    messages: [
-      {
-        id: "welcome",
-        role: "assistant",
-        parts: [{ type: "text", text: "こんにちは！何かお手伝いしましょうか？食材や献立について聞いてください 🍳" }],
-      },
-    ],
-    onFinish: () => {
-      // メッセージ送信成功時にクォータを更新
-      setQuota(prev => prev ? { ...prev, count: prev.count + 1, remaining: Math.max(0, prev.remaining - 1) } : null);
-    },
-  });
+  // ツール呼び出し処理
+  const handleToolCall = useCallback(async (toolCall: any) => {
+    let responseText = "";
+    if (toolCall.toolName === "addToShoppingList") {
+      const args = toolCall.args || {};
+      const { name, quantity = 1, unit = "", note = "" } = args;
+      setShopping((prev: any[]) => [
+        {
+          id: `${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+          name,
+          quantity,
+          unit,
+          note,
+          done: false,
+        },
+        ...(prev || []),
+      ]);
+      setToast(`買い物リストに「${name}」を追加しました`);
+      responseText = `買い物リストに「${name}」を追加しました！`;
+    }
+    
+    if (toolCall.toolName === "addToFridge") {
+      const args = toolCall.args || {};
+      const { name, quantity = 1, unit = "個", category = "その他" } = args;
+      await addOrUpdateItem({
+        name,
+        quantity,
+        unit,
+        category,
+      });
+      setToast(`冷蔵庫に「${name}」を追加しました`);
+      responseText = `冷蔵庫に「${name}」を追加しました！`;
+    }
 
-  const messages = chatState.messages || [];
-  const isLoading = chatState.status === "streaming" || chatState.status === "submitted";
-  const isQuotaExhausted = quota?.remaining === 0;
+    if (toolCall.toolName === "navigatePage") {
+      const args = toolCall.args || {};
+      const { path } = args;
+      router.push(path);
+      setIsOpen(false);
+      responseText = `対象ページへ移動しました。`;
+    }
+
+    if (responseText) {
+      setTimeout(() => {
+        setMessages((msgs) => [
+          ...msgs,
+          { id: Date.now().toString(), role: "assistant", content: responseText }
+        ]);
+      }, 500);
+    }
+  }, [setShopping, addOrUpdateItem, setToast, router, setIsOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
-    chatState.sendMessage({ text: inputValue });
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: inputValue,
+    };
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/chat/food", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [...messages, userMessage] }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "チャット送信に失敗しました");
+      }
+
+      if (!res.body) {
+        throw new Error("レスポンスボディがありません");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = "";
+      const assistantMessageId = (Date.now() + 1).toString();
+
+      // アシスタントメッセージを追加（空の状態で）
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantMessageId, role: "assistant", content: "" },
+      ]);
+
+      let toolCalls: any[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n").filter((line) => line.trim());
+
+        for (const line of lines) {
+          // テキストチャンク (0:...)
+          if (line.startsWith('0:')) {
+            try {
+              const text = JSON.parse(line.slice(2));
+              accumulatedContent += text;
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: accumulatedContent }
+                    : msg
+                )
+              );
+            } catch (e) {
+              console.error("[Chat] Failed to parse text chunk:", line);
+            }
+          }
+          // ツール呼び出し (1:...)
+          else if (line.startsWith('1:')) {
+            try {
+              const toolCall = JSON.parse(line.slice(2));
+              toolCalls.push(toolCall);
+            } catch (e) {
+              console.error("[Chat] Failed to parse tool call:", line);
+            }
+          }
+          // 完了 (2:...)
+          else if (line.startsWith('2:')) {
+            // ストリーム完了
+            for (const tc of toolCalls) {
+              await handleToolCall(tc);
+            }
+          }
+        }
+      }
+
+      // クォータ更新
+      try {
+        const quotaRes = await fetch("/api/chat/food");
+        if (quotaRes.ok) {
+          const data = await quotaRes.json();
+          setQuota(data.quota);
+        }
+      } catch {
+        // ignore
+      }
+    } catch (err: any) {
+      console.error("[Chat] Error:", err);
+      setError(err.message || "エラーが発生しました");
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const isQuotaExhausted = quota?.remaining === 0;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -152,6 +302,16 @@ export default function FloatingAssistant() {
               )}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="px-4 py-2 bg-red-50 dark:bg-red-950/30 border-t border-red-100 dark:border-red-900/30">
+                <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  {error}
+                </p>
+              </div>
+            )}
 
             {/* Input Form */}
             <form onSubmit={handleSubmit} className="p-3 border-t border-[var(--surface-border)] bg-[var(--card-bg)]">
