@@ -2,21 +2,39 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { useNativeSelect } from "@/app/hooks/useNativeSelect";
+
+const supportSchema = z.object({
+  type: z.enum(["bug", "feature", "other"]),
+  subject: z.string().min(5, "件名は5文字以上で入力してください").max(200, "件名は200文字以内で入力してください"),
+  description: z.string().min(10, "内容は10文字以上で入力してください").max(5000, "内容は5000文字以内で入力してください"),
+});
+
+type SupportFormData = z.infer<typeof supportSchema>;
 
 export default function SupportForm() {
   const { getSelectClassName } = useNativeSelect();
-  const [formData, setFormData] = useState({
-    type: "bug", // bug, feature, other
-    subject: "",
-    description: "",
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<SupportFormData>({
+    resolver: zodResolver(supportSchema),
+    defaultValues: {
+      type: "bug",
+      subject: "",
+      description: "",
+    },
   });
-  const [loading, setLoading] = useState(false);
+
   const [message, setMessage] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const onSubmit = async (data: SupportFormData) => {
     setMessage("");
 
     try {
@@ -24,22 +42,20 @@ export default function SupportForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
+          ...data,
           screenshotBase64: null,
         }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
       if (!res.ok) {
-        throw new Error(data.error ?? "送信エラー");
+        throw new Error(result.error ?? "送信エラー");
       }
 
-      setMessage(data.message);
-      setFormData({ type: "bug", subject: "", description: "" });
+      setMessage(result.message);
+      reset();
     } catch (err: any) {
       setMessage(`エラー: ${err.message}`);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -52,15 +68,12 @@ export default function SupportForm() {
 
       {/* フォーム枠 */}
       <div className="card">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* 種類 */}
           <div>
             <label className="block text-sm font-medium mb-1">種類</label>
             <select
-              value={formData.type}
-              onChange={(e) =>
-                setFormData({ ...formData, type: e.target.value })
-              }
+              {...register("type")}
               className={getSelectClassName()}
             >
               <option value="bug">バグ報告</option>
@@ -74,40 +87,34 @@ export default function SupportForm() {
             <label className="block text-sm font-medium mb-1">件名</label>
             <input
               type="text"
-              required
-              minLength={5}
-              maxLength={200}
-              value={formData.subject}
-              onChange={(e) =>
-                setFormData({ ...formData, subject: e.target.value })
-              }
+              {...register("subject")}
               className="input"
             />
+            {errors.subject && (
+              <p className="text-red-500 text-sm mt-1">{errors.subject.message}</p>
+            )}
           </div>
 
           {/* 内容 */}
           <div>
             <label className="block text-sm font-medium mb-1">内容</label>
             <textarea
-              required
-              minLength={10}
-              maxLength={5000}
               rows={5}
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
+              {...register("description")}
               className="input"
             />
+            {errors.description && (
+              <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>
+            )}
           </div>
 
           {/* 送信ボタン */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitting}
             className="continue-btn w-full"
           >
-            {loading ? "送信中..." : "送信する"}
+            {isSubmitting ? "送信中..." : "送信する"}
           </button>
 
           {/* メッセージ */}

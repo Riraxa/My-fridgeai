@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { differenceInDays, differenceInHours } from "date-fns";
 import { resend, EMAIL_FROM } from "@/lib/mail/resend";
-import { sendPushNotification } from "@/lib/push";
+
 
 // Email Configuration Check - Since we use resend, we just need the API KEY checked in the util
 const isEmailConfigured = true;
@@ -30,8 +30,7 @@ export async function GET(req: Request) {
 
         const updates: Array<{ userId: string; ingredientId?: string; newAmount?: number; count?: number }> = [];
         const emailsSent: string[] = [];
-        const pushSent: string[] = [];
-        const pushFailed: string[] = [];
+
 
         for (const pref of usersWithAlerts) {
             const userId = pref.userId;
@@ -139,54 +138,7 @@ export async function GET(req: Request) {
                         console.log("Email not configured, skipping email notification");
                     }
 
-                    // 4. Send Web Push Notification
-                    try {
-                        const pushSubs = await prisma.pushSubscription.findMany({
-                            where: { userId, isActive: true },
-                        });
 
-                        if (pushSubs.length > 0) {
-                            const itemsText = itemsToNotify
-                                .map((i) => `${i.name}(あと${differenceInDays(i.expirationDate ?? new Date(), new Date())}日)`)
-                                .join('、');
-
-                            const pushPayload = {
-                                title: `賞味期限アラート(${itemsToNotify.length}件)`,
-                                body: itemsText,
-                                tag: `expiration-${userId}`,
-                                url: '/home',
-                            };
-
-                            for (const sub of pushSubs) {
-                                try {
-                                    await sendPushNotification(
-                                        {
-                                            endpoint: sub.endpoint,
-                                            keys: {
-                                                p256dh: sub.p256dh,
-                                                auth: sub.auth,
-                                            },
-                                        },
-                                        pushPayload
-                                    );
-                                    pushSent.push(sub.endpoint.slice(-20));
-                                } catch (pushErr: unknown) {
-                                    const msg = pushErr instanceof Error ? pushErr.message : String(pushErr);
-                                    console.error(`Push failed for ${userId}:`, msg);
-                                    pushFailed.push(sub.endpoint.slice(-20));
-                                    // 無効な購読を無効化
-                                    if (msg?.includes('Subscription expired') || msg?.includes('invalid')) {
-                                        await prisma.pushSubscription.update({
-                                            where: { id: sub.id },
-                                            data: { isActive: false },
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    } catch (pushErr) {
-                        console.error(`Push notification error for ${userId}:`, pushErr);
-                    }
                 }
             }
         }
@@ -196,8 +148,6 @@ export async function GET(req: Request) {
             processedUsers: usersWithAlerts.length,
             alertsCreated: updates.length,
             emailsSent: emailsSent.length,
-            pushSent: pushSent.length,
-            pushFailed: pushFailed.length,
         });
     } catch (error) {
         console.error("Cron Error:", error);

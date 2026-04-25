@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { normalizeAmount } from "@/lib/inventory";
-import { normalizeIngredientKey } from "@/lib/taste/normalizeIngredientKey";
-import { isTasteLearningEnabled } from "@/lib/featureFlags";
+
 
 export async function POST(req: Request) {
   try {
@@ -120,49 +119,6 @@ export async function POST(req: Request) {
         data: { status: "cancelled" },
       });
 
-      // TasteEvent記録（キャンセルした食材を"removed"イベントとして記録）
-      if (isTasteLearningEnabled()) {
-        for (const used of usedIngredients) {
-          if (!used?.name) continue;
-          
-          const key = normalizeIngredientKey(used.name);
-          const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-          
-          try {
-            // 既存のremovedイベントを検索（30分以内）
-            const existingEvent = await tx.tasteEvent.findFirst({
-              where: {
-                userId,
-                ingredientKey: key,
-                eventType: "removed",
-                createdAt: { gte: thirtyMinutesAgo },
-              },
-            });
-
-            if (existingEvent) {
-              // 集約: weight加算
-              const newWeight = Math.min(existingEvent.weight + 3.0, 10);
-              await tx.tasteEvent.update({
-                where: { id: existingEvent.id },
-                data: { weight: newWeight },
-              });
-            } else {
-              // 新規作成（removedは強いネガティブ信号なのでweight 3.0）
-              await tx.tasteEvent.create({
-                data: {
-                  userId,
-                  ingredientKey: key,
-                  eventType: "removed",
-                  weight: 3.0,
-                  source: "cook",
-                },
-              });
-            }
-          } catch (e) {
-            console.error("[TasteEvent] Failed to record removed:", key, e);
-          }
-        }
-      }
     });
 
     return NextResponse.json({

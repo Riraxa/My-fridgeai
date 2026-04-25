@@ -3,14 +3,12 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
-import NotificationModal from "@/app/components/NotificationModal";
-import { Plus, Search, Bell, ChefHat, Leaf, Zap } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useFridge } from "@/app/components/FridgeProvider";
 import { useTheme } from "@/app/components/ThemeProvider";
 import IngredientList from "@/app/components/IngredientList";
-import ReceiptScanner from "@/app/components/ReceiptScanner";
 import Toast from "@/app/components/Toast";
 import AddEditModal from "@/app/components/AddEditModal";
 import PageTransition, {
@@ -19,7 +17,6 @@ import PageTransition, {
 } from "@/app/components/PageTransition";
 import { AnimatePresence } from "framer-motion";
 import { Ingredient } from "@/types";
-import BarcodeScanner from "@/app/components/BarcodeScanner";
 
 import AddActionMenu from "@/app/components/AddActionMenu";
 import TodayRecommendation from "./components/TodayRecommendation";
@@ -34,11 +31,7 @@ export default function HomePage() {
   const [prefilledItem, setPrefilledItem] = useState<Ingredient | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("すべて");
-  const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
-  const [pendingScannedItems, setPendingScannedItems] = useState<any[]>([]);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
   const {
@@ -46,8 +39,6 @@ export default function HomePage() {
     toast,
     setToast,
     addOrUpdateItem,
-    receiptScanOpen,
-    setReceiptScanOpen,
   } = useFridge();
 
   useEffect(() => {
@@ -101,23 +92,6 @@ export default function HomePage() {
     window.addEventListener("fridge_open_add", openAdd);
     return () => window.removeEventListener("fridge_open_add", openAdd);
   }, []);
-
-  // 賞味期限チェックと通知作成
-  useEffect(() => {
-    if (session?.user?.id && items) {
-      const checkExpiringItems = async () => {
-        try {
-          await fetch("/api/notifications/check-expiring", {
-            method: "POST",
-          });
-        } catch (error) {
-          console.error("Failed to check expiring items:", error);
-        }
-      };
-
-      checkExpiringItems();
-    }
-  }, [session?.user?.id, items]);
 
   // 統計情報の計算 - useCallbackで最適化
   const stats = useMemo(() => {
@@ -177,95 +151,8 @@ export default function HomePage() {
       await addOrUpdateItem(it);
       setAddOpen(false);
       setPrefilledItem(null);
-
-      // Check for more pending scanned items
-      if (pendingScannedItems.length > 0) {
-        const nextItems = [...pendingScannedItems];
-        const nextItem = nextItems.shift();
-        setPendingScannedItems(nextItems);
-        if (nextItem) {
-          preparePrefilledItem(nextItem);
-        }
-      }
     } finally {
       setIsAdding(false);
-    }
-  };
-
-  const preparePrefilledItem = async (productData: any) => {
-    setToast("情報を推定中...");
-    try {
-      // Use the Hybrid Engine to get expiration, category, and quantity
-      const resp = await fetch("/api/ingredients/estimate-expiration", {
-        method: "POST",
-        body: JSON.stringify({ name: productData.name }),
-      });
-      const estimation = await resp.json();
-
-      // AI推論結果を優先使用、なければAPI推定結果をフォールバック
-      const newItem: Partial<Ingredient> = {
-        name: productData.name,
-        category: productData.category || estimation.estimatedCategory || "冷蔵",
-        amount: productData.amount || estimation.estimatedAmount || 1,
-        unit: productData.unit || estimation.estimatedUnit || "個",
-      };
-
-      // AI推論の賞味期限を優先使用
-      if (productData.recommendedExpiry) {
-        newItem.expirationDate = new Date(productData.recommendedExpiry).toISOString();
-      } else if (estimation.estimatedExpiration) {
-        newItem.expirationDate = new Date(estimation.estimatedExpiration).toISOString();
-      }
-
-      // If barcode lookup gave us a specific quantity, try to use it
-      if (productData.quantity) {
-        // e.g. "500ml" or "100g"
-        const qtyMatch = productData.quantity.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]+)$/);
-        if (qtyMatch) {
-          newItem.amount = parseFloat(qtyMatch[1]);
-          newItem.unit = qtyMatch[2];
-        }
-      }
-
-      setPrefilledItem(newItem as Ingredient);
-      setAddOpen(true);
-    } catch (error) {
-      console.error("Estimation failed", error);
-      setPrefilledItem({
-        name: productData.name,
-        category: "冷蔵",
-        amount: 1,
-        unit: "個",
-      } as Ingredient);
-      setAddOpen(true);
-    } finally {
-      setToast(null);
-    }
-  };
-
-  const handleBarcodeResults = (results: any[]) => {
-    setIsBarcodeOpen(false);
-    // 不明商品（isNotFound）も含めて処理（手動入力可能に）
-    if (results.length === 0) return;
-
-    const items = [...results];
-    const first = items.shift();
-    setPendingScannedItems(items);
-
-    if (first) {
-      // 不明商品の場合は空の名前で開く
-      if (first.isNotFound) {
-        setPrefilledItem({
-          name: first.name || "",
-          category: "冷蔵",
-          amount: 1,
-          unit: "個",
-          barcode: first.barcode,
-        } as Partial<Ingredient> as Ingredient);
-        setAddOpen(true);
-      } else {
-        preparePrefilledItem(first);
-      }
     }
   };
 
@@ -358,69 +245,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Action Buttons: Only notification remains in header */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setIsNotificationsOpen(true);
-                setHasUnreadNotifications(false);
-              }}
-              className="p-2 rounded-full transition relative"
-              style={{
-                background: "var(--surface-bg)",
-                border: "1px solid var(--surface-border)",
-                color: "var(--color-text-secondary)",
-              }}
-              title="通知"
-            >
-              <Bell size={20} />
-              {(stats.expiring > 0 || hasUnreadNotifications) && (
-                <span
-                  className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2"
-                  style={{
-                    background: "#f59e0b",
-                    borderColor: "var(--background)",
-                  }}
-                />
-              )}
-            </button>
-          </div>
+          {/* Action Buttons */}
         </section>
 
-        {/* --- Quick Actions --- */}
-        <section>
-          <div className="grid grid-cols-3 gap-3">
-            <button
-              onClick={() => router.push("/menu/generate")}
-              className="flex flex-col items-center justify-center p-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] hover:bg-[var(--surface-lighter)] transition-colors gap-2 shadow-sm"
-            >
-              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                <ChefHat size={20} />
-              </div>
-              <span className="text-xs font-bold text-[var(--color-text-primary)]">じっくり献立</span>
-            </button>
-
-            <button
-              onClick={() => router.push("/mode/use-up")}
-              className="flex flex-col items-center justify-center p-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] hover:bg-[var(--surface-lighter)] transition-colors gap-2 shadow-sm"
-            >
-              <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                <Leaf size={20} />
-              </div>
-              <span className="text-xs font-bold text-[var(--color-text-primary)]">使い切り優先</span>
-            </button>
-
-            <button
-              onClick={() => router.push("/mode/quick")}
-              className="flex flex-col items-center justify-center p-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] hover:bg-[var(--surface-lighter)] transition-colors gap-2 shadow-sm"
-            >
-              <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
-                <Zap size={20} />
-              </div>
-              <span className="text-xs font-bold text-[var(--color-text-primary)]">すぐ作る</span>
-            </button>
-          </div>
-        </section>
+        <div className="h-4" /> {/* Gap after summary */}
 
         {/* Search */}
         <section className="relative mt-6">
@@ -518,16 +346,6 @@ export default function HomePage() {
                 onCancel={() => {
                   setAddOpen(false);
                   setPrefilledItem(null);
-                  
-                  // Even if cancelled, check for more pending scanned items
-                  if (pendingScannedItems.length > 0) {
-                    const nextItems = [...pendingScannedItems];
-                    const nextItem = nextItems.shift();
-                    setPendingScannedItems(nextItems);
-                    if (nextItem) {
-                      setTimeout(() => preparePrefilledItem(nextItem), 100);
-                    }
-                  }
                 }}
               />
             </div>
@@ -535,37 +353,9 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isNotificationsOpen && (
-          <NotificationModal onClose={() => setIsNotificationsOpen(false)} />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {receiptScanOpen && (
-          <div>
-            <ReceiptScanner
-              visible={receiptScanOpen}
-              onClose={() => setReceiptScanOpen(false)}
-            />
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isBarcodeOpen && (
-          <BarcodeScanner
-            onResults={handleBarcodeResults}
-            onClose={() => setIsBarcodeOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      <AddActionMenu 
+      <AddActionMenu
         onManualAdd={() => setAddOpen(true)}
-        onBarcodeScan={() => setIsBarcodeOpen(true)}
-        onReceiptScan={() => setReceiptScanOpen(true)}
-        hidden={isAddOpen || receiptScanOpen}
+        hidden={isAddOpen}
       />
 
       <FloatingAssistant />

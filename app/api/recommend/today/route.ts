@@ -8,7 +8,7 @@ import { z } from "zod";
 
 export const maxDuration = 60;
 
-// キャッシュ機構 - 食材と味プロファイルが同じならAI呼び出しを省略
+// キャッシュ機構 - 食材が同じならAI呼び出しを省略
 interface CacheEntry {
   recommendation: {
     title: string;
@@ -25,24 +25,12 @@ const recommendationCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1時間
 
 function generateCacheKey(
-  ingredients: { id: string; name: string; amount: number | null; unit: string | null; expirationDate: Date | null }[],
-  profile: {
-    favoriteIngredients: string[];
-    dislikedIngredients: string[];
-    favoriteMethods: string[];
-    dislikedMethods: string[];
-  } | null
+  ingredients: { id: string; name: string; amount: number | null; unit: string | null; expirationDate: Date | null }[]
 ): string {
-  const ingredientIds = ingredients
+  return ingredients
     .map(i => i.id)
     .sort()
     .join(',');
-
-  const profileKey = profile
-    ? `${profile.favoriteIngredients.join(',')}|${profile.dislikedIngredients.join(',')}|${profile.favoriteMethods.join(',')}|${profile.dislikedMethods.join(',')}`
-    : 'null';
-
-  return `${ingredientIds}:${profileKey}`;
 }
 
 export async function GET() {
@@ -59,11 +47,6 @@ export async function GET() {
       orderBy: { expirationDate: "asc" },
     });
 
-    // 2. Get user's taste profile
-    const profile = await prisma.userTasteProfile.findUnique({
-      where: { userId },
-    });
-
     if (!ingredients || ingredients.length === 0) {
       return NextResponse.json({
         recommendation: null,
@@ -71,8 +54,8 @@ export async function GET() {
       });
     }
 
-    // 3. Check cache
-    const cacheKey = generateCacheKey(ingredients, profile);
+    // 2. Check cache
+    const cacheKey = generateCacheKey(ingredients);
     const cached = recommendationCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       console.log(`[RecommendToday] Cache hit for user ${userId}`);
@@ -82,10 +65,10 @@ export async function GET() {
       });
     }
 
-    // 4. AI Generation
+    // 3. AI Generation
     const prompt = `
 あなたは家庭の優秀なAIシェフです。
-以下の冷蔵庫の在庫とユーザーの好みを元に、**今日一番作るべきオススメの献立**を1つだけ提案してください。
+以下の冷蔵庫の在庫を元に、**今日一番作るべきオススメの献立**を1つだけ提案してください。
 
 【冷蔵庫の在庫（期限が近い順）】
 ${ingredients
@@ -97,15 +80,8 @@ ${ingredients
   )
   .join("\n")}
 
-【ユーザーの好み】
-- 好きな食材: ${(profile?.favoriteIngredients ?? []).join(", ")}
-- 苦手な食材: ${(profile?.dislikedIngredients ?? []).join(", ")}
-- 好きな調理法: ${(profile?.favoriteMethods ?? []).join(", ")}
-- 苦手な調理法: ${(profile?.dislikedMethods ?? []).join(", ")}
-
 【ルール】
 - 期限間近の食材を優先的に消費すること
-- 苦手な食材・調理法は避けること
 - 実用的な家庭料理であること
 `;
 

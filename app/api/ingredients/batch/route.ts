@@ -13,7 +13,6 @@ type BatchItem = {
   category?: string | null;
   expirationDate?: string | Date | null;
   expiry?: string | Date | null; // legacy
-  productId?: string | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -98,7 +97,6 @@ export async function POST(req: NextRequest) {
           category,
           amount,
           expirationDate,
-          productId: it.productId ?? null,
         };
       })
       .filter((x): x is NonNullable<typeof x> => !!x);
@@ -148,9 +146,6 @@ export async function POST(req: NextRequest) {
         saved: created.length 
       });
     }
-
-    const { recordServerEvent } = await import("@/lib/telemetry-server");
-    await recordServerEvent(userId, "API", "ingredient_batch_add", { count: created.length });
 
     const sanitized = created.map((item) => ({
       ...item,

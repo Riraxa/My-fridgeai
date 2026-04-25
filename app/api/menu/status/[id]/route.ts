@@ -97,6 +97,7 @@ export async function GET(
       }
 
       responseData = {
+        id: generation.id,
         menuGenerationId: generation.id,
         menus: {
           main: generation.mainMenu,

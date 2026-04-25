@@ -14,17 +14,7 @@ import type {
 
 export type { LightMenuGenerationResult };
 
-type IngredientWithProduct = Ingredient & {
-  product?: {
-    id: string;
-    name: string;
-    brandName: string | null;
-    ingredientType: string;
-    requiresAdditionalIngredients: unknown;
-    instructionTemplate: string | null;
-    nutritionEstimate: unknown;
-  } | null;
-};
+
 
 // --- Shared Helpers ---
 
@@ -35,27 +25,13 @@ async function getGenerationContext(
   userId: string,
   options?: { servings?: number; budget?: number | null; mode?: ConstraintMode }
 ): Promise<UserContext> {
-  const [preferences, allergies, restrictions, tasteProfile] = await Promise.all([
+  const [preferences, allergies, restrictions] = await Promise.all([
     prisma.$queryRaw<UserPreferences[]>`SELECT * FROM "UserPreferences" WHERE "userId" = ${userId} LIMIT 1`.then(rows => rows[0] || null),
     prisma.userAllergy.findMany({ where: { userId } }),
     prisma.userRestriction.findMany({ where: { userId } }),
-    prisma.userTasteProfile.findUnique({ where: { userId } }),
   ]);
 
-  const taste = (preferences?.tasteJson as Record<string, unknown>) ?? {};
 
-  // 3軸嗜好データを整形
-  const tasteContext = tasteProfile ? {
-    favoriteIngredients: tasteProfile.favoriteIngredients ?? [],
-    dislikedIngredients: tasteProfile.dislikedIngredients ?? [],
-    ingredientScores: tasteProfile.ingredientScores ?? {},
-    favoriteDishes: tasteProfile.favoriteDishes ?? [],
-    dislikedDishes: tasteProfile.dislikedDishes ?? [],
-    dishScores: tasteProfile.dishScores ?? {},
-    favoriteMethods: tasteProfile.favoriteMethods ?? [],
-    dislikedMethods: tasteProfile.dislikedMethods ?? [],
-    methodScores: tasteProfile.methodScores ?? {},
-  } : undefined;
 
   return {
     userId,
@@ -65,16 +41,7 @@ async function getGenerationContext(
     cookingSkill: (preferences?.cookingSkill === "expert" ? "advanced" : preferences?.cookingSkill ?? "intermediate") as "beginner" | "intermediate" | "advanced",
     allergies: allergies.map((a) => a.allergen),
     restrictions: restrictions.map((r) => ({ type: r.type, note: r.note ?? undefined })),
-    taste: {
-      tasteScores: taste.tasteScores as Record<string, number> | undefined,
-      lifestyle: taste.lifestyle as any,
-      freeText: taste.freeText as string | undefined,
-      equipment: taste.equipment as string[] | undefined,
-      preferredMethods: taste.preferredMethods as string[] | undefined,
-      recentGenrePenalty: taste.recentGenrePenalty as Record<string, number> | undefined,
-      // 新しい3軸嗜好データ
-      profile: tasteContext as any,
-    },
+    taste: {},
     preferences: {
       kitchenEquipment: preferences?.kitchenEquipment as string[] | undefined,
       comfortableMethods: preferences?.comfortableMethods as string[] | undefined,
@@ -113,7 +80,7 @@ export async function generateWeeklyPlanAI(
   preferences: UserPreferences | null,
 ): Promise<any[]> {
   const userId = preferences?.userId ?? "unknown";
-  const context = await getGenerationContext(userId);
+  const context = await getGenerationContext(userId, { mode: "flexible" });
   const agentIngredients = mapToAgentIngredients(ingredients);
   return await generateWeeklyPlanAgent(agentIngredients, context);
 }
@@ -124,7 +91,7 @@ export async function generateWeeklyPlanAI(
  * 最新版 2案（Main & Alternative）比較形式。
  */
 export async function generateLightMenusStream(
-  ingredients: IngredientWithProduct[],
+  ingredients: Ingredient[],
   userId: string,
   options?: { servings?: number; budget?: number | null; mode?: ConstraintMode },
   onThoughtsUpdate?: (thoughts: string[]) => void,

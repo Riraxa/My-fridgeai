@@ -113,7 +113,6 @@ export default function RootLayout({
                 {/* ✅ ここで全体を包む！ */}
                 {children}
                 <NavBarContainer />
-                <RevisitFeedbackModal />
                 <Toaster position="top-center" richColors />
               </FridgeProvider>
             </ThemeProvider>
@@ -125,4 +124,3 @@ export default function RootLayout({
 }
 
 import NavBarContainer from "@/app/components/NavBarContainer";
-import { RevisitFeedbackModal } from "@/app/components/RevisitFeedbackModal";

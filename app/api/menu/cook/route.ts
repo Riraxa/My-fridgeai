@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calculateInventoryUpdates } from "@/lib/inventory";
 import { addHours } from "date-fns";
-import { normalizeIngredientKey } from "@/lib/taste/normalizeIngredientKey";
-import { isTasteLearningEnabled } from "@/lib/featureFlags";
+
 import { checkIdempotency, recordIdempotency } from "@/lib/idempotency";
 import { parseMenuData } from "@/lib/prisma-safe";
 import { MenuCookSchema } from "@/lib/validations/api-schemas";
@@ -153,72 +152,9 @@ export async function POST(req: Request) {
         });
       }
 
-      // TasteEvent記録（利用した食材を"used"イベントとして記録）
-      if (isTasteLearningEnabled()) {
-        const uniqueIngredients = new Map<string, { name: string; amount: number }>();
-        
-        // 重複を排除して集計
-        for (const ing of usedIngredientsList) {
-          if (!ing?.name) continue;
-          const key = normalizeIngredientKey(ing.name);
-          const existing = uniqueIngredients.get(key);
-          if (existing) {
-            existing.amount += ing.amount || 0;
-          } else {
-            uniqueIngredients.set(key, { name: ing.name, amount: ing.amount || 0 });
-          }
-        }
-
-        // 各食材をTasteEventとして記録（30分集約ウィンドウ内）
-        for (const [key, data] of uniqueIngredients) {
-          try {
-            const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-            
-            // 既存イベントを検索（30分以内の同一イベント）
-            const existingEvent = await tx.tasteEvent.findFirst({
-              where: {
-                userId,
-                ingredientKey: key,
-                eventType: "used",
-                createdAt: { gte: thirtyMinutesAgo },
-              },
-            });
-
-            if (existingEvent) {
-              // 集約: weight加算
-              const newWeight = Math.min(existingEvent.weight + 1.0, 10);
-              await tx.tasteEvent.update({
-                where: { id: existingEvent.id },
-                data: { weight: newWeight },
-              });
-            } else {
-              // 新規作成
-              await tx.tasteEvent.create({
-                data: {
-                  userId,
-                  mealPlanResultId: menuGenerationId,
-                  ingredientKey: key,
-                  eventType: "used",
-                  weight: 1.0,
-                  source: "cook",
-                },
-              });
-            }
-          } catch (e) {
-            // TasteEvent記録失敗は全体の失敗にしない
-            console.error("[TasteEvent] Failed to record:", key, e);
-          }
-        }
-      }
     });
 
-    // 4. 利用履歴を記録 (Telemetry)
-    const { recordServerEvent } = await import("@/lib/telemetry-server");
-    await recordServerEvent(userId, "API", "COMPLETE_COOKING", {
-      menuGenerationId,
-      selectedMenu,
-      cookedDishes: _cookedDishesList,
-    });
+
 
     if (idempotencyKey) {
       await recordIdempotency("MENU_COOK", idempotencyKey, userId, { menuGenerationId });

@@ -99,18 +99,17 @@ export async function POST(req: NextRequest) {
     // ingredientType is automatically inferred
     const { inferIngredientType } = await import("@/lib/ingredient-inference");
     const { ingredientType } = inferIngredientType(name);
-    const productId = body.productId ?? null;
 
     const created = await prisma.ingredient.create({
       data: {
         userId,
         name,
         amount,
+        amountLevel: body.amountLevel ?? null,
         unit: unit ?? "個",
         expirationDate,
         category: category ?? "その他",
         ingredientType,
-        productId,
       },
     });
 

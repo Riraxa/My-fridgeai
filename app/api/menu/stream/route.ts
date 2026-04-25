@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { after } from "next/server";
 import { generateLightMenusStream, type LightMenuGenerationResult } from "@/lib/ai/menu-generator";
 import { checkIngredientAvailability } from "@/lib/inventory";
-import { sendPushToMultiple } from "@/lib/push";
+
 import { validateAllMenusStrict } from "@/lib/ai/constraint-validator";
 import { DEFAULT_IMPLICIT_INGREDIENTS } from "@/lib/constants/implicit-ingredients";
 import { Ingredient } from "@prisma/client";
@@ -80,7 +80,10 @@ export async function POST(req: Request) {
     const [user, dbIngredients, preferences] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
       prisma.ingredient.findMany({ where: { userId } }),
-      prisma.userPreferences.findUnique({ where: { userId } }),
+      prisma.userPreferences.findUnique({ 
+        where: { userId },
+        select: { customImplicitIngredients: true }
+      }).catch(() => null),
     ]);
 
     if (!dbIngredients || dbIngredients.length === 0) {
@@ -207,7 +210,7 @@ async function processMenuGeneration(
     });
     console.log(`[MenuStream] Step 1: Preparing (Ingredients: ${dbIngredients.length})`);
 
-    const ingredients = dbIngredients.map((i) => ({ ...i, product: null }));
+    const ingredients = dbIngredients;
 
     // 2. AI生成（ストリーミング）
     await prisma.menuGeneration.update({
@@ -249,7 +252,7 @@ async function processMenuGeneration(
       ];
       const validationInput = {
         main: menus.mainPlan as any,
-        alternativeA: menus.alternativePlan as any,
+        alternativeA: {} as any,
       };
       
       const constraintResult = validateAllMenusStrict(validationInput, ingredients, allImplicit);
@@ -276,13 +279,6 @@ async function processMenuGeneration(
       ingredients
     );
 
-    const altADetails = menus.alternativePlan?.dishes
-      ? checkIngredientAvailability(
-          (menus.alternativePlan.dishes ?? []).flatMap((d: { ingredients?: DishIngredient[] }) => d.ingredients ?? []),
-          ingredients
-        )
-      : mainDetails;
-
     // 4. 栄養計算
     await prisma.menuGeneration.update({
       where: { id: generationId },
@@ -291,7 +287,6 @@ async function processMenuGeneration(
 
     let nutritionInfo: Record<string, Record<string, { calories: number; protein: number; fat: number; carbs: number }>> = {
       main: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
-      altA: { total: { calories: 0, protein: 0, fat: 0, carbs: 0 } },
     };
 
     if (isPro) {
@@ -299,7 +294,6 @@ async function processMenuGeneration(
         const { evaluateNutrition } = await import("@/lib/nutrition");
         nutritionInfo = {
           main: evaluateNutrition(menus.mainPlan.dishes || []) as any,
-          altA: evaluateNutrition(menus.alternativePlan?.dishes || []) as any,
         };
       } catch (e) {
         console.warn("[MenuStream] Nutrition evaluation failed:", e);
@@ -314,25 +308,18 @@ async function processMenuGeneration(
         status: "completed",
         progressStep: "completed",
         mainMenu: menus.mainPlan,
-        alternativeA: menus.alternativePlan,
+        alternativeA: {},
         nutritionInfo: {
           ...nutritionInfo,
           scores: {
             main: nutritionInfo.main?.scores,
-            altA: nutritionInfo.altA?.scores,
           },
-          comparison: menus.comparison ? {
-            mainPlan: menus.comparison.mainPlan,
-            alternativePlan: menus.comparison.alternativePlan,
-          } : undefined,
         },
         usedIngredients: {
           main: mainDetails as any,
-          altA: altADetails as any,
         },
         shoppingList: {
-          main: mainDetails.missing.concat(mainDetails.insufficient) as any,
-          altA: altADetails.missing.concat(altADetails.insufficient) as any,
+          main: options.mode === "strict" ? [] : (mainDetails.missing.concat(mainDetails.insufficient) as any),
         },
         generatedAt: new Date(),
       },
@@ -341,53 +328,12 @@ async function processMenuGeneration(
     // 6. カウントアップ
     await incrementUserLimit(userId, "AI_MENU");
 
-    // 7. プッシュ通知
-    try {
-      const pushSubscriptions = await prisma.pushSubscription.findMany({
-        where: { userId, isActive: true },
-      });
-      if (pushSubscriptions.length > 0) {
-        const subscriptions = pushSubscriptions.map((sub) => ({
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth },
-        }));
-        await sendPushToMultiple(subscriptions, {
-          title: "🍳 献立が完成しました！",
-          body: `「${menus.mainPlan.name}」などの献立をご用意しました。`,
-          tag: "menu-complete",
-          url: "/menu/generate",
-        });
-      }
-    } catch (e) {}
-
     console.log(`<<<< [MenuStream] ALL COMPLETED in ${Date.now() - startTime}ms`);
-
-    // 8. 観測：メトリクスを記録 (Telemetry)
-    const { recordServerEvent } = await import("@/lib/telemetry-server");
-    await recordServerEvent(userId, "SYSTEM", "AI_MENU_METRICS", {
-      generationId,
-      latency_ms: Date.now() - startTime,
-      ingredients_count: dbIngredients.length,
-      servings: options.servings,
-      budget: options.budget,
-      mode: options.mode,
-      status: "completed",
-    });
 
   } catch (error: unknown) {
     console.error(`!!!! [MenuStream] FATAL ERROR:`, error);
     
-    // エラーメトリクスの記録
-    try {
-      const { recordServerEvent } = await import("@/lib/telemetry-server");
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      await recordServerEvent(userId, "SYSTEM", "AI_MENU_METRICS", {
-        generationId,
-        latency_ms: Date.now() - startTime,
-        status: "failed",
-        error: errorMessage,
-      });
-    } catch (metricErr) {}
+
 
     try {
       await prisma.menuGeneration.update({

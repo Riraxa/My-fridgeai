@@ -121,11 +121,6 @@ export default function AccountSettings() {
       <section>
         <h2 className="text-xl font-bold mb-4">その他</h2>
         <div className="card legal-links">
-          <a href="/settings/notifications" className="legal-link">
-            <span className="legal-link__label">通知設定</span>
-            <span className="legal-link__arrow">→</span>
-          </a>
-          <div className="legal-divider"></div>
           <a href="/settings/support" className="legal-link">
             <span className="legal-link__label">サポート・お問い合わせ</span>
             <span className="legal-link__arrow">→</span>

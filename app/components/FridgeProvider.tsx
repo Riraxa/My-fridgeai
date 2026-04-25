@@ -269,7 +269,6 @@ export function FridgeProvider({ children }: { children: React.ReactNode }) {
             expirationDate,
             category,
             ingredientType: it.ingredientType ?? "raw",
-            productId: it.productId ?? null,
           };
         const res = await fetch(url, {
           method,

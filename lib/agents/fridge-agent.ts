@@ -25,7 +25,6 @@ import {
 // Legacy type for internal processing
 type MenuGenerationResult = {
   main: any;
-  alternativeA: any;
 };
 
 
@@ -41,7 +40,7 @@ const nutritionCalculator = new NutritionCalculator();
 
 /**
  * 軽量献立生成Agent (ストリーミング対応)
- * 最新 2案（Main & Alternative）比較形式。AIが客観的にスコアを算出。
+ * 最新 1案形式（Mainのみ）。AIが客観的にスコアを算出。
  * SSoT（Single Source of Truth）版: 最初から手順(steps)とコツ(tips)を含めて生成します。
  */
 export async function generateLightMenusAgent(
@@ -77,8 +76,7 @@ export async function generateLightMenusAgent(
       let lastUpdateAt = 0;
       for await (const partial of streamResult.partialObjectStream) {
         const thoughts = [
-          ...(partial.mainPlan?.thoughtProcess || []),
-          ...(partial.alternativePlan?.thoughtProcess || [])
+          ...(partial.mainPlan?.thoughtProcess || [])
         ].filter((t): t is string => typeof t === 'string' && t.trim().length > 0);
 
         const now = Date.now();
@@ -94,8 +92,7 @@ export async function generateLightMenusAgent(
       // 最後にすべての思考を確実に送信
       if (onThoughtsUpdate) {
         const finalThoughts = [
-          ...(finalObject.mainPlan?.thoughtProcess || []),
-          ...(finalObject.alternativePlan?.thoughtProcess || [])
+          ...(finalObject.mainPlan?.thoughtProcess || [])
         ].filter(t => t && t.trim().length > 0);
         onThoughtsUpdate(finalThoughts);
       }
@@ -161,7 +158,6 @@ export async function generateWeeklyPlanAgent(
       object.week.map(async (menu: any) => {
         const tempResult: MenuGenerationResult = {
           main: menu,
-          alternativeA: menu, // Dummy for nutrition processing
         };
         const processed = await processMenuNutrition(tempResult);
         return processed.main;
@@ -179,9 +175,16 @@ export async function generateWeeklyPlanAgent(
 
 function buildBaseSystemPrompt(context: UserContext, critical: IngredientInput[], warning: IngredientInput[]): string {
   const implicitList = IMPLICIT_INGREDIENTS_FOR_PROMPT.join('、');
-  const contextRules = context.mode === 'strict'
-    ? `【重要】食材は手持ちリストと暗黙食材（${implicitList}）のみ使用可能です。リストにない食材（少量の薬味や調味料も含む）は一切使用しないでください。`
-    : `手持ち食材を優先しつつ、不足食材は2品程度まで追加許可します。基本調味料は自由に使用可能です。`;
+  let contextRules = "";
+  if (context.mode === 'strict') {
+    contextRules = `【重要】食材は手持ちリストと暗黙食材（${implicitList}）のみ使用可能です。リストにない食材（少量の薬味や調味料も含む）は一切使用しないでください。`;
+  } else if (context.mode === 'quick') {
+    contextRules = `【時短モード】20分以内で完成する、極めて簡潔なレシピを優先してください。`;
+  } else if (context.mode === 'use-up') {
+    contextRules = `【使い切りモード】賞味期限が近い食材、または余りがちな食材を大量に、または優先的に消費するレシピを提案してください。`;
+  } else {
+    contextRules = `手持ち食材を優先しつつ、不足食材は2品程度まで追加許可します。基本調味料は自由に使用可能です。`;
+  }
 
   return `あなたは冷蔵庫の食材管理と献立提案を行うプロのシェフです。
 ユーザー環境: 料理スキル[${context.cookingSkill}]、人数[${context.servings}人前]
@@ -194,6 +197,21 @@ function buildBaseSystemPrompt(context: UserContext, critical: IngredientInput[]
 
 
 function buildLightSystemPrompt(context: UserContext, critical: IngredientInput[], warning: IngredientInput[], normal: IngredientInput[]): string {
+  let modeInstruction = "";
+  if (context.mode === 'strict') {
+    modeInstruction = `役割 (role): 'balanced' または 'creative'\n指針: 全ての料理を手持ち食材のみで完遂すること。`;
+  } else if (context.mode === 'quick') {
+    modeInstruction = `役割 (role): 'timeOptimized'\n指針: 合計調理時間を20分以内（目標15分）に抑えること。電子レンジ活用、ワンパン料理、同時並行調理を前提とする。`;
+  } else if (context.mode === 'use-up') {
+    modeInstruction = `役割 (role): 'balanced' または 'costOptimized'\n指針: 賞味期限間近の食材を最大消費しつつ、無駄なく使い切ること。`;
+  } else {
+    if (context.budget) {
+      modeInstruction = `役割 (role): 'costOptimized'\n指針: 不足食材を2品程度まで補いつつ、予算（${context.budget}円/人）を意識した節約献立にすること。`;
+    } else {
+      modeInstruction = `役割 (role): 'balanced' または 'creative'\n指針: 不足食材を2品程度まで補って、魅力的な献立にすること。`;
+    }
+  }
+
   return `${buildBaseSystemPrompt(context, critical, warning)}
 # 手持ち食材リスト
 ${formatIngredientList(normal)}
@@ -201,26 +219,19 @@ ${formatIngredientList(normal)}
 # 評価基準 (0-100)
 AIが客観的に算出してください: inventoryUsage(在庫消費率), costEfficiency(節約度), healthScore(健康度), timeEfficiency(時短度)
 
-# 2案の役割と設計指針
-1. mainPlan (バランス案):
-   - 30〜45分程度かけ、食材の旨味を最大限に引き出す丁寧な構成。
-   - 期限間近食材を論理的に使い切ることを最優先する。
-2. alternativePlan (特化案):
-   - 【時短特化 (timeOptimized)】の場合: **合計調理時間を20分以内（目標15分）**に抑えること。電子レンジ活用、ワンパン料理、同時並行調理を前提とする。
-   - 【節約/健康/過激】の場合: 各テーマのメリットが極大化されるよう、通常案とは明確に異なるアプローチを取る。
+# 提案内容 (mainPlan) の設計指針
+${modeInstruction}
 
 # 重要ルール
-1. **2案の合計調理時間に少なくとも15分以上の差をつけてください。**（例: 45分 vs 20分）
-2. 主菜・副菜・汁物の3品すべてについて、具体的な調理手順(steps)とプロのコツ(tips)を詳しく記述してください。
-3. thoughtsProcessを各案の最初に出力。`;
+1. 主菜・副菜・汁物の3品すべてについて、具体的な調理手順(steps)とプロのコツ(tips)を詳しく記述してください。
+2. 今回のモードの制約（strict, quick, use-up, flexible 等）をどのように満たしたかを「thoughtProcess」に箇条書きで必ず記述してください。
+3. 【重要】JSONの出力順序として、必ず最初に mainPlan の thoughtProcess を出力してから、他の項目を生成してください。`;
 }
 
 
 function buildLightUserPrompt(ingredients: IngredientInput[], context: UserContext): string {
   return `手持ち食材: ${ingredients.map((i) => i.name).join(', ')}
-各案の狙いや工夫点を「thoughtProcess」に箇条書きで含めてください。
-**時短特化案（timeOptimized）については、合計20分以内で終わる極めて現実的な工程を提案してください。**
-通常案の調理時間との間に15分以上の明確な差をつけてください。 (例: 通常45分 / 時短20分)`;
+狙いや工夫点（モードの制約をどう満たしたか）を「thoughtProcess」に箇条書きで含めてください。`;
 }
 
 function buildWeeklySystemPrompt(context: UserContext, list: string): string {
@@ -268,7 +279,6 @@ async function processMenuNutrition(result: MenuGenerationResult): Promise<MenuG
   };
   return {
     main: await process(result.main),
-    alternativeA: await process(result.alternativeA),
   };
 }
 

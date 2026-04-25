@@ -5,9 +5,11 @@ export type IngredientType = "raw" | "processed_base" | "instant_complete";
 /**
  * 制約モード（Constraint Mode）
  * - strict: 冷蔵庫内の食材 + 暗黙食材のみで献立を生成
- * - flexible: 冷蔵庫内食材を優先しつつ、不足分を一部許可（デフォルト互換）
+ * - flexible: 手持ち食材を優先しつつ、不足食材は2品程度まで追加許可
+ * - quick: 短時間で調理可能なメニューを優先
+ * - use-up: 賞味期限の近い食材の消費を最優先
  */
-export type ConstraintMode = "strict" | "flexible";
+export type ConstraintMode = "strict" | "flexible" | "quick" | "use-up";
 
 /**
  * 制約モード付き献立の食材情報
@@ -28,25 +30,6 @@ export interface InsufficientInventoryError {
   message: string;
 }
 
-export interface Product {
-  id: string;
-  userId: string;
-  name: string;
-  brandName: string | null;
-  ingredientType: IngredientType;
-  requiresAdditionalIngredients: { name: string; amount: number; unit: string }[];
-  instructionTemplate: string | null;
-  nutritionEstimate: {
-    calories?: number;
-    protein?: number;
-    fat?: number;
-    carbs?: number;
-  } | null;
-  category: string | null;
-  createdAt?: string | Date;
-  updatedAt?: string | Date;
-}
-
 export interface Ingredient {
   id?: string;
   userId?: string;
@@ -58,8 +41,6 @@ export interface Ingredient {
   expirationDate: string | Date | null;
   quantity?: number; // Legacy
   ingredientType?: IngredientType;
-  productId?: string | null;
-  product?: Product | null;
   barcode?: string | null; // バーコード読み取り用
   createdAt?: string | Date;
   updatedAt?: string | Date;

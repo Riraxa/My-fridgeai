@@ -14,7 +14,7 @@ function SettingsLayoutContent({ children }: { children: React.ReactNode }) {
   const [showThankYouModal, setShowThankYouModal] = useState(false);
 
   // タブを非表示にするページ（アカウントタブ内の詳細ページ）
-  const hideTabs = pathname === "/settings/notifications" || pathname === "/settings/support";
+  const hideTabs = pathname === "/settings/support";
 
   useEffect(() => {
     const proStatus = searchParams.get("pro");
