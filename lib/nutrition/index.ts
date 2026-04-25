@@ -1,4 +1,10 @@
 // GENERATED_BY_AI: 2026-03-18 cascade
+export type {
+  DishWithNutrition,
+  NutritionEvaluation,
+} from "./evaluation";
+export { evaluateNutrition, getPFCBalance } from "./evaluation";
+
 export interface NutritionInfo {
   calories: number;
   protein: number;

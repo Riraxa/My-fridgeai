@@ -6,9 +6,9 @@ interface MenuSkeletonProps {
   count?: number;
 }
 
-export function MenuSkeleton({ count = 2 }: MenuSkeletonProps) {
+export function MenuSkeleton({ count = 1 }: MenuSkeletonProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="max-w-2xl mx-auto">
       {Array.from({ length: count }).map((_, i) => (
         <div 
           key={i} 

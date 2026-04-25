@@ -1,14 +1,6 @@
 import { addDays } from "date-fns";
 import Fuse from "fuse.js";
-
-export interface FoodMaster {
-  name: string;
-  days: number;
-  category: "冷蔵" | "冷凍" | "野菜" | "調味料" | "加工食品" | "その他";
-  defaultAmount?: number;
-  defaultUnit?: string;
-  aliases?: string[]; // 別名・類似語
-}
+import type { FoodMaster } from "./types/food";
 
 /**
  * 科学的根拠に基づく食材マスターデータ

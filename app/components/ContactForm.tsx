@@ -4,72 +4,51 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { useNativeSelect } from "@/app/hooks/useNativeSelect";
+
+const contactSchema = z.object({
+  type: z.enum(["bug", "feature", "other"]),
+  subject: z.string().min(5, "件名は5文字以上で入力してください").max(200, "件名は200文字以内で入力してください"),
+  description: z.string().min(10, "内容は10文字以上で入力してください").max(5000, "内容は5000文字以内で入力してください"),
+  name: z.string().optional(),
+  email: z.string().email("有効なメールアドレスを入力してください").optional(),
+});
+
+type ContactFormData = z.infer<typeof contactSchema>;
 
 export default function ContactForm() {
   const { getSelectClassName } = useNativeSelect();
   const { data: session } = useSession();
-  
-  const [formData, setFormData] = useState({
-    type: "bug", // bug, feature, other
-    subject: "",
-    description: "",
-    name: "",
-    email: "",
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<ContactFormData>({
+    resolver: zodResolver(contactSchema),
+    defaultValues: {
+      type: "bug",
+      subject: "",
+      description: "",
+      name: "",
+      email: "",
+    },
   });
-  
-  const [loading, setLoading] = useState(false);
+
   const [message, setMessage] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ""
-      }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    // Subject validation
-    if (!formData.subject || formData.subject.length < 5 || formData.subject.length > 200) {
-      newErrors.subject = "件名は5文字以上200文字以内で入力してください";
-    }
-
-    // Description validation
-    if (!formData.description || formData.description.length < 10 || formData.description.length > 5000) {
-      newErrors.description = "内容は10文字以上5000文字以内で入力してください";
-    }
-
-    // Email validation (for non-logged in users)
-    if (!session?.user && !formData.email) {
-      newErrors.email = "メールアドレスを入力してください";
-    } else if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "有効なメールアドレスを入力してください";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
+  const onSubmit = async (data: ContactFormData) => {
+    // Email validation for non-logged in users
+    if (!session?.user && !data.email) {
+      setError("email", { message: "メールアドレスを入力してください" });
       return;
     }
 
-    setLoading(true);
     setMessage("");
 
     try {
@@ -77,37 +56,29 @@ export default function ContactForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
+          ...data,
           userId: session?.user?.id || null,
-          userName: session?.user?.name || formData.name,
-          userEmail: session?.user?.email || formData.email,
+          userName: session?.user?.name || data.name,
+          userEmail: session?.user?.email || data.email,
         }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "送信に失敗しました");
+        throw new Error(result.error || "送信に失敗しました");
       }
 
       setMessage("お問い合わせを受け付けました。ありがとうございます。");
-      setFormData({
-        type: "bug",
-        subject: "",
-        description: "",
-        name: "",
-        email: "",
-      });
+      reset();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "送信に失敗しました");
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
     <div className="bg-[var(--background)] border border-[var(--surface-border)] rounded-2xl p-8">
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* User Info Section */}
         {session?.user ? (
           <div className="bg-[var(--semantic-indigo-bg)] p-4 rounded-lg mb-6">
@@ -128,14 +99,12 @@ export default function ContactForm() {
               <input
                 type="text"
                 id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
+                {...register("name")}
                 className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-[var(--surface-bg)] text-[var(--color-text-primary)]"
                 placeholder="山田 太郎"
               />
             </div>
-            
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                 メールアドレス <span className="text-red-500">*</span>
@@ -143,19 +112,16 @@ export default function ContactForm() {
               <input
                 type="email"
                 id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
+                {...register("email")}
                 className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-[var(--surface-bg)] text-[var(--color-text-primary)] ${
-                  errors.email 
-                    ? "border-red-500 dark:border-red-500" 
+                  errors.email
+                    ? "border-red-500 dark:border-red-500"
                     : "border-slate-300 dark:border-slate-700"
                 }`}
                 placeholder="example@email.com"
-                required
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+                <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
               )}
             </div>
           </div>
@@ -168,9 +134,7 @@ export default function ContactForm() {
           </label>
           <select
             id="type"
-            name="type"
-            value={formData.type}
-            onChange={handleChange}
+            {...register("type")}
             className={getSelectClassName("w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-[var(--surface-bg)] text-[var(--color-text-primary)]")}
           >
             <option value="bug">バグ報告</option>
@@ -187,19 +151,16 @@ export default function ContactForm() {
           <input
             type="text"
             id="subject"
-            name="subject"
-            value={formData.subject}
-            onChange={handleChange}
+            {...register("subject")}
             className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-[var(--surface-bg)] text-[var(--color-text-primary)] ${
-              errors.subject 
-                ? "border-red-500 dark:border-red-500" 
+              errors.subject
+                ? "border-red-500 dark:border-red-500"
                 : "border-slate-300 dark:border-slate-700"
             }`}
             placeholder="件名を入力してください"
-            required
           />
           {errors.subject && (
-            <p className="mt-1 text-sm text-red-500">{errors.subject}</p>
+            <p className="mt-1 text-sm text-red-500">{errors.subject.message}</p>
           )}
         </div>
 
@@ -210,20 +171,17 @@ export default function ContactForm() {
           </label>
           <textarea
             id="description"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
+            {...register("description")}
             rows={8}
             className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-[var(--surface-bg)] text-[var(--color-text-primary)] resize-vertical ${
-              errors.description 
-                ? "border-red-500 dark:border-red-500" 
+              errors.description
+                ? "border-red-500 dark:border-red-500"
                 : "border-slate-300 dark:border-slate-700"
             }`}
             placeholder="詳細な内容を入力してください"
-            required
           />
           {errors.description && (
-            <p className="mt-1 text-sm text-red-500">{errors.description}</p>
+            <p className="mt-1 text-sm text-red-500">{errors.description.message}</p>
           )}
         </div>
 
@@ -231,17 +189,17 @@ export default function ContactForm() {
         <div className="flex flex-col sm:flex-row gap-4">
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitting}
             className="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
           >
-            {loading ? "送信中..." : "送信する"}
+            {isSubmitting ? "送信中..." : "送信する"}
           </button>
         </div>
 
         {/* Message */}
         {message && (
           <div className={`p-4 rounded-lg ${
-            message.includes("受け付けました") 
+            message.includes("受け付けました")
               ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800"
               : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
           }`}>

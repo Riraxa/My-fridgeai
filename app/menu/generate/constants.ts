@@ -7,6 +7,8 @@ export type InventoryPattern =
   | 'proteinHeavy'
   | 'hasBudget'
   | 'strictMode'
+  | 'quickMode'
+  | 'useUpMode'
   | 'largeServings'
   | 'constraintHeavy';
 
@@ -14,6 +16,8 @@ export const PATTERN_PRIORITY: InventoryPattern[] = [
   'constraintHeavy',
   'hasExpiring',
   'strictMode',
+  'quickMode',
+  'useUpMode',
   'largeServings',
   'lowInventory',
   'hasBudget',
@@ -56,6 +60,16 @@ export const PRIORITY_MESSAGES: Record<InventoryPattern, string[]> = {
     "厳格な制約条件での最適解を探索中...",
     "指定された食材のみで完結するレシピを検討中...",
     "在庫のみを使用した創造的なアレンジを研究中...",
+  ],
+  quickMode: [
+    "最短ルートでの調理工程を組み立て中...",
+    "効率的な並行調理プランを立案中...",
+    "20分以内で完成する最速レシピを選定中...",
+  ],
+  useUpMode: [
+    "食材の残量を最大化して消費するプランを構築中...",
+    "まとめ使いに最適なレシピをシミュレーション中...",
+    "廃棄ゼロを目指した使い切り構成を検討中...",
   ],
   largeServings: [
     "大家族でも満足できる量とバランスを計算中...",

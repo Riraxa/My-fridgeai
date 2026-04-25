@@ -265,7 +265,7 @@ ${ingredientsList || "冷蔵庫に食材が登録されていません。"}
             parameters: {
               type: "object",
               properties: {
-                path: { type: "string", enum: ["/home", "/shopping-list", "/menu/generate", "/mode/quick", "/mode/use-up", "/features/ai-menu", "/features/inventory"], description: "遷移先のパス。" },
+                path: { type: "string", enum: ["/home", "/shopping-list", "/menu/generate", "/features/ai-menu", "/features/inventory"], description: "遷移先のパス。" },
                 reason: { type: "string", description: "遷移する理由。" }
               },
               required: ["path", "reason"]

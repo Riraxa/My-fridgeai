@@ -40,11 +40,11 @@ export function detectInventoryPatterns(
     expiringCount: number;
     servings: number;
     budget: number | null;
-    strictMode: boolean;
+    generationMode: string;
   }
 ): InventoryPattern[] {
   const patterns: InventoryPattern[] = [];
-  const { inventoryCount, expiringCount, servings, budget, strictMode } = options;
+  const { inventoryCount, expiringCount, servings, budget, generationMode } = options;
 
   // 配列チェック
   const safeIngredients = Array.isArray(ingredients) ? ingredients : [];
@@ -52,7 +52,9 @@ export function detectInventoryPatterns(
   if (inventoryCount <= 5) patterns.push('lowInventory');
   if (expiringCount > 0) patterns.push('hasExpiring');
   if (budget !== null) patterns.push('hasBudget');
-  if (strictMode) patterns.push('strictMode');
+  if (generationMode === 'strict') patterns.push('strictMode');
+  if (generationMode === 'quick') patterns.push('quickMode');
+  if (generationMode === 'use-up') patterns.push('useUpMode');
   if (servings >= 5) patterns.push('largeServings');
 
   const vegCount = safeIngredients.filter(i => 

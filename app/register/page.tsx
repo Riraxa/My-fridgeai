@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
@@ -82,13 +83,13 @@ function RegisterPageContent() {
 
   return (
     <motion.div
-      className="min-h-screen flex items-center justify-start pt-10 pb-8"
+      className="h-screen flex items-center justify-center overflow-hidden"
       initial="hidden"
       animate="show"
       variants={fadeInUp}
     >
-      <div className="w-full max-w-md h-screen mx-auto flex flex-col justify-between items-center -translate-y-6 p-6">
-        <div className="flex flex-col items-center gap-2 w-full">
+      <div className="w-full max-w-md h-screen mx-auto flex flex-col justify-center items-center p-6">
+        <div className="flex flex-col items-center gap-2">
           {mounted ? (
             <Image
               src={
@@ -124,37 +125,19 @@ function RegisterPageContent() {
           <h2 className="mt-2 text-center text-xl font-black text-primary">
             Welcome to My-fridgeai
           </h2>
-          <p className="text-center text-secondary mt-0 font-medium">
-            日常の食材管理を、もっとスマートに。
+          <p className="text-center text-sm text-secondary font-medium">
+            冷蔵庫の管理を、もっとシンプルに。
           </p>
         </div>
 
-        <div className="w-full mt-8 mb-auto">
-          <div className="flex flex-col gap-4">
-            {msg && (
-              <Alert type={msg.type === "error" ? "error" : "success"}>
-                {msg.text}
-              </Alert>
-            )}
-
-            {/* Auth method notice */}
-            <div
-              className="text-xs text-center leading-relaxed px-2 py-3 rounded-xl"
-              style={{
-                background: "color-mix(in srgb, var(--accent) 8%, transparent)",
-                color: "var(--color-text-secondary)",
-                border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)",
-              }}
-            >
-              <strong className="text-primary">Googleアカウント</strong>でのみ登録できます。
-              <br />
-              メール・パスワード、パスキーは廃止いたしました。ご了承ください。
-            </div>
+        <div className="w-full mt-6">
+          <div className="flex flex-col gap-3">
+            {msg && <Alert type={msg.type === "error" ? "error" : "success"}>{msg.text}</Alert>}
 
             <motion.button
               onClick={handleGoogle}
               disabled={loading}
-              className="w-full surface-btn font-semibold py-3 rounded-full flex items-center justify-center gap-2"
+              className="w-full surface-btn font-semibold py-3 rounded-full flex items-center justify-center gap-2 transition transform duration-150 ease-out active:translate-y-1 disabled:opacity-60"
               whileTap={buttonTap.whileTap}
               whileHover={buttonTap.whileHover}
               transition={springTransition}
@@ -189,7 +172,7 @@ function RegisterPageContent() {
 
             <motion.button
               disabled
-              className="w-full surface-btn font-semibold py-3 rounded-full border flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full surface-btn font-semibold py-3 rounded-full border flex items-center justify-center gap-2 disabled:opacity-60"
               whileTap={buttonTap.whileTap}
               whileHover={buttonTap.whileHover}
               transition={springTransition}
@@ -207,31 +190,29 @@ function RegisterPageContent() {
               Appleで新規登録（今後対応予定）
             </motion.button>
 
-            <p className="text-xs text-center text-secondary mt-2 leading-relaxed">
+            <p className="text-xs text-center text-secondary mt-2">
               続行すると
-              <a href="/terms" className="underline ml-1 text-primary">
+              <Link className="underline ml-1 text-primary" href="/terms">
                 利用規約
-              </a>
+              </Link>
               と
-              <a href="/privacy" className="underline ml-1 text-primary">
+              <Link className="underline ml-1 text-primary" href="/privacy">
                 プライバシーポリシー
-              </a>
+              </Link>
               に同意したことになります。
+            </p>
+
+            <p className="text-xs text-center text-muted mt-2">
+              アカウントをお持ちでない方は
+              <Link className="underline ml-1 text-primary" href="/login">
+                ログイン
+              </Link>
             </p>
           </div>
         </div>
 
-        <div className="w-full flex flex-col items-center gap-4 mt-6">
-          <p className="text-sm text-secondary">
-            すでにアカウントをお持ちですか？
-            <a
-              href="/login"
-              className="underline ml-1 text-primary font-medium"
-            >
-              ログイン
-            </a>
-          </p>
-          <div className="text-xs text-muted mb-6">© My-fridgeai</div>
+        <div className="w-full text-center text-xs text-muted mt-4">
+          © My-fridgeai
         </div>
       </div>
     </motion.div>

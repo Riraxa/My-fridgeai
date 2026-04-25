@@ -30,19 +30,17 @@ model User {
   householdsOwned        Household[]            @relation("Owner")
   householdMembership    HouseholdMember[]
   Ingredient             Ingredient[]
-  inventoryAlerts        InventoryAlert[]
   menuGenerations        MenuGeneration[]
-  products               Product[]
+
   receipts               Receipt[]
   sessions               Session[]
   shoppingListItems      ShoppingListItem[]
   UsageHistory           UsageHistory[]
-  TelemetryEvent         TelemetryEvent[]
+
   allergies              UserAllergy[]
   preferences            UserPreferences?
   restrictions           UserRestriction[]
-  weeklyMenuGenerations  WeeklyMenuGeneration[]
-  pushSubscriptions      PushSubscription[]
+
   chatDailyQuota         ChatDailyQuota?
 
   @@index([createdAt], map: "idx_user_createdat")
@@ -114,6 +112,7 @@ model Ingredient {
   userId              String
   name                String
   amount              Float?
+  amountLevel         String?
   unit                String?
   expirationDate      DateTime?        @map("expiry")
   expirationEstimated Boolean          @default(false)
@@ -121,10 +120,8 @@ model Ingredient {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   ingredientType      IngredientType   @default(raw)
-  productId           String?
-  product             Product?         @relation(fields: [productId], references: [id])
+
   user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  alerts              InventoryAlert[]
   receiptItems        ReceiptItem[]
 
   @@index([userId, expirationDate])
@@ -134,31 +131,7 @@ model Ingredient {
   @@index([userId, expirationDate], map: "idx_ingredient_user_expiry")
 }
 
-/// 加工食品マスター（ルー、即席食品、混合調味料など）
-model Product {
-  id                            String         @id @default(cuid())
-  userId                        String
-  name                          String
-  brandName                     String?
-  ingredientType                IngredientType @default(processed_base)
-  /// 必要追加食材（JSON）
-  /// 例: [{"name":"玉ねぎ","amount":2,"unit":"個"},{"name":"じゃがいも","amount":2,"unit":"個"}]
-  requiresAdditionalIngredients Json?          @default("[]")
-  /// 調理手順テンプレート
-  /// processed_base: "商品操作手順に従い、◯◯を仕上げる"
-  /// instant_complete: "商品操作手順に従い準備する"
-  instructionTemplate           String?
-  /// 栄養推定値（任意）
-  nutritionEstimate             Json?
-  category                      String?
-  createdAt                     DateTime       @default(now())
-  updatedAt                     DateTime       @default(now()) @updatedAt
-  ingredients                   Ingredient[]
-  user                          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([ingredientType])
-}
 
 
 model UsageHistory {
@@ -170,19 +143,7 @@ model UsageHistory {
   user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-/// 分析用テレメトリイベント
-model TelemetryEvent {
-  id        String   @id @default(cuid())
-  userId    String?
-  category  String   // UI | API | SYSTEM
-  event     String   // Clicks, Errors, AI_Metrics etc.
-  meta      Json?
-  createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@index([category, event])
-  @@index([createdAt])
-}
 
 
 model ShoppingListItem {
@@ -210,16 +171,18 @@ model UserPreferences {
   avoidMethods             String[] @default([])
   kitchenEquipment         String[] @default([])
   implicitIngredients      String[] @default(["水", "塩", "砂糖", "醤油", "味噌", "油", "米", "小麦粉"])
-  enableExpirationAlert    Boolean  @default(true)
-  alertDaysBefore          Int      @default(3)
-  alertTime                String   @default("07:00")
-  expirationCriticalDays   Int      @default(2)
-  expirationWarningDays    Int      @default(5)
-  expirationPriorityWeight Float    @default(0.7)
-  tasteJson                Json     @default("{}")
+
   aiMessageEnabled         Boolean  @default(false)
   proFeaturesUnlocked      Boolean  @default(false)
   customImplicitIngredients String[] @default([])
+
+  // Expiration alert settings
+  enableExpirationAlert     Boolean  @default(false)
+  alertDaysBefore           Int      @default(3)
+  expirationCriticalDays    Int      @default(3)
+  expirationWarningDays     Int      @default(7)
+  expirationPriorityWeight  Int      @default(5)
+
   createdAt                DateTime @default(now())
   updatedAt                DateTime @default(now()) @updatedAt
   user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -247,18 +210,7 @@ model UserRestriction {
   @@index([userId])
 }
 
-model WeeklyMenuGeneration {
-  id                       String   @id @default(cuid())
-  userId                   String
-  startDate                DateTime
-  endDate                  DateTime
-  dailyMenus               Json
-  consolidatedShoppingList Json
-  createdAt                DateTime @default(now())
-  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-}
 
 model MenuGeneration {
   id              String           @id @default(cuid())
@@ -278,11 +230,9 @@ model MenuGeneration {
   budget          Int?
   requestHash     String
   cookingHistory  CookingHistory[]
-  tasteEvents   TasteEvent[]
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   thoughts            Json?
-  tasteProfileSnapshot Json?        
 
   @@index([userId, generatedAt])
   @@index([status], map: "idx_menugeneration_status")
@@ -303,21 +253,6 @@ model CookingHistory {
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, cookedAt])
-}
-
-model InventoryAlert {
-  id            String     @id @default(cuid())
-  userId        String
-  ingredientId  String
-  alertType     String
-  alertDays     Int        @default(3)
-  lastAlertedAt DateTime?
-  createdAt     DateTime   @default(now())
-  ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, ingredientId, alertType])
-  @@unique([userId, ingredientId, alertType], map: "ux_inventoryalert_user_ingredient_alerttype")
 }
 
 model Receipt {
@@ -362,81 +297,6 @@ model ReceiptItem {
   @@index([mappedIngredientId])
 }
 
-
-model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([isActive])
-}
-
-// 好み学習イベントテーブル（3軸データ構造対応）
-model TasteEvent {
-  id                String   @id @default(cuid())
-  userId            String
-  householdId       String?
-  mealPlanResultId  String?
-  
-  // 3軸データ構造
-  ingredientKey     String?  // 食材（正規化済み）
-  dishName          String?  // 料理名
-  cookingMethod     String?  // 調理法（焼き・煮る・蒸すなど）
-  
-  // 3段階評価: want_again（また作りたい）| okay（まあまあ）| never_again（もう作らない）
-  eventType         String   // 旧: used/skipped/liked/disliked/repeated/removed
-  weight            Float    @default(1.0)
-  decayFactor       Float    @default(1.0)  // 時間減衰係数（0-1）
-  
-  source            String   // revisit | swipe | cook | manual | feedback
-  createdAt         DateTime @default(now())
-  
-  // リレーション
-  menuGeneration    MenuGeneration? @relation(fields: [mealPlanResultId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
-  @@index([householdId, createdAt])
-  @@index([ingredientKey])
-  @@index([dishName])
-  @@index([cookingMethod])
-  @@index([eventType])
-}
-
-// ユーザーターストプロファイルテーブル（3軸データ対応）
-model UserTasteProfile {
-  id                        String   @id @default(cuid())
-  userId                    String   @unique
-  householdId               String?
-
-  // 食材嗜好（スコア付きJSON）
-  favoriteIngredients       String[] @default([])
-  dislikedIngredients       String[] @default([])
-  ingredientScores          Json?    // { "人参": 0.8, "納豆": -0.5 }
-
-  // 料理嗜好（スコア付きJSON）
-  favoriteDishes            String[] @default([])
-  dislikedDishes            String[] @default([])
-  dishScores                Json?    // { "カレー": 0.9, "煮物": -0.3 }
-
-  // 調理法嗜好（スコア付きJSON）
-  favoriteMethods           String[] @default([])
-  dislikedMethods           String[] @default([])
-  methodScores              Json?    // { "焼き": 0.7, "蒸し": -0.2 }
-
-  updatedAt                 DateTime @updatedAt
-  version                   Int      @default(2)  // v2: 3軸データ構造
-
-  @@index([householdId])
-  @@index([updatedAt])
-}
-
 // キッチンアシスタントのデイリークォータ管理
 model ChatDailyQuota {
   id        String   @id @default(cuid())
@@ -446,6 +306,21 @@ model ChatDailyQuota {
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+}
+
+// 在庫アラート管理
+model InventoryAlert {
+  id            String   @id @default(cuid())
+  userId        String
+  ingredientId  String
+  alertType     String   // "expiration" など
+  alertDays     Int      @default(3)
+  lastAlertedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, ingredientId, alertType])
   @@index([userId])
 }
 

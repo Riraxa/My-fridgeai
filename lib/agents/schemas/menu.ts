@@ -27,15 +27,8 @@ export const LightSuggestionSchema = z.object({
   hint: z.string().describe('追加のヒント'),
 });
 
-// 比較情報 - 2案形式
-export const PlanComparisonSchema = z.object({
-  mainPlan: PlanScoresSchema.describe('バランス最適案のスコア'),
-  alternativePlan: PlanScoresSchema.describe('特化案のスコア'),
-  summary: z.object({
-    mainPlanStrength: z.string().describe('バランス案の強み'),
-    alternativePlanStrength: z.string().describe('特化案の強み'),
-  }),
-});
+// 比較情報 - 廃止（1案出力に変更したため）
+// export const PlanComparisonSchema は削除されます
 
 // 料理情報（完全版 - steps/tips含む）
 export const DishSchema = z.object({
@@ -61,18 +54,14 @@ export const LightMenuSchema = z.object({
   description: z.string().describe('献立の全体的な魅力や理由'),
   tags: z.array(z.string()),
   dishes: z.array(DishSchema).length(3, '主菜・副菜・汁物の3品必須'),
-  role: z.enum(['balanced', 'timeOptimized', 'costOptimized', 'healthOptimized', 'creative']).describe('この案の役割'),
+  role: z.enum(['balanced', 'timeOptimized', 'costOptimized', 'healthOptimized', 'creative']).describe('この案の役割（モードや予算設定に応じた主要目的）'),
   scores: PlanScoresSchema.describe('この案の推定スコア（0-100）'),
   specializationReason: z.string().describe('特化方向の説明（例: "手持ち食材のみで完遂できる節約献立"）'),
 });
 
-// 軽量献立生成結果（コスト削減用）- 2案形式
-// 実際には詳細も含まれる「完全版」として機能
+// 軽量献立生成結果（1案出力に変更）
 export const LightMenuGenerationResultSchema = z.object({
-  mainPlan: LightMenuSchema.describe('バランス最適案：栄養バランス重視、期限間近食材を最優先で消化'),
-  alternativePlan: LightMenuSchema.describe('特化案：時短・節約・健康・創作のいずれかに特化'),
-  lightSuggestion: LightSuggestionSchema.describe('軽量サジェスト：第3の提案方向性'),
-  comparison: PlanComparisonSchema.describe('2案の比較情報'),
+  mainPlan: LightMenuSchema.describe('提案される最適案：ユーザーの指定モードや在庫状況に基づく最適な献立'),
 });
 
 const WeeklyDayPlanSchema = z.object({
@@ -103,7 +92,7 @@ export const UserContextSchema = z.object({
   userId: z.string(),
   servings: z.number().default(1),
   budget: z.number().nullable().optional(),
-  mode: z.enum(['strict', 'flexible']).default('flexible'),
+  mode: z.enum(['strict', 'flexible', 'quick', 'use-up']).default('flexible'),
   cookingSkill: z.enum(['beginner', 'intermediate', 'advanced']).default('intermediate'),
   allergies: z.array(z.string()).default([]),
   restrictions: z.array(z.object({
@@ -156,10 +145,8 @@ export const UserContextSchema = z.object({
 });
 
 
-// 型定義（2案用）
 export type PlanScores = z.infer<typeof PlanScoresSchema>;
 export type LightSuggestion = z.infer<typeof LightSuggestionSchema>;
-export type PlanComparison = z.infer<typeof PlanComparisonSchema>;
 
 // 型定義（後方互換性用）
 export type IngredientInput = z.infer<typeof InputIngredientSchema>;

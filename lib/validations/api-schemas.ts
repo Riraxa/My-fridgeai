@@ -11,7 +11,7 @@ const IdempotencySchema = z.string().min(1).max(100).optional();
 export const MenuStreamSchema = z.object({
   servings: z.number().int().min(1).max(20).default(2),
   budget: z.number().int().min(0).max(100000).nullable().optional(),
-  mode: z.enum(["flexible", "strict"]).default("flexible"),
+  mode: z.enum(["flexible", "strict", "quick", "use-up"]).default("flexible"),
   idempotencyKey: IdempotencySchema,
 });
 
@@ -40,7 +40,6 @@ export const IngredientBatchSchema = z.object({
     unit: z.string().max(20).nullable().optional(),
     category: z.string().max(50).nullable().optional(),
     expirationDate: z.string().datetime().nullable().optional(),
-    productId: z.string().optional().nullable(),
   })).min(1).max(50),
   idempotencyKey: IdempotencySchema,
 });

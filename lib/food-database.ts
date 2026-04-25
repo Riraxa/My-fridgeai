@@ -1,4 +1,4 @@
-import type { FoodMaster } from './expiration-rules';
+import type { FoodMaster } from "./types/food";
 
 export const FOOD_DATABASE: FoodMaster[] = [
   // 乳製品・卵

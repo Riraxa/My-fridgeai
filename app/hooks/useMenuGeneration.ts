@@ -2,16 +2,17 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
-import { detectInventoryPatterns, generateContextAwareMessages } from "@/app/menu/generate/utils";
-import type { InventoryPattern } from "@/app/menu/generate/constants";
+import { detectInventoryPatterns, generateContextAwareMessages } from "@/lib/menu-generation/messages";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
+import type { ConstraintMode } from "@/types";
 
 export const useMenuGeneration = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
 
   // --- External States (SWR) ---
@@ -26,7 +27,15 @@ export const useMenuGeneration = () => {
   const [servings, setServings] = useState(2);
   const [budget, setBudget] = useState<number | "">("");
   const [enableBudget, setEnableBudget] = useState(false);
-  const [strictMode, setStrictMode] = useState(true);
+  const [generationMode, setGenerationMode] = useState<ConstraintMode>("strict");
+
+  // Sync mode from URL search params
+  useEffect(() => {
+    const mode = searchParams.get("mode") as ConstraintMode;
+    if (mode && ["strict", "flexible", "quick", "use-up"].includes(mode)) {
+      setGenerationMode(mode);
+    }
+  }, [searchParams]);
 
   // --- Generation Status ---
   const [loading, setLoading] = useState(false);
@@ -69,10 +78,10 @@ export const useMenuGeneration = () => {
       expiringCount: expiringCount || 0,
       servings,
       budget: typeof budget === "number" ? budget : null,
-      strictMode
+      generationMode
     });
     shuffledMessagesRef.current = generateContextAwareMessages(patterns, initialGeneralMessages);
-  }, [ingredients, inventoryCount, expiringCount, servings, budget, strictMode]);
+  }, [ingredients, inventoryCount, expiringCount, servings, budget, generationMode]);
 
   const closeRecipeModal = useCallback(() => {
     setSelectedMenuType(null);
@@ -207,7 +216,12 @@ export const useMenuGeneration = () => {
       const res = await fetch("/api/menu/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ servings, budget: enableBudget ? budget : null, mode: strictMode ? "strict" : "flexible", idempotencyKey }),
+        body: JSON.stringify({ 
+          servings, 
+          budget: enableBudget ? budget : null, 
+          mode: generationMode, 
+          idempotencyKey 
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "生成開始に失敗しました");
       const { generationId } = await res.json();
@@ -258,14 +272,15 @@ export const useMenuGeneration = () => {
   };
 
   const handleConfirmCook = async () => {
-    if (!generated?.id || !selectedMenuType || loadingCook) return;
+    const genId = generated?.id || generated?.menuGenerationId;
+    if (!genId || !selectedMenuType || loadingCook) return;
     setLoadingCook(true);
     try {
       const idempotencyKey = `cook-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const res = await fetch("/api/menu/cook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ menuGenerationId: generated.id, selectedMenu: selectedMenuType, idempotencyKey }),
+        body: JSON.stringify({ menuGenerationId: genId, selectedMenu: selectedMenuType, idempotencyKey }),
       });
       if (!res.ok) throw new Error("調理記録に失敗しました");
       toast.success("調理完了！");
@@ -325,13 +340,13 @@ export const useMenuGeneration = () => {
 
   return {
     isPro, inventoryCount, expiringCount, ingredientsLoading,
-    servings, budget, enableBudget, strictMode,
+    servings, budget, enableBudget, generationMode,
     loading, error, generated, isStreaming, thoughtStream, currentThoughtIndex,
     selectedMenuType, selectedMenuData, loadingRecipe, recipeDetails,
     currentDishIndex, errorRecipe, loadingCook, isNavBarVisible,
     shuffledMessages: shuffledMessagesRef.current,
     
-    setServings, setBudget, setEnableBudget, setStrictMode, setCurrentDishIndex,
+    setServings, setBudget, setEnableBudget, setGenerationMode, setCurrentDishIndex,
     handleGenerate, handleSelectMenu, handleConfirmCook, handleAddToShoppingList, closeRecipeModal,
   };
 };

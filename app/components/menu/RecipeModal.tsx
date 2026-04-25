@@ -39,7 +39,7 @@ interface RecipeModalProps {
   handleConfirmCook: () => void;
   loadingCook: boolean;
   // Context settings (read only during loading)
-  strictMode: boolean;
+  generationMode: string;
   servingsCount: number;
   enableBudget: boolean;
   budget: string;
@@ -58,7 +58,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   handleSelectMenu,
   handleConfirmCook,
   loadingCook,
-  strictMode,
+  generationMode,
   servingsCount,
   enableBudget,
   budget,
@@ -123,7 +123,9 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="text-[var(--color-text-muted)]">モード:</span>
                       <span className="font-medium text-[var(--color-text-primary)]">
-                        {strictMode ? "冷蔵庫内の食材のみで生成" : "一部許可モード"}
+                        {generationMode === "strict" ? "冷蔵庫内のみ" : 
+                         generationMode === "flexible" ? "買い足しあり" :
+                         generationMode === "quick" ? "短時間調理" : "使い切り"}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">

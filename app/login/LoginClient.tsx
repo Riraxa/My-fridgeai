@@ -69,7 +69,7 @@ export default function LoginClient() {
 
   return (
     <motion.div
-      className="min-h-screen flex items-center justify-start pt-12 pb-8"
+      className="h-screen flex items-center justify-center overflow-hidden"
       initial="hidden"
       animate="show"
       variants={fadeInUp}
@@ -122,20 +122,6 @@ export default function LoginClient() {
         <div className="w-full mt-6">
           <div className="flex flex-col gap-3">
             {msg && <Alert type="error" className="mt-2">{msg}</Alert>}
-
-            {/* Auth method notice */}
-            <div
-              className="text-xs text-center leading-relaxed px-2 py-3 rounded-xl mb-1"
-              style={{
-                background: "color-mix(in srgb, var(--accent) 8%, transparent)",
-                color: "var(--color-text-secondary)",
-                border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)",
-              }}
-            >
-              <strong className="text-primary">Googleアカウント</strong>でのみログインできます。
-              <br className="hidden sm:block" />
-              メール・パスワード、パスキーは廃止いたしました。ご了承ください。
-            </div>
 
             <motion.button
               onClick={handleGoogle}
@@ -209,7 +195,7 @@ export default function LoginClient() {
             <p className="text-xs text-center text-muted mt-2">
               アカウントをお持ちでない方は
               <Link className="underline ml-1 text-primary" href="/register">
-                こちらから登録
+                新規登録
               </Link>
             </p>
           </div>

@@ -21,11 +21,11 @@ export async function PUT(
     data: {
       name: body.name,
       amount: body.amount !== undefined ? Number(body.amount) : undefined,
+      amountLevel: body.amountLevel ?? null,
       unit: body.unit ?? "個",
       expirationDate: body.expirationDate || body.expiry ? new Date(body.expirationDate || body.expiry) : null,
       category: body.category ?? "その他",
       ingredientType: (await import("@/lib/ingredient-inference")).inferIngredientType(body.name || "").ingredientType,
-      productId: body.productId,
     },
   });
 

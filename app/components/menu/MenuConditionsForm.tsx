@@ -15,8 +15,8 @@ interface MenuConditionsFormProps {
   setBudget: (val: string) => void;
   enableBudget: boolean;
   setEnableBudget: (val: boolean) => void;
-  strictMode: boolean;
-  setStrictMode: (val: boolean) => void;
+  generationMode: string;
+  setGenerationMode: (val: any) => void;
   loading: boolean;
   generated: any;
   onGenerate: () => void;
@@ -30,8 +30,8 @@ export const MenuConditionsForm: React.FC<MenuConditionsFormProps> = ({
   setBudget,
   enableBudget,
   setEnableBudget,
-  strictMode,
-  setStrictMode,
+  generationMode,
+  setGenerationMode,
   loading,
   generated,
   onGenerate,
@@ -53,7 +53,9 @@ export const MenuConditionsForm: React.FC<MenuConditionsFormProps> = ({
             <Brain size={16} className="text-[var(--accent)]" />
             <span className="text-[var(--color-text-secondary)]">モード：</span>
             <span className="font-medium text-[var(--color-text-primary)]">
-              {strictMode ? "冷蔵庫内のみ" : "買い足し一部許可"}
+              {generationMode === "strict" ? "冷蔵庫内のみ" : 
+               generationMode === "flexible" ? "買い足しあり" :
+               generationMode === "quick" ? "短時間調理" : "使い切り"}
             </span>
           </div>
           {isPro && enableBudget && (
@@ -121,27 +123,29 @@ export const MenuConditionsForm: React.FC<MenuConditionsFormProps> = ({
           <HelpTooltip />
         </div>
         
-        <div className="flex gap-2 pl-6">
-          <button
-            onClick={() => setStrictMode(true)}
-            className={`flex-1 py-2 px-3 rounded-lg border text-xs font-medium transition ${
-              strictMode
-                ? "bg-[var(--accent-faded)] border-[var(--accent)] text-[var(--accent)]"
-                : "bg-[var(--surface-bg)] border-[var(--surface-border)] text-[var(--color-text-muted)]"
-            }`}
-          >
-            冷蔵庫内のみ
-          </button>
-          <button
-            onClick={() => setStrictMode(false)}
-            className={`flex-1 py-2 px-3 rounded-lg border text-xs font-medium transition ${
-              !strictMode
-                ? "bg-[var(--accent-faded)] border-[var(--accent)] text-[var(--accent)]"
-                : "bg-[var(--surface-bg)] border-[var(--surface-border)] text-[var(--color-text-muted)]"
-            }`}
-          >
-            買い足し一部許可
-          </button>
+        <div className="grid grid-cols-2 gap-2 pl-2">
+          {[
+            { id: "strict", label: "冷蔵庫内のみ", sub: "制約：強" },
+            { id: "flexible", label: "買い足しあり", sub: "制約：弱" },
+            { id: "quick", label: "時短優先", sub: "20分以内" },
+            { id: "use-up", label: "使い切り", sub: "廃棄ゼロ" },
+          ].map((m) => {
+            const isActive = generationMode === m.id;
+            return (
+              <button
+                key={m.id}
+                onClick={() => setGenerationMode(m.id)}
+                className={`flex flex-col items-center py-2 px-1 rounded-xl border transition ${
+                  isActive
+                    ? "bg-[var(--accent-faded)] border-[var(--accent)] text-[var(--accent)] shadow-sm"
+                    : "bg-[var(--surface-bg)] border-[var(--surface-border)] text-[var(--color-text-muted)] hover:border-[var(--accent-faded)]"
+                }`}
+              >
+                <span className="text-xs font-bold">{m.label}</span>
+                <span className="text-[10px] opacity-70">{m.sub}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -313,7 +317,7 @@ const HelpTooltip: React.FC = () => {
         >
           <div className="flex justify-between items-start gap-2">
             <p className="leading-relaxed">
-              「冷蔵庫の食材のみ」は手持ちだけで完結させる厳しい制約です。「一部許可」は足りない食材をAIが2〜3品補って提案します。
+              「冷蔵庫内のみ」は手持ちだけで完結させる厳しい制約です。「買い足しあり」は足りない食材をAIが2〜3品補い、予算設定がある場合は節約レシピになります。「時短優先」は20分以内の献立、「使い切り」は期限間近の食材を最大消費します。
             </p>
             <button
               type="button"

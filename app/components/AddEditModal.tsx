@@ -1,12 +1,21 @@
 // app/components/AddEditModal.tsx
 "use client";
 import React, { useEffect, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { registerLocale } from "react-datepicker";
 import { ja } from "date-fns/locale";
 import { Ingredient } from "@/types";
 import { useNativeSelect } from "@/app/hooks/useNativeSelect";
+import {
+  addEditSchema,
+  type AddEditFormData,
+  buildIngredientPayload,
+  fetchIngredientEstimate,
+  getDefaultValues,
+} from "./AddEditModal.helpers";
 registerLocale("ja", ja);
 
 export default function AddEditModal({
@@ -19,52 +28,46 @@ export default function AddEditModal({
   onCancel: () => void;
 }) {
   const { getSelectClassName } = useNativeSelect();
-  const [name, setName] = useState(item?.name ?? "");
-  const [amountMode, setAmountMode] = useState<"precise" | "rough">(
-    "precise", // 常に詳細モードから開始
-  );
-  const [amount, setAmount] = useState<number | "">(
-    item?.amount ?? item?.quantity ?? "", // amountを優先、quantityはfallback
-    // 新規時は空で初期化
-  );
-  const [amountLevel, setAmountLevel] = useState(item?.amountLevel ?? "普通");
-  const [unit, setUnit] = useState(item?.unit ?? "個");
-  const [expiry, setExpiry] = useState<Date | null>(
-    item?.expirationDate ? new Date(item.expirationDate) : null,
-  );
-  const [noExpiry, setNoExpiry] = useState<boolean>(!item?.expirationDate);
-  const [category, setCategory] = useState(item?.category ?? "その他");
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // AI Estimation state
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimatedExpiry, setEstimatedExpiry] = useState<string | null>(null);
-  const [estimatedCategory, setEstimatedCategory] = useState<string | null>(
-    null,
-  );
-  const [estimatedAmount, setEstimatedAmount] = useState<number | null>(null); // New
-  const [estimatedUnit, setEstimatedUnit] = useState<string | null>(null); // New
+  const [estimatedCategory, setEstimatedCategory] = useState<string | null>(null);
+  const [estimatedAmount, setEstimatedAmount] = useState<number | null>(null);
+  const [estimatedUnit, setEstimatedUnit] = useState<string | null>(null);
   const [daysFromPurchase, setDaysFromPurchase] = useState<number | null>(null);
 
-  // Saving state
-  const [isSaving, setIsSaving] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    control,
+    formState: { errors, isSubmitting },
+  } = useForm<AddEditFormData>({
+    resolver: zodResolver(addEditSchema),
+    defaultValues: getDefaultValues(item),
+  });
 
+  // Watch form values
+  const name = watch("name");
+  const amountMode = watch("amountMode");
+  const amount = watch("amount");
+  const unit = watch("unit");
+  const noExpiry = watch("noExpiry");
+  const expiry = watch("expirationDate");
+
+  // Reset form when item changes
   useEffect(() => {
-    setName(item?.name ?? "");
-    setAmountMode(item?.amountLevel ? "rough" : "precise");
-    setAmount(item?.amount ?? item?.quantity ?? (item ? "" : "")); // amountを優先
-    setAmountLevel(item?.amountLevel ?? "普通");
-    setUnit(item?.unit ?? "個");
-    const date = item?.expirationDate ? new Date(item.expirationDate) : null;
-    setExpiry(date);
-    setNoExpiry(!date);
-    setCategory(item?.category ?? "その他");
+    reset(getDefaultValues(item));
     setEstimatedExpiry(null);
     setEstimatedCategory(null);
     setEstimatedAmount(null);
     setEstimatedUnit(null);
     setDaysFromPurchase(null);
-  }, [item]);
+  }, [item, reset]);
 
   // Debounced estimation - only for new items (not editing)
   useEffect(() => {
@@ -77,21 +80,16 @@ export default function AddEditModal({
     const timer = setTimeout(async () => {
       setIsEstimating(true);
       try {
-        const res = await fetch("/api/ingredients/estimate-expiration", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name }),
-        });
-        const data = await res.json();
+        const data = await fetchIngredientEstimate(name);
         if (data.success && data.estimatedExpiration) {
           setEstimatedExpiry(data.estimatedExpiration);
-          setExpiry(new Date(data.estimatedExpiration));
-          setNoExpiry(false);
+          setValue("expirationDate", new Date(data.estimatedExpiration));
+          setValue("noExpiry", false);
 
           // カテゴリ推定結果を設定
           if (data.estimatedCategory) {
             setEstimatedCategory(data.estimatedCategory);
-            setCategory(data.estimatedCategory);
+            setValue("category", data.estimatedCategory);
           }
 
           // 数量・単位推定結果を設定 (未入力時のみ)
@@ -101,9 +99,9 @@ export default function AddEditModal({
 
             // ユーザーがまだ何も入力していない場合のみ自動セット
             if (!amount && unit === "個") { // Default unit is "個"
-              setAmount(data.estimatedAmount);
-              setUnit(data.estimatedUnit);
-              setAmountMode("precise"); // 詳細モードへ
+              setValue("amount", data.estimatedAmount);
+              setValue("unit", data.estimatedUnit);
+              setValue("amountMode", "precise"); // 詳細モードへ
             }
           }
 
@@ -123,8 +121,20 @@ export default function AddEditModal({
     return () => clearTimeout(timer);
   }, [name, item]);
 
+  const onSubmit = async (data: AddEditFormData) => {
+    if (!data.name.trim()) return;
+
+    // 内容量のバリデーション
+    if (data.amountMode === "precise" && (!data.amount || data.amount === 0)) {
+      alert("内容量を入力してください");
+      return;
+    }
+
+    await onSave(buildIngredientPayload(data, item) as any);
+  };
+
   return (
-    <div className="space-y-3 text-[var(--color-text-primary)]">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 text-[var(--color-text-primary)]">
       <div className="text-lg font-semibold">
         {item ? "編集" : "追加"} - 食材
       </div>
@@ -139,11 +149,11 @@ export default function AddEditModal({
         )}
       </label>
       <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
+        {...register("name")}
         placeholder="例：鶏むね肉"
         className="input-field w-full"
       />
+      {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
 
       {/* AI Estimation Feedback */}
       {estimatedExpiry && (
@@ -168,7 +178,8 @@ export default function AddEditModal({
       {/* 数量モード切替 */}
       <div className="flex gap-2 p-1 bg-[var(--surface-bg)] rounded-xl border border-[var(--surface-border)] mt-4">
         <button
-          onClick={() => setAmountMode("precise")}
+          type="button"
+          onClick={() => setValue("amountMode", "precise")}
           className={`flex-1 py-1 text-xs rounded-lg transition ${amountMode === "precise" ? "bg-[var(--accent)] text-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
           style={amountMode !== "precise" ? {
             backgroundColor: 'var(--surface-bg)'
@@ -177,7 +188,8 @@ export default function AddEditModal({
           詳細
         </button>
         <button
-          onClick={() => setAmountMode("rough")}
+          type="button"
+          onClick={() => setValue("amountMode", "rough")}
           className={`flex-1 py-1 text-xs rounded-lg transition ${amountMode === "rough" ? "bg-[var(--accent)] text-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
           style={amountMode !== "rough" ? {
             backgroundColor: 'var(--surface-bg)'
@@ -196,10 +208,7 @@ export default function AddEditModal({
               </label>
               <input
                 type="number"
-                value={amount}
-                onChange={(e) =>
-                  setAmount(e.target.value === "" ? "" : Number(e.target.value))
-                }
+                {...register("amount", { valueAsNumber: true })}
                 className="input-field w-full"
               />
             </div>
@@ -208,8 +217,7 @@ export default function AddEditModal({
                 単位
               </label>
               <input
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
+                {...register("unit")}
                 placeholder="g, ml, 個"
                 className="input-field w-full"
               />
@@ -221,8 +229,7 @@ export default function AddEditModal({
               残量レベル
             </label>
             <select
-              value={amountLevel}
-              onChange={(e) => setAmountLevel(e.target.value)}
+              {...register("amountLevel")}
               className={getSelectClassName()}
             >
               <option value="たっぷり">たっぷり</option>
@@ -240,8 +247,7 @@ export default function AddEditModal({
           カテゴリ
         </label>
         <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          {...register("category")}
           className={getSelectClassName()}
         >
           <option>冷蔵</option>
@@ -258,9 +264,8 @@ export default function AddEditModal({
         <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer">
           <input
             type="checkbox"
+            {...register("noExpiry")}
             className="w-4 h-4 rounded border-[var(--surface-border)] text-[var(--accent)] focus:ring-[var(--accent)]"
-            checked={noExpiry}
-            onChange={(e) => setNoExpiry(e.target.checked)}
           />
           期限なし
         </label>
@@ -268,6 +273,7 @@ export default function AddEditModal({
         {!noExpiry && (
           <div className="mt-2 text-center">
             <button
+              type="button"
               onClick={() => setPickerOpen(!pickerOpen)}
               className="w-full rounded-xl border px-3 py-2 text-sm text-left text-[var(--color-text-primary)] border-[var(--surface-border)] bg-[var(--surface-bg)]"
             >
@@ -276,16 +282,22 @@ export default function AddEditModal({
 
             {pickerOpen && (
               <div className="relative mt-2 z-50 flex justify-center">
-                <DatePicker
-                  selected={expiry ?? new Date()}
-                  onChange={(date: Date | null) => {
-                    setExpiry(date);
-                    setPickerOpen(false);
-                    setEstimatedExpiry(null); // Clear manual edit
-                  }}
-                  inline
-                  dateFormat="yyyy/MM/dd"
-                  locale="ja"
+                <Controller
+                  name="expirationDate"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePicker
+                      selected={field.value ?? new Date()}
+                      onChange={(date: Date | null) => {
+                        field.onChange(date);
+                        setPickerOpen(false);
+                        setEstimatedExpiry(null);
+                      }}
+                      inline
+                      dateFormat="yyyy/MM/dd"
+                      locale="ja"
+                    />
+                  )}
                 />
               </div>
             )}
@@ -296,6 +308,7 @@ export default function AddEditModal({
       {/* ボタン */}
       <div className="flex justify-between mt-6">
         <button
+          type="button"
           onClick={onCancel}
           className="flex-1 mr-2 border border-[var(--surface-border)] bg-[var(--surface-bg)] hover:brightness-105 text-[var(--color-text-secondary)] rounded-full py-2.5 text-sm font-medium transition"
         >
@@ -303,49 +316,14 @@ export default function AddEditModal({
         </button>
 
         <button
-          onClick={async () => {
-            if (!name.trim() || isSaving) return;
-
-            // 内容量のバリデーション
-            if (amountMode === "precise" && (amount === "" || amount === 0)) {
-              alert("内容量を入力してください");
-              return;
-            }
-
-            setIsSaving(true);
-            try {
-              const payload = {
-                name: name.trim(),
-                category,
-                expirationDate: noExpiry
-                  ? null
-                  : expiry
-                    ? expiry.toISOString()
-                    : null,
-                amount: amountMode === "precise" ? Number(amount || 0) : null,
-                amountLevel: amountMode === "rough" ? amountLevel : null,
-                unit: amountMode === "precise" ? unit : null,
-                ingredientType: "raw",
-                quantity:
-                  amountMode === "precise"
-                    ? Number(amount || 0)
-                    : amountMode === "rough"
-                      ? 0
-                      : (item?.quantity ?? 0), // Legacy: amountをコピーして後方互換性を維持
-              };
-              if (item?.id) (payload as any).id = item.id;
-              await onSave(payload as any);
-            } finally {
-              setIsSaving(false);
-            }
-          }}
-          disabled={isSaving}
-          className={`flex-1 ml-2 rounded-full py-2.5 text-sm font-medium shadow-sm transition ${isSaving
+          type="submit"
+          disabled={isSubmitting}
+          className={`flex-1 ml-2 rounded-full py-2.5 text-sm font-medium shadow-sm transition ${isSubmitting
             ? "bg-gray-400 text-gray-200 cursor-not-allowed"
             : "bg-[var(--accent)] hover:brightness-110 text-white"
             }`}
         >
-          {isSaving ? (
+          {isSubmitting ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                 <circle
@@ -372,6 +350,6 @@ export default function AddEditModal({
           )}
         </button>
       </div>
-    </div>
+    </form>
   );
 }

@@ -8,9 +8,8 @@ import PageTransition, {
   ContentTransition,
 } from "@/app/components/PageTransition";
 import MenuResultCard from "@/app/components/menu/MenuResultCard";
-import MenuComparisonBar from "@/app/components/menu/MenuComparisonBar";
 import MenuLightSuggestion from "@/app/components/menu/MenuLightSuggestion";
-import { History, Calendar, CheckCircle, ArrowLeft, ChefHat } from "lucide-react";
+import { History, CheckCircle, ArrowLeft, ChefHat } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFridge } from "@/app/components/FridgeProvider";
 
@@ -22,7 +21,7 @@ import { RecipeModal } from "@/app/components/menu/RecipeModal";
 import { calculateCookingTime, calculateDifficulty } from "@/app/menu/generate/utils";
 import { Skeleton } from "@/app/components/ui/Skeleton";
 import { MenuSkeleton } from "@/app/components/menu/MenuSkeleton";
-import { trackEvent, TelemetryAction } from "@/lib/telemetry";
+
 
 function MenuGeneratePage() {
   const router = useRouter();
@@ -36,8 +35,8 @@ function MenuGeneratePage() {
     setBudget,
     enableBudget,
     setEnableBudget,
-    strictMode,
-    setStrictMode,
+    generationMode,
+    setGenerationMode,
     loading,
     error,
     generated,
@@ -64,20 +63,7 @@ function MenuGeneratePage() {
 
   const { setShopping } = useFridge();
 
-  // ページ表示を記録
-  useEffect(() => {
-    trackEvent(TelemetryAction.VIEW_GENERATE_PAGE);
-  }, []);
 
-  // 献立結果が表示されたタイミングを記録
-  useEffect(() => {
-    if (generated) {
-      trackEvent(TelemetryAction.VIEW_MENU_RESULT, {
-        menuGenerationId: generated.id,
-        inventoryCount,
-      });
-    }
-  }, [generated, inventoryCount]);
 
   return (
     <ErrorBoundary>
@@ -100,17 +86,7 @@ function MenuGeneratePage() {
               </button>
             )}
           </div>
-          <div className="flex items-center" style={{ minHeight: "36px", minWidth: "120px", justifyContent: "flex-end" }}>
-            {isPro === true && (
-              <a
-                href="/menu/weekly"
-                className="text-sm font-medium flex items-center px-3 py-1.5 rounded-full transition whitespace-nowrap bg-[var(--accent-faded)] text-[var(--accent)] border border-[var(--surface-border)]"
-              >
-                <Calendar size={16} className="mr-1" />
-                1週間分を作成する
-              </a>
-            )}
-          </div>
+
         </HeaderTransition>
 
         <ContentTransition className="space-y-6">
@@ -146,8 +122,8 @@ function MenuGeneratePage() {
             setBudget={(val) => setBudget(val === "" ? "" : parseInt(val))}
             enableBudget={enableBudget}
             setEnableBudget={setEnableBudget}
-            strictMode={strictMode}
-            setStrictMode={setStrictMode}
+            generationMode={generationMode}
+            setGenerationMode={setGenerationMode}
             loading={loading}
             generated={generated}
             onGenerate={handleGenerate}
@@ -184,7 +160,7 @@ function MenuGeneratePage() {
                 <button
                   onClick={() => {
                     sessionStorage.removeItem("menuGeneratedResult");
-                    window.location.reload(); // Simple reset
+                    window.location.reload(); 
                   }}
                   className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center gap-1"
                 >
@@ -193,7 +169,7 @@ function MenuGeneratePage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="max-w-2xl mx-auto">
                 <MenuResultCard
                   type="main"
                   menu={{
@@ -212,31 +188,7 @@ function MenuGeneratePage() {
                   isPro={isPro === true}
                   onAddToShoppingList={(items) => handleAddToShoppingList(items, setShopping)}
                 />
-                <MenuResultCard
-                  type="alternative"
-                  menu={{
-                    name: generated.menus?.alternativeA?.title ?? "代替案",
-                    description: generated.menus?.alternativeA?.reason ?? "",
-                    cookingTime: calculateCookingTime(generated.menus?.alternativeA?.dishes ?? []),
-                    difficulty: calculateDifficulty(generated.menus?.alternativeA?.dishes ?? []),
-                    dishes: generated.menus?.alternativeA?.dishes ?? [],
-                    role: generated.menus?.alternativeA?.role ?? "timeOptimized",
-                  }}
-                  scores={generated.nutrition?.scores?.altA || {}}
-                  availability={generated.usedIngredients?.altA}
-                  generationId={generated.id}
-                  onSelect={() => handleSelectMenu("altA", generated.menus?.alternativeA)}
-                  isPro={isPro === true}
-                  onAddToShoppingList={(items) => handleAddToShoppingList(items, setShopping)}
-                />
               </div>
-
-              <MenuComparisonBar
-                comparison={generated.nutrition?.comparison}
-                mainRole={generated.menus?.main?.role}
-                alternativeRole={generated.menus?.alternativeA?.role}
-                isPro={isPro === true}
-              />
 
               {generated.nutrition?.lightSuggestion && (
                 <MenuLightSuggestion suggestion={generated.nutrition.lightSuggestion} />
@@ -259,7 +211,7 @@ function MenuGeneratePage() {
         handleSelectMenu={handleSelectMenu}
         handleConfirmCook={handleConfirmCook}
         loadingCook={loadingCook}
-        strictMode={strictMode}
+        generationMode={generationMode}
         servingsCount={servings}
         enableBudget={enableBudget}
         budget={budget.toString()}
