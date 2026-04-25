@@ -31,7 +31,7 @@ export default function ProModal({ open, onClose }: ProModalProps) {
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/stripe/createCheckoutSession", {
+      const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
       });
       const data = await res.json();

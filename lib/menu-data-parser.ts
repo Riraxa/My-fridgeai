@@ -20,20 +20,18 @@ export const DishSchema = z.object({
 
 export const MenuDataSchema = z.object({
   title: z.string().optional().nullable(),
-  name: z.string().optional().nullable(), // some AIs return 'name' instead of 'title'
+  name: z.string().optional().nullable(),
   reason: z.string().optional().nullable(),
   role: z.string().optional().nullable(),
   dishes: z.array(DishSchema).nullish().transform(v => v ?? []),
 }).catchall(z.any());
 
-// Safely parse MenuGeneration JSON fields (mainMenu, alternativeA, etc.)
 export const parseMenuData = (data: unknown) => {
   if (!data || typeof data !== "object") return { dishes: [] };
   const result = MenuDataSchema.safeParse(data);
   if (result.success) {
     return result.data;
   }
-  // Log validation error but avoid app crashing by returning safe defaults
   console.error("Zod MenuData Parse Error:", result.error);
   return { dishes: [] };
 };

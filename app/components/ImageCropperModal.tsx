@@ -3,6 +3,15 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/app/components/ui/button";
 import { X, Check } from "lucide-react";
+import { useBodyScrollLock } from "@/app/hooks/useBodyScrollLock";
+import {
+  calculateDisplaySize,
+  calculateSourceRect,
+  constrainPosition,
+  CROP_SIZE,
+  MAX_SCALE,
+  MIN_SCALE,
+} from "./image-cropper-utils";
 
 interface ImageCropperModalProps {
   isOpen: boolean;
@@ -28,10 +37,6 @@ export default function ImageCropperModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTouchDistance = useRef<number>(0);
 
-  const CROP_SIZE = 200;
-  const MIN_SCALE = 0.5;
-  const MAX_SCALE = 3;
-
   useEffect(() => {
     if (imageSrc && imageRef.current) {
       const img = imageRef.current;
@@ -41,57 +46,14 @@ export default function ImageCropperModal({
     }
   }, [imageSrc]);
 
-  // モーダル表示時に背景のスクロールを無効化
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.top = '0';
-      document.body.style.left = '0';
-      document.body.style.right = '0';
-      document.body.style.bottom = '0';
-    } else {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
-      document.body.style.bottom = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
-      document.body.style.bottom = '';
-    };
-  }, [isOpen]);
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     const img = imageRef.current;
     if (img && img.complete && img.naturalWidth > 0) {
       const imgWidth = img.naturalWidth;
       const imgHeight = img.naturalHeight;
-      const aspectRatio = imgWidth / imgHeight;
-      
-      let displayWidth, displayHeight;
-      
-      // 切り抜き枠（CROP_SIZE x CROP_SIZE）に収まるように表示サイズを調整
-      // 短い方の辺を CROP_SIZE に合わせることで、常に枠を覆うようにする
-      if (aspectRatio > 1) {
-        displayHeight = CROP_SIZE;
-        displayWidth = CROP_SIZE * aspectRatio;
-      } else {
-        displayWidth = CROP_SIZE;
-        displayHeight = CROP_SIZE / aspectRatio;
-      }
-      
-      setImageSize({ width: displayWidth, height: displayHeight });
+      setImageSize(calculateDisplaySize(imgWidth, imgHeight, CROP_SIZE));
       
       // 初期スケールと位置をリセット
       setScale(1.0);
@@ -100,19 +62,7 @@ export default function ImageCropperModal({
       img.onload = () => {
         const imgWidth = img.naturalWidth;
         const imgHeight = img.naturalHeight;
-        const aspectRatio = imgWidth / imgHeight;
-        
-        let displayWidth, displayHeight;
-        
-        if (aspectRatio > 1) {
-          displayHeight = CROP_SIZE;
-          displayWidth = CROP_SIZE * aspectRatio;
-        } else {
-          displayWidth = CROP_SIZE;
-          displayHeight = CROP_SIZE / aspectRatio;
-        }
-        
-        setImageSize({ width: displayWidth, height: displayHeight });
+        setImageSize(calculateDisplaySize(imgWidth, imgHeight, CROP_SIZE));
         setScale(1.0);
         setPosition({ x: 0, y: 0 });
       };
@@ -131,29 +81,7 @@ export default function ImageCropperModal({
     const newY = e.clientY - dragStart.y;
     
     // 元の画像からはみ出さないように制限
-    const scaledWidth = imageSize.width * scale;
-    const scaledHeight = imageSize.height * scale;
-    
-    // 画像が枠より大きい場合、端まで移動できる
-    let maxOffsetX = 0;
-    let maxOffsetY = 0;
-    
-    if (scaledWidth > CROP_SIZE) {
-      maxOffsetX = (scaledWidth - CROP_SIZE) / 2;
-    }
-    
-    if (scaledHeight > CROP_SIZE) {
-      maxOffsetY = (scaledHeight - CROP_SIZE) / 2;
-    }
-    
-    // 位置を制限
-    const constrainedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, newX));
-    const constrainedY = Math.max(-maxOffsetY, Math.min(maxOffsetY, newY));
-    
-    setPosition({
-      x: constrainedX,
-      y: constrainedY,
-    });
+    setPosition(constrainPosition({ x: newX, y: newY }, imageSize, scale, CROP_SIZE));
   };
 
   const handleMouseUp = () => {
@@ -187,27 +115,7 @@ export default function ImageCropperModal({
         const newX = touch.clientX - dragStart.x;
         const newY = touch.clientY - dragStart.y;
         
-        const scaledWidth = imageSize.width * scale;
-        const scaledHeight = imageSize.height * scale;
-        
-        let maxOffsetX = 0;
-        let maxOffsetY = 0;
-        
-        if (scaledWidth > CROP_SIZE) {
-          maxOffsetX = (scaledWidth - CROP_SIZE) / 2;
-        }
-        
-        if (scaledHeight > CROP_SIZE) {
-          maxOffsetY = (scaledHeight - CROP_SIZE) / 2;
-        }
-        
-        const constrainedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, newX));
-        const constrainedY = Math.max(-maxOffsetY, Math.min(maxOffsetY, newY));
-        
-        setPosition({
-          x: constrainedX,
-          y: constrainedY,
-        });
+        setPosition(constrainPosition({ x: newX, y: newY }, imageSize, scale, CROP_SIZE));
       }
     } else if (e.touches.length === 2) {
       const touch1 = e.touches[0];
@@ -244,25 +152,7 @@ export default function ImageCropperModal({
       const scaleDelta = e.deltaY > 0 ? 0.9 : 1.1;
       const newScale = Math.min(Math.max(scale * scaleDelta, MIN_SCALE), MAX_SCALE);
       
-      // スケール変更時に位置を制限
-      const scaledWidth = imageSize.width * newScale;
-      const scaledHeight = imageSize.height * newScale;
-      
-      let maxOffsetX = 0;
-      let maxOffsetY = 0;
-      
-      if (scaledWidth > CROP_SIZE) {
-        maxOffsetX = (scaledWidth - CROP_SIZE) / 2;
-      }
-      
-      if (scaledHeight > CROP_SIZE) {
-        maxOffsetY = (scaledHeight - CROP_SIZE) / 2;
-      }
-      
-      const constrainedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, position.x));
-      const constrainedY = Math.max(-maxOffsetY, Math.min(maxOffsetY, position.y));
-      
-      setPosition({ x: constrainedX, y: constrainedY });
+      setPosition(constrainPosition(position, imageSize, newScale, CROP_SIZE));
       setScale(newScale);
     };
 
@@ -297,25 +187,13 @@ export default function ImageCropperModal({
     // 画像を描画
     const img = imageRef.current;
     
-    // 元の画像と表示画像の比率
-    const ratio = img.naturalWidth / imageSize.width;
-    
-    // スケール後の表示サイズ
-    const scaledWidth = imageSize.width * scale;
-    const scaledHeight = imageSize.height * scale;
-    
-    // 表示上の座標：枠の中心を(100, 100)とし、画像の左上座標を計算
-    const previewLeft = (CROP_SIZE / 2) + position.x - (scaledWidth / 2);
-    const previewTop = (CROP_SIZE / 2) + position.y - (scaledHeight / 2);
-    
-    // 元画像での切り出し開始位置（左上基準）
-    // 枠の左上(0,0)が、画像の左上からどれだけ離れているか。
-    const sourceX = (0 - previewLeft) / scale * ratio;
-    const sourceY = (0 - previewTop) / scale * ratio;
-    
-    // 元画像での切り出し幅・高さ
-    const sourceWidth = CROP_SIZE / scale * ratio;
-    const sourceHeight = CROP_SIZE / scale * ratio;
+    const { sourceX, sourceY, sourceWidth, sourceHeight } = calculateSourceRect(
+      imageSize,
+      scale,
+      position,
+      img.naturalWidth,
+      CROP_SIZE,
+    );
     
     ctx.drawImage(
       img,

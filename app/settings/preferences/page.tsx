@@ -4,34 +4,30 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Check,
   ShieldCheck,
   Heart,
   BarChart3,
   Trash2,
   Plus,
-  Loader2,
-  AlertCircle,
   Utensils,
   Info,
   AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { useAutoSave, SaveState } from "@/app/hooks/useAutoSave";
+import { useAutoSave } from "@/app/hooks/useAutoSave";
 import { DEFAULT_IMPLICIT_INGREDIENTS } from "@/lib/constants/implicit-ingredients";
-
-type Tab = "basic" | "safety" | "ingredients";
-
-const SUB_TABS: { id: Tab; label: string }[] = [
-  { id: "basic", label: "基本" },
-  { id: "safety", label: "安全" },
-  { id: "ingredients", label: "基本食材" },
-];
+import {
+  COOKING_METHODS,
+  KITCHEN_EQUIPMENT,
+  SUB_TABS,
+  type PreferencesTab,
+} from "./constants";
+import { SaveIndicator } from "./save-indicator";
 
 export default function EnhancedPreferencesPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>("basic");
+  const [activeTab, setActiveTab] = useState<PreferencesTab>("basic");
   const [loading, setLoading] = useState(true);
   const [isPro, setIsPro] = useState(false);
 
@@ -67,25 +63,6 @@ export default function EnhancedPreferencesPage() {
 
   const [customImplicitIngredients, setCustomImplicitIngredients] = useState<string[]>([]);
 
-  // Constants
-  const methods = ["炒め物", "煮物", "焼き物", "揚げ物", "蒸し物", "和え物"];
-  const equipment = [
-    "ガスコンロ",
-    "IH",
-    "電子レンジ",
-    "オーブン",
-    "圧力鍋",
-    "トースター",
-    "炊飯器",
-  ];
-  const cookware = [
-    "フライパン",
-    "鍋",
-    "包丁・まな板",
-    "ボウル",
-    "ざる",
-    "菜箸・おたま",
-  ];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -335,92 +312,6 @@ export default function EnhancedPreferencesPage() {
     }
   );
 
-  const renderSafetySaveIndicator = (state: SaveState, error: string | null) => {
-    switch (state) {
-      case "dirty":
-        return (
-          <span className="flex items-center gap-1 text-xs text-amber-500 font-medium">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            未保存の変更あり
-          </span>
-        );
-      case "saving":
-        return (
-          <span className="flex items-center gap-1 text-xs text-indigo-500 font-medium">
-            <Loader2 size={12} className="animate-spin" />
-            保存中...
-          </span>
-        );
-      case "error":
-        return (
-          <button
-            onClick={retrySafetySave}
-            className="flex items-center gap-1 text-xs text-red-500 font-medium hover:underline"
-          >
-            <AlertCircle size={12} />
-            {error ?? "保存失敗"} - 再試行
-          </button>
-        );
-      case "saved":
-        return (
-          <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-            <Check size={12} />
-            保存しました
-          </span>
-        );
-      default:
-        return (
-          <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-            <Check size={12} />
-            保存済み
-          </span>
-        );
-    }
-  };
-
-  const renderGlobalSaveIndicator = (state: SaveState, error: string | null) => {
-    switch (state) {
-      case "dirty":
-        return (
-          <span className="flex items-center gap-1 text-xs text-amber-500 font-medium">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            未保存の変更あり
-          </span>
-        );
-      case "saving":
-        return (
-          <span className="flex items-center gap-1 text-xs text-indigo-500 font-medium">
-            <Loader2 size={12} className="animate-spin" />
-            保存中...
-          </span>
-        );
-      case "error":
-        return (
-          <button
-            onClick={retryGlobalSave}
-            className="flex items-center gap-1 text-xs text-red-500 font-medium hover:underline"
-          >
-            <AlertCircle size={12} />
-            {error ?? "保存失敗"} - 再試行
-          </button>
-        );
-      case "saved":
-        return (
-          <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-            <Check size={12} />
-            保存しました
-          </span>
-        );
-      default:
-        return (
-          <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-            <Check size={12} />
-            保存済み
-          </span>
-        );
-    }
-  };
-
   if (loading)
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -496,7 +387,7 @@ export default function EnhancedPreferencesPage() {
                   <Heart size={20} className="text-pink-500" /> 得意な調理法
                 </h2>
                 <div className="flex flex-wrap gap-2">
-                  {methods.map((m) => (
+                  {COOKING_METHODS.map((m) => (
                     <button
                       key={m}
                       onClick={() => {
@@ -522,7 +413,7 @@ export default function EnhancedPreferencesPage() {
                   <ShieldCheck size={20} className="text-indigo-500" /> 利用可能な設備
                 </h2>
                 <div className="flex flex-wrap gap-2">
-                  {equipment.map((e) => (
+                  {KITCHEN_EQUIPMENT.map((e) => (
                     <button
                       key={e}
                       onClick={() => {
@@ -544,7 +435,7 @@ export default function EnhancedPreferencesPage() {
               </section>
 
               <div className="flex justify-start px-2 mt-4">
-                {renderGlobalSaveIndicator(globalSaveState, globalSaveError)}
+                <SaveIndicator state={globalSaveState} error={globalSaveError} onRetry={retryGlobalSave} />
               </div>
             </div>
           )}
@@ -643,7 +534,7 @@ export default function EnhancedPreferencesPage() {
               </section>
 
               <div className="flex justify-start px-2 mt-4">
-                {renderSafetySaveIndicator(safetySaveState, safetySaveError)}
+                <SaveIndicator state={safetySaveState} error={safetySaveError} onRetry={retrySafetySave} />
               </div>
             </div>
           )}
@@ -732,7 +623,7 @@ export default function EnhancedPreferencesPage() {
               </section>
 
               <div className="flex justify-start px-2 mt-4">
-                {renderGlobalSaveIndicator(globalSaveState, globalSaveError)}
+                <SaveIndicator state={globalSaveState} error={globalSaveError} onRetry={retryGlobalSave} />
               </div>
             </div>
           )}

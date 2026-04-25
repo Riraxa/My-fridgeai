@@ -23,7 +23,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1) サーバーセッションから userId を取得
     let userId: string | null = null;
     try {
       const session = await auth();
@@ -32,7 +31,6 @@ export async function POST(req: NextRequest) {
       console.error("[createCheckoutSession] auth error:", e instanceof Error ? e.message : e);
     }
 
-    // デバッグ用のフォールバック（本番では基本的になし）
     const body = await req.json().catch(() => ({}));
     if (!userId && body.userId && process.env.NODE_ENV === "development") {
       userId = String(body.userId);
@@ -45,7 +43,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2) ユーザー確認
     let user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       return NextResponse.json(
@@ -54,7 +51,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3) Stripe Customer を確保
     let customerId = user.stripeCustomerId ?? undefined;
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -68,7 +64,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4) Checkout Session 作成
     let session: Stripe.Checkout.Session;
     const baseUrl = getBaseUrl();
 
@@ -84,7 +79,6 @@ export async function POST(req: NextRequest) {
         client_reference_id: user.id,
       });
     } catch (createErr: unknown) {
-      // "No such customer" エラー (別の環境のIDがDBに残っている場合)
       const stripeErr = createErr as { raw?: { code?: string; param?: string } };
       if (stripeErr.raw?.code === "resource_missing" && stripeErr.raw?.param === "customer") {
         console.warn("[createCheckoutSession] Invalid customer detected. Resetting...");

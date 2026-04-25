@@ -5,7 +5,7 @@ import { calculateInventoryUpdates } from "@/lib/inventory";
 import { addHours } from "date-fns";
 
 import { checkIdempotency, recordIdempotency } from "@/lib/idempotency";
-import { parseMenuData } from "@/lib/prisma-safe";
+import { parseMenuData } from "@/lib/menu-data-parser";
 import { MenuCookSchema } from "@/lib/validations/api-schemas";
 
 export async function POST(req: Request) {

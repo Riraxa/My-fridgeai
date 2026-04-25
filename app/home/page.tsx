@@ -11,6 +11,7 @@ import { useTheme } from "@/app/components/ThemeProvider";
 import IngredientList from "@/app/components/IngredientList";
 import Toast from "@/app/components/Toast";
 import AddEditModal from "@/app/components/AddEditModal";
+import ImageRecognitionModal from "@/app/components/ImageRecognitionModal";
 import PageTransition, {
   HeaderTransition,
   ContentTransition,
@@ -33,6 +34,10 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("すべて");
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+
+  // 画像認識用のステート
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [recognizedItems, setRecognizedItems] = useState<any[] | null>(null);
 
   const {
     items,
@@ -151,6 +156,57 @@ export default function HomePage() {
       await addOrUpdateItem(it);
       setAddOpen(false);
       setPrefilledItem(null);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleImageSelected = async (file: File) => {
+    setIsAnalyzingImage(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch("/api/ingredients/analyze-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64 }),
+      });
+
+      if (!res.ok) {
+        throw new Error("AI Agent Connection Failed");
+      }
+
+      const data = await res.json();
+      setRecognizedItems(data.result?.ingredients || []);
+    } catch (err) {
+      console.error(err);
+      setToast("画像の解析に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setIsAnalyzingImage(false);
+    }
+  };
+
+  const handleSaveBatch = async (itemsToSave: any[]) => {
+    setIsAdding(true);
+    try {
+      for (const item of itemsToSave) {
+        await addOrUpdateItem({
+          name: item.name,
+          category: item.category,
+          quantity: item.quantity,
+          unit: item.unit,
+          expirationDate: item.computedExpirationDate,
+        });
+      }
+      setRecognizedItems(null);
+      setToast(`${itemsToSave.length}件の食材を一括追加しました`);
+    } catch (err) {
+      setToast("食材の一括追加中にエラーが発生しました");
     } finally {
       setIsAdding(false);
     }
@@ -353,9 +409,38 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
+      {/* Image Analysis Loading Overlay */}
+      {isAnalyzingImage && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center backdrop-blur-sm p-4" style={{ backgroundColor: "rgba(0, 0, 0, 0.6)" }}>
+          <div className="w-12 h-12 rounded-full border-4 border-t-transparent mb-4" style={{ borderColor: "var(--accent)", borderTopColor: "transparent", animation: "spin 900ms linear infinite" }} />
+          <p className="text-white font-bold text-lg">画像を解析しています...</p>
+          <p className="text-white/80 text-sm mt-2">食材名や賞味期限を推定中です</p>
+        </div>
+      )}
+
+      {/* Image Recognition Detail / Edit Modal */}
+      <AnimatePresence>
+        {recognizedItems !== null && (
+          <div
+            className="fixed inset-0 z-[55] flex flex-col items-center justify-end md:justify-center backdrop-blur-sm p-0 md:p-4"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
+          >
+            <div className="w-full h-[90vh] md:h-[80vh] md:max-h-[800px] md:max-w-xl md:rounded-[2rem] rounded-t-[2rem] bg-[var(--background)] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-full md:slide-in-from-bottom-8">
+              <ImageRecognitionModal
+                initialItems={recognizedItems}
+                onSaveBatch={handleSaveBatch}
+                onCancel={() => setRecognizedItems(null)}
+                isSaving={isAdding}
+              />
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AddActionMenu
         onManualAdd={() => setAddOpen(true)}
-        hidden={isAddOpen}
+        onImageSelected={handleImageSelected}
+        hidden={isAddOpen || recognizedItems !== null}
       />
 
       <FloatingAssistant />
