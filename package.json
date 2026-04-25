@@ -17,7 +17,7 @@
     "test:db": "node -e \"require('dotenv').config({ path: '.env.local' }); const { PrismaPg } = require('@prisma/adapter-pg'); const { PrismaClient } = require('@prisma/client'); const databaseUrl = process.env.DATABASE_URL; if (!databaseUrl) { console.error('❌ DATABASE_URL not set'); process.exit(1); } const adapter = new PrismaPg({ connectionString: databaseUrl }); const prisma = new PrismaClient({ adapter }); prisma.$connect().then(() => { console.log('✅ DB connection OK'); process.exit(0); }).catch((e) => { console.error('❌ DB connection failed:', e.message); process.exit(1); });\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "push": "npm run pre-commit && npm run check:security && git add -A && (git diff --staged --quiet || (git commit -m \"update\" && git push -u origin main)) && npm run db:push",
+    "push": "npm run pre-commit && npm run check:security && git add -A && (git diff --staged --quiet || (git commit -m \"update\" && git push -u origin HEAD)) && npm run db:push",
     "db:pull": "node -e \"require('dotenv').config({ path: '.env.local' }); const { execSync } = require('child_process'); execSync('npx prisma db pull', { stdio: 'inherit' });\"",
     "db:push": "node -e \"require('dotenv').config({ path: '.env.local' }); const { execSync } = require('child_process'); execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });\"",
     "db:diff": "node -e \"require('dotenv').config({ path: '.env.local' }); const { execSync } = require('child_process'); execSync('npx prisma migrate diff --from-schema prisma/schema.prisma --to-config-datasource --script', { stdio: 'inherit' });\"",
@@ -59,7 +59,7 @@
     "react-dom": "19.2.1",
     "react-hook-form": "^7.73.1",
     "react-qr-code": "^2.0.18",
-    "resend": "^6.8.0",
+    "resend": "^6.12.2",
     "sonner": "^2.0.7",
     "stripe": "^20.1.2",
     "swr": "^2.4.1",
@@ -117,6 +117,8 @@
     "@mrleebo/prisma-ast": "^0.13.1",
     "@hono/node-server": "^1.19.13",
     "nodemailer": "^8.0.4",
-    "effect": "^3.20.0"
+    "effect": "^3.20.0",
+    "postcss": "^8.5.10",
+    "uuid": "^14.0.0"
   }
 }
