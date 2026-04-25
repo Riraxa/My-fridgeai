@@ -22,6 +22,10 @@ import { Ingredient } from "@/types";
 import AddActionMenu from "@/app/components/AddActionMenu";
 import TodayRecommendation from "./components/TodayRecommendation";
 import FloatingAssistant from "@/app/components/FloatingAssistant";
+import UploadView from "@/app/components/receipt/UploadView";
+import ScanningView from "@/app/components/receipt/ScanningView";
+import ResultsView from "@/app/components/receipt/ResultsView";
+import { ParsedItem, ScanProgressStep } from "@/app/components/receipt/types";
 
 export default function HomePage() {
   const router = useRouter();
@@ -39,11 +43,25 @@ export default function HomePage() {
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const [recognizedItems, setRecognizedItems] = useState<any[] | null>(null);
 
+  // レシートスキャン用のステート
+  const [scanStep, setScanStep] = useState<'upload' | 'scanning' | 'results'>('upload');
+  const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
+  const [scanMessage, setScanMessage] = useState('レシートを解析中...');
+  const [scanningSteps, setScanningSteps] = useState<ScanProgressStep[]>([
+    { label: '画像をアップロード', status: 'done' },
+    { label: 'OCRで文字を読み取り', status: 'doing' },
+    { label: '食材を特定', status: 'pending' },
+    { label: '賞味期限を推定', status: 'pending' },
+  ]);
+
   const {
     items,
     toast,
     setToast,
     addOrUpdateItem,
+    receiptScanOpen,
+    setReceiptScanOpen,
+    openReceiptScan,
   } = useFridge();
 
   useEffect(() => {
@@ -210,6 +228,145 @@ export default function HomePage() {
     } finally {
       setIsAdding(false);
     }
+  };
+
+  // レシートスキャンのイベントハンドラ
+  const handleReceiptFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setScanStep('scanning');
+    setScanningSteps([
+      { label: '画像をアップロード', status: 'done' },
+      { label: 'OCRで文字を読み取り', status: 'doing' },
+      { label: '食材を特定', status: 'pending' },
+      { label: '賞味期限を推定', status: 'pending' },
+    ]);
+    setScanMessage('レシートを解析中...');
+
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // 画像解析APIを使用（既存のAPIを活用）
+      const res = await fetch("/api/ingredients/analyze-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64 }),
+      });
+
+      if (!res.ok) {
+        throw new Error("レシート解析に失敗しました");
+      }
+
+      const data = await res.json();
+      const ingredients = data.result?.ingredients || [];
+
+      if (ingredients.length === 0) {
+        setToast("レシートから食材を検出できませんでした");
+        setScanStep('upload');
+        return;
+      }
+
+      // ParsedItem形式に変換
+      const parsed: ParsedItem[] = ingredients.map((ing: any, idx: number) => ({
+        id: `${Date.now()}-${idx}`,
+        lineText: ing.name,
+        productName: ing.name,
+        normalizedName: ing.name,
+        mappedIngredientId: null,
+        mappedIngredientName: null,
+        processedCategory: ing.category || 'その他',
+        quantityValue: ing.quantity || 1,
+        quantityUnit: ing.unit || '個',
+        inferredLevel: 'normal',
+        confidenceScore: 0.8,
+        action: 'add',
+        editedName: ing.name,
+        editedQuantity: ing.quantity || 1,
+        editedUnit: ing.unit || '個',
+        editedCategory: ing.category || 'その他',
+        estimatedExpirationDays: null,
+      }));
+
+      setParsedItems(parsed);
+      setScanStep('results');
+      setScanningSteps(prev => prev.map((s, i) => ({ ...s, status: i < 3 ? 'done' : 'done' })));
+    } catch (err) {
+      console.error(err);
+      setToast("レシートの解析に失敗しました。時間をおいて再度お試しください。");
+      setScanStep('upload');
+    }
+  };
+
+  const handleCloseReceiptModal = () => {
+    setReceiptScanOpen(false);
+    setScanStep('upload');
+    setParsedItems([]);
+  };
+
+  const handleSaveReceiptItems = async () => {
+    const itemsToAdd = parsedItems.filter(item => item.action === 'add');
+    if (itemsToAdd.length === 0) {
+      setToast("追加する食材が選択されていません");
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      for (const item of itemsToAdd) {
+        await addOrUpdateItem({
+          name: item.editedName,
+          category: item.editedCategory,
+          quantity: item.editedQuantity,
+          unit: item.editedUnit,
+          expirationDate: null, // 推定は別途
+        });
+      }
+      setToast(`${itemsToAdd.length}件の食材を追加しました`);
+      handleCloseReceiptModal();
+    } catch (err) {
+      setToast("食材の追加中にエラーが発生しました");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  // ResultsView用の補助関数
+  const selectAll = () => {
+    setParsedItems(prev => prev.map(item => ({ ...item, action: 'add' as const })));
+  };
+
+  const deselectAll = () => {
+    setParsedItems(prev => prev.map(item => ({ ...item, action: 'skip' as const })));
+  };
+
+  const toggleItemAction = (index: number) => {
+    setParsedItems(prev => prev.map((item, i) => 
+      i === index ? { ...item, action: item.action === 'add' ? 'skip' : 'add' } : item
+    ));
+  };
+
+  const updateItemName = (index: number, name: string) => {
+    setParsedItems(prev => prev.map((item, i) => 
+      i === index ? { ...item, editedName: name } : item
+    ));
+  };
+
+  const updateItemQuantity = (index: number, qty: number) => {
+    setParsedItems(prev => prev.map((item, i) => 
+      i === index ? { ...item, editedQuantity: qty } : item
+    ));
+  };
+
+  const updateItemUnit = (index: number, unit: string) => {
+    setParsedItems(prev => prev.map((item, i) => 
+      i === index ? { ...item, editedUnit: unit } : item
+    ));
   };
 
   if (!mounted || status === "loading" || checkingOnboarding) {
@@ -437,10 +594,71 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
+      {/* Receipt Scan Modal */}
+      <AnimatePresence>
+        {receiptScanOpen && (
+          <div
+            className="fixed inset-0 z-[56] flex flex-col items-center justify-end md:justify-center backdrop-blur-sm p-0 md:p-4"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
+          >
+            <div className="w-full h-[90vh] md:h-[80vh] md:max-h-[800px] md:max-w-xl md:rounded-[2rem] rounded-t-[2rem] bg-[var(--background)] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-full md:slide-in-from-bottom-8 flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-[var(--surface-border)]">
+                <h2 className="font-bold text-lg">レシートから食材を追加</h2>
+                <button
+                  onClick={handleCloseReceiptModal}
+                  className="p-2 rounded-full hover:bg-[var(--surface-bg)] transition"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {scanStep === 'upload' && (
+                  <UploadView onFileChange={handleReceiptFileChange} />
+                )}
+                {scanStep === 'scanning' && (
+                  <ScanningView scanMessage={scanMessage} scanningSteps={scanningSteps} />
+                )}
+                {scanStep === 'results' && (
+                  <ResultsView
+                    items={parsedItems}
+                    selectAll={selectAll}
+                    deselectAll={deselectAll}
+                    toggleItemAction={toggleItemAction}
+                    updateItemName={updateItemName}
+                    updateItemQuantity={updateItemQuantity}
+                    updateItemUnit={updateItemUnit}
+                  />
+                )}
+              </div>
+
+              {/* Footer with Save Button (only in results step) */}
+              {scanStep === 'results' && (
+                <div className="p-4 border-t border-[var(--surface-border)]">
+                  <button
+                    onClick={handleSaveReceiptItems}
+                    disabled={isAdding}
+                    className="w-full py-4 rounded-2xl font-bold text-white transition active:scale-95 disabled:opacity-50"
+                    style={{ background: "var(--accent)" }}
+                  >
+                    {isAdding ? '保存中...' : `${parsedItems.filter(i => i.action === 'add').length}件の食材を追加`}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AddActionMenu
         onManualAdd={() => setAddOpen(true)}
         onImageSelected={handleImageSelected}
-        hidden={isAddOpen || recognizedItems !== null}
+        onReceiptScan={openReceiptScan}
+        hidden={isAddOpen || recognizedItems !== null || receiptScanOpen}
       />
 
       <FloatingAssistant />

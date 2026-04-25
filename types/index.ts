@@ -41,7 +41,6 @@ export interface Ingredient {
   expirationDate: string | Date | null;
   quantity?: number; // Legacy
   ingredientType?: IngredientType;
-  barcode?: string | null; // バーコード読み取り用
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }

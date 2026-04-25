@@ -1,18 +1,20 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Plus, Pen, Camera, X } from "lucide-react";
+import { Plus, Pen, Camera, Receipt } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface AddActionMenuProps {
   onManualAdd: () => void;
   onImageSelected: (file: File) => void;
+  onReceiptScan?: () => void;
   hidden?: boolean;
 }
 
 export default function AddActionMenu({
   onManualAdd,
   onImageSelected,
+  onReceiptScan,
   hidden = false,
 }: AddActionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -57,6 +59,11 @@ export default function AddActionMenu({
     }
   };
 
+  const handleReceiptClick = () => {
+    setIsOpen(false);
+    onReceiptScan?.();
+  };
+
   if (hidden) return null;
 
   return (
@@ -94,6 +101,15 @@ export default function AddActionMenu({
               <span className="text-sm font-medium">画像認識</span>
               <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center">
                 <Camera size={16} />
+              </div>
+            </button>
+            <button
+              onClick={handleReceiptClick}
+              className="flex items-center gap-3 bg-[var(--surface-bg)] text-[var(--color-text-primary)] border border-[var(--surface-border)] shadow-lg px-4 py-2 rounded-full hover:bg-[var(--surface-border)] transition-colors"
+            >
+              <span className="text-sm font-medium">レシート</span>
+              <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center">
+                <Receipt size={16} />
               </div>
             </button>
           </motion.div>

@@ -234,7 +234,7 @@ export default function RecipeFromFridgePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               { title: "在庫管理", href: "/features/inventory", icon: "📋", desc: "アプリの基本は在庫から" },
-              { title: "バーコード登録", href: "/features/barcode-scan", icon: "🏷️", desc: "在庫登録をもっと楽に" },
+              { title: "レシート登録", href: "/features/receipt-scan", icon: "📸", desc: "在庫登録をもっと楽に" },
               { title: "よくある質問", href: "/faq", icon: "❓", desc: "困った時の解決ヒント" },
             ].map((link, i) => (
               <Link

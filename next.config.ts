@@ -48,7 +48,6 @@ const nextConfig: NextConfig = {
       { source: '/blog/ai-meal-planning', destination: '/features/ai-menu', permanent: true },
       { source: '/features/ai-meal-planning', destination: '/features/ai-menu', permanent: true },
       { source: '/blog/reduce-food-waste', destination: '/features/reduce-food-waste', permanent: true },
-      { source: '/blog/barcode-scanning-release', destination: '/features/barcode-scan', permanent: true },
       { source: '/blog/recipe-from-fridge', destination: '/features/recipe-from-fridge', permanent: true },
       { source: '/blog/leftover-ingredients-recipes', destination: '/features/leftover-ingredients-recipes', permanent: true },
       { source: '/feature/ai-menu', destination: '/features/ai-menu', permanent: true },

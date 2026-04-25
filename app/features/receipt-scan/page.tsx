@@ -231,7 +231,7 @@ export default function ReceiptScanFeaturePage() {
             {[
               { title: "機能一覧", href: "/features", icon: "🛠️", desc: "スマートな生活への近道" },
               { title: "在庫管理", href: "/features/inventory", icon: "📋", desc: "登録した食材を賢く使う" },
-              { title: "バーコードスキャン", href: "/features/barcode-scan", icon: "🏷️", desc: "個別の商品も一瞬で登録" },
+              { title: "AI献立生成", href: "/features/ai-menu", icon: "�️", desc: "食材から自動で献立作成" },
             ].map((link, i) => (
               <Link
                 key={i}

@@ -85,12 +85,6 @@ export default function Page() {
                 食品ロス削減
               </Link>
               <Link
-                href="/features/barcode-scan"
-                className="hover:text-[var(--semantic-indigo)] transition-colors whitespace-nowrap"
-              >
-                バーコード読み取り
-              </Link>
-              <Link
                 href="/features/recipe-from-fridge"
                 className="hover:text-[var(--semantic-indigo)] transition-colors whitespace-nowrap"
               >
@@ -213,11 +207,11 @@ export default function Page() {
 
                 <p>
                   My-fridgeaiでは、冷蔵庫の食材をアプリで管理できます。
-                  スーパーのレシートを読み取ったり、<strong>バーコードをスキャン</strong>することで、購入した食材を<strong>自動で登録</strong>することが可能です。
+                  スーパーのレシートを読み取ったり、<strong>食材の写真を撮影</strong>することで、購入した食材を<strong>自動で登録</strong>することが可能です。
                 </p>
 
                 <p>
-                  新しく導入された「ハイブリッド推定エンジン」により、バーコードから商品名だけでなく、科学的な知見に基づいた<strong>正確な賞味期限</strong>を瞬時にセットします。
+                  新しく導入された「AI推定エンジン」により、食材名から科学的な知見に基づいた<strong>正確な賞味期限</strong>を瞬時にセットします。
                 </p>
 
                 <p>
